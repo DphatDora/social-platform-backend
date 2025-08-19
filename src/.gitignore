@@ -1,0 +1,5 @@
+.env
+go.mod
+go.sum
+/config/config.yaml
+# /package/log/log.txt
