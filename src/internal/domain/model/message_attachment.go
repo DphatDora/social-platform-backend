@@ -7,7 +7,7 @@ type MessageAttachment struct {
 	MessageID uint64    `gorm:"column:message_id"`
 	FileURL   string    `gorm:"column:file_url"`
 	FileType  string    `gorm:"column:file_type"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
+	CreatedAt time.Time `gorm:"column:created_at"`
 
 	// relation
 	Message *Message `gorm:"foreignKey:MessageID;references:ID"`

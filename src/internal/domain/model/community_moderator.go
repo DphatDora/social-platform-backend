@@ -3,10 +3,10 @@ package model
 import "time"
 
 type CommunityModerator struct {
-	CommunityID uint64    `gorm:"column:community_id"`
-	UserID      uint64    `gorm:"column:user_id"`
+	CommunityID uint64    `gorm:"column:community_id;primaryKey"`
+	UserID      uint64    `gorm:"column:user_id;primaryKey"`
 	Role        string    `gorm:"column:role"`
-	JoinedAt    time.Time `gorm:"column:joined_at;autoCreateTime"`
+	JoinedAt    time.Time `gorm:"column:joined_at"`
 
 	// relation
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`

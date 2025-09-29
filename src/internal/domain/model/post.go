@@ -9,8 +9,8 @@ type Post struct {
 	Title       string     `gorm:"column:title"`
 	Content     string     `gorm:"column:content"`
 	URL         *string    `gorm:"column:url"`
-	CreatedAt   time.Time  `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt   *time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	CreatedAt   time.Time  `gorm:"column:created_at"`
+	UpdatedAt   *time.Time `gorm:"column:updated_at"`
 
 	// relation
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`

@@ -7,7 +7,7 @@ type Badge struct {
 	Name        string    `gorm:"column:name"`
 	Description string    `gorm:"column:description"`
 	IconURL     string    `gorm:"column:icon_url"`
-	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
 }
 
 func (Badge) TableName() string {

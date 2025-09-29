@@ -9,7 +9,7 @@ type BotTask struct {
 	ID         uint64           `gorm:"column:id;primaryKey"`
 	Action     string           `gorm:"column:action"`
 	Payload    *json.RawMessage `gorm:"column:payload"`
-	CreatedAt  time.Time        `gorm:"column:created_at;autoCreateTime"`
+	CreatedAt  time.Time        `gorm:"column:created_at"`
 	ExecutedAt *time.Time       `gorm:"column:executed_at"`
 }
 
