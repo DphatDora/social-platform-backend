@@ -3,7 +3,9 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
+	"social-platform-backend/config"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
@@ -69,10 +71,11 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		return fmt.Errorf("failed to generate token: %w", err)
 	}
 
+	conf := config.GetConfig()
 	verification := &model.UserVerification{
 		UserID:    user.ID,
 		Token:     token,
-		ExpiredAt: time.Now().Add(5 * time.Minute),
+		ExpiredAt: time.Now().Add(time.Duration(conf.Auth.VerifyTokenExpirationMinutes) * time.Minute),
 		CreatedAt: time.Now(),
 	}
 
@@ -82,16 +85,20 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	}
 
 	// Create bot task for sending email
-	verificationLink := fmt.Sprintf("http://localhost:8045/api/v1/auth/verify?token=%s", token)
+	verificationLink := fmt.Sprintf("http://%s:%d/api/v1/auth/verify?token=%s", conf.App.Host, conf.App.Port, token)
+	body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
+		"VerificationLink": template.URL(verificationLink),
+		"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to render email template: %w", err)
+	}
+
 	emailPayload := request.EmailPayload{
 		To:      user.Email,
 		Subject: "Verify Your Account",
-		Body: fmt.Sprintf(`
-			<h1>Welcome to Social Platform!</h1>
-			<p>Please verify your email by clicking the link below:</p>
-			<a href="%s">Verify Email</a>
-			<p>This link will expire in 5 minutes.</p>
-		`, verificationLink),
+		Body:    body,
 	}
 
 	payloadBytes, err := json.Marshal(emailPayload)

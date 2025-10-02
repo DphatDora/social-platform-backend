@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"social-platform-backend/config"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
@@ -58,19 +60,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Registration successful. Please check your email to verify your account.",
-		Data: response.RegisterResponse{
-			Message: "A verification email has been sent to your email address",
-			Email:   req.Email,
-		},
 	})
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
 
+	conf := config.GetConfig()
 	if token == "" {
 		log.Printf("[Err] Missing token in AuthHandler.VerifyEmail")
-		c.Redirect(http.StatusFound, "http://localhost:3000/verify-result?success=false&message=Missing+verification+token")
+		redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Missing+verification+token", conf.Client.Url)
+		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
@@ -79,13 +79,16 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 		log.Printf("[Err] Error verifying email in AuthHandler.VerifyEmail: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
-			c.Redirect(http.StatusFound, "http://localhost:3000/verify-result?success=false&message=Token+has+expired.+Please+request+a+new+verification+email")
+			redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Token+has+expired.+Please+request+a+new+verification+email", conf.Client.Url)
+			c.Redirect(http.StatusFound, redirectURL)
 			return
 		}
 
-		c.Redirect(http.StatusFound, "http://localhost:3000/verify-result?success=false&message=Invalid+token.+Please+try+again")
+		redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Invalid+token.+Please+try+again", conf.Client.Url)
+		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
-	c.Redirect(http.StatusFound, "http://localhost:3000/verify-result?success=true&message=Email+verified+successfully")
+	redirectURL := fmt.Sprintf("%s/verify-result?success=true&message=Email+verified+successfully", conf.Client.Url)
+	c.Redirect(http.StatusFound, redirectURL)
 }
