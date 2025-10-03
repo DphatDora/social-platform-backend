@@ -2,5 +2,5 @@ services:
   - type: web
     name: social-platform-backend
     env: go
-    buildCommand: cd src && go build -o main cmd/server/main.go
+    buildCommand: cd src && go build -o ../main ./cmd/server
     startCommand: ./main
