@@ -3,6 +3,7 @@ server:
 
 app:
   name: "social-platform"
+  host: "localhost"
   port: 8044
   debug: true
   readTimeout: 10
@@ -35,3 +36,9 @@ database:
 
 log:
   level: "info"
+
+auth:
+  verifyTokenExpirationMinutes: 5
+
+client:
+  url: "http://localhost:3000"

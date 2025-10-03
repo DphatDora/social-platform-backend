@@ -18,6 +18,8 @@ type Config struct {
 	App      App
 	Database Database
 	Log      Log
+	Auth     Auth
+	Client   Client
 }
 
 func LoadConfig() {
