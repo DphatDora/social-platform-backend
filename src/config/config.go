@@ -37,9 +37,10 @@ func LoadConfig() {
 		}
 
 		// bind system environment variables
-		viper.SetEnvPrefix("SOCIALPLATFORM")
 		viper.AutomaticEnv()
 		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+		bindEnvs()
 
 		// load into struct
 		if err := viper.Unmarshal(&config); err != nil {
@@ -51,4 +52,23 @@ func LoadConfig() {
 func GetConfig() Config {
 	LoadConfig()
 	return config
+}
+
+func bindEnvs() {
+	// App
+	_ = viper.BindEnv("app.name", "APP_NAME")
+	_ = viper.BindEnv("app.host", "HOST")
+	_ = viper.BindEnv("app.port", "PORT")
+
+	// Database
+	_ = viper.BindEnv("database.username", "DB_USER")
+	_ = viper.BindEnv("database.password", "DB_PASSWORD")
+	_ = viper.BindEnv("database.host", "DB_HOST")
+	_ = viper.BindEnv("database.port", "DB_PORT")
+	_ = viper.BindEnv("database.name", "DB_NAME")
+	_ = viper.BindEnv("database.sslMode", "DB_SSLMODE")
+	_ = viper.BindEnv("database.timeZone", "DB_TIMEZONE")
+
+	// Client
+	_ = viper.BindEnv("client.url", "CLIENT_URL")
 }

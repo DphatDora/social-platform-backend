@@ -1,0 +1,33 @@
+server:
+  port:
+
+client:
+  url:
+
+app:
+  name:
+  host:
+  port:
+  debug: true
+  readTimeout: 10
+  writeTimeout: 30
+  whitelist:
+
+database:
+  username:
+  password:
+  host:
+  port:
+  name:
+  debug: true
+  poolSize: 30
+  IdleConnTimeoutSeconds: 100
+  maxConnAgeSeconds: 3600
+  sslMode:
+  timeZone:
+
+log:
+  level: "debug"
+
+auth:
+  verifyTokenExpirationMinutes: 5

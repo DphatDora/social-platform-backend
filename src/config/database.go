@@ -1,7 +1,6 @@
 package config
 
 type Database struct {
-	URL                    string
 	Username               string
 	Password               string
 	Host                   string
