@@ -45,6 +45,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
 	{
 		auth.POST("/register", authHandler.Register)
 		auth.GET("/verify", authHandler.VerifyEmail)
+		auth.POST("/login", authHandler.Login)
 	}
 }
 
