@@ -3,6 +3,7 @@ package repository
 import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -48,4 +49,12 @@ func (r *UserRepositoryImpl) GetUserByEmail(email string) (*model.User, error) {
 
 func (r *UserRepositoryImpl) ActivateUser(id uint64) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).Update("is_active", true).Error
+}
+
+func (r *UserRepositoryImpl) UpdatePasswordAndSetChangedAt(id uint64, hashedPassword string) error {
+	now := time.Now()
+	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"password":            hashedPassword,
+		"password_changed_at": now,
+	}).Error
 }

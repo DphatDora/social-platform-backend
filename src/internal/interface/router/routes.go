@@ -16,10 +16,11 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	verificationRepo := repository.NewUserVerificationRepository(db)
+	passwordResetRepo := repository.NewPasswordResetRepository(db)
 	botTaskRepo := repository.NewBotTaskRepository(db)
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, verificationRepo, botTaskRepo)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -46,6 +47,9 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
 		auth.POST("/register", authHandler.Register)
 		auth.GET("/verify", authHandler.VerifyEmail)
 		auth.POST("/login", authHandler.Login)
+		auth.POST("/forgot-password", authHandler.ForgotPassword)
+		auth.GET("/verify-reset", authHandler.VerifyResetToken)
+		auth.POST("/reset-password", authHandler.ResetPassword)
 	}
 }
 
