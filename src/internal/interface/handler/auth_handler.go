@@ -92,3 +92,42 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	redirectURL := fmt.Sprintf("%s/verify-result?success=true&message=Email+verified+successfully", conf.Client.Url)
 	c.Redirect(http.StatusFound, redirectURL)
 }
+
+func (h *AuthHandler) Login(c *gin.Context) {
+	var req request.LoginRequest
+
+	// Validate request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in AuthHandler.Login: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	// Login user
+	loginResponse, err := h.authService.Login(&req)
+	if err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.Login: %v", err)
+		if strings.Contains(err.Error(), "not verified") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Email not verified. Please verify your email first",
+			})
+			return
+		}
+
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Invalid email or password",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Login successful",
+		Data:    loginResponse,
+	})
+}

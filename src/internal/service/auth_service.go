@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
+	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"time"
@@ -149,4 +150,48 @@ func (s *AuthService) VerifyEmail(token string) error {
 	}
 
 	return nil
+}
+
+func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse, error) {
+	// Get user by email
+	user, err := s.userRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		log.Printf("[Err] Error getting user by email in AuthService.Login: %v", err)
+		return nil, fmt.Errorf("invalid email or password")
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		log.Printf("[Err] User %s is not active in AuthService.Login", req.Email)
+		return nil, fmt.Errorf("email not verified. Please verify your email first")
+	}
+
+	if err := util.ComparePassword(user.Password, req.Password); err != nil {
+		log.Printf("[Err] Invalid password for user %s in AuthService.Login", req.Email)
+		return nil, fmt.Errorf("invalid email or password")
+	}
+
+	// Generate JWT token
+	conf := config.GetConfig()
+	accessToken, err := util.GenerateJWT(
+		user.ID,
+		user.Role,
+		conf.Auth.AccessTokenExpirationMinutes,
+		conf.Auth.JWTSecret,
+	)
+	if err != nil {
+		log.Printf("[Err] Error generating JWT token in AuthService.Login: %v", err)
+		return nil, fmt.Errorf("failed to generate access token")
+	}
+
+	loginResponse := &response.LoginResponse{
+		Username:    user.Username,
+		AccessToken: accessToken,
+	}
+
+	if user.Avatar != nil {
+		loginResponse.Avatar = *user.Avatar
+	}
+
+	return loginResponse, nil
 }
