@@ -85,7 +85,7 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	}
 
 	// Create bot task for sending email
-	verificationLink := fmt.Sprintf("http://%s:%d/api/v1/auth/verify?token=%s", conf.App.Host, conf.App.Port, token)
+	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
 	body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
 		"VerificationLink": template.URL(verificationLink),
 		"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
