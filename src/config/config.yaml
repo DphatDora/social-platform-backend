@@ -30,6 +30,7 @@ log:
   level: "debug"
 
 auth:
-  verifyTokenExpirationMinutes: 5
+  verifyTokenExpirationMinutes: 10
   accessTokenExpirationMinutes: 60
+  resetTokenExpirationMinutes: 10
   jwtSecret:
