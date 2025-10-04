@@ -20,6 +20,7 @@ type Config struct {
 	Log      Log
 	Auth     Auth
 	Client   Client
+	Server   Server
 }
 
 func LoadConfig() {
@@ -68,6 +69,9 @@ func bindEnvs() {
 	_ = viper.BindEnv("database.name", "DB_NAME")
 	_ = viper.BindEnv("database.sslMode", "DB_SSLMODE")
 	_ = viper.BindEnv("database.timeZone", "DB_TIMEZONE")
+
+	// Server
+	_ = viper.BindEnv("server.url", "SERVER_URL")
 
 	// Client
 	_ = viper.BindEnv("client.url", "CLIENT_URL")
