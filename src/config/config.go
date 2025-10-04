@@ -75,4 +75,7 @@ func bindEnvs() {
 
 	// Client
 	_ = viper.BindEnv("client.url", "CLIENT_URL")
+
+	// Auth
+	_ = viper.BindEnv("auth.jwtSecret", "JWT_SECRET")
 }

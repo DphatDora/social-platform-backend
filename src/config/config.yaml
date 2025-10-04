@@ -31,3 +31,5 @@ log:
 
 auth:
   verifyTokenExpirationMinutes: 5
+  accessTokenExpirationMinutes: 60
+  jwtSecret:

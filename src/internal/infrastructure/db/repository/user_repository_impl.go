@@ -37,6 +37,15 @@ func (r *UserRepositoryImpl) GetUserByID(id uint64) (*model.User, error) {
 	return &user, nil
 }
 
+func (r *UserRepositoryImpl) GetUserByEmail(email string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *UserRepositoryImpl) ActivateUser(id uint64) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).Update("is_active", true).Error
 }
