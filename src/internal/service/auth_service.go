@@ -16,20 +16,23 @@ import (
 )
 
 type AuthService struct {
-	userRepo         repository.UserRepository
-	verificationRepo repository.UserVerificationRepository
-	botTaskRepo      repository.BotTaskRepository
+	userRepo          repository.UserRepository
+	verificationRepo  repository.UserVerificationRepository
+	passwordResetRepo repository.PasswordResetRepository
+	botTaskRepo       repository.BotTaskRepository
 }
 
 func NewAuthService(
 	userRepo repository.UserRepository,
 	verificationRepo repository.UserVerificationRepository,
+	passwordResetRepo repository.PasswordResetRepository,
 	botTaskRepo repository.BotTaskRepository,
 ) *AuthService {
 	return &AuthService{
-		userRepo:         userRepo,
-		verificationRepo: verificationRepo,
-		botTaskRepo:      botTaskRepo,
+		userRepo:          userRepo,
+		verificationRepo:  verificationRepo,
+		passwordResetRepo: passwordResetRepo,
+		botTaskRepo:       botTaskRepo,
 	}
 }
 
@@ -194,4 +197,132 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 	}
 
 	return loginResponse, nil
+}
+
+func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
+	// Check if email exists
+	user, err := s.userRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		log.Printf("[Err] Error getting user by email in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("if your email is registered, you will receive a password reset link")
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		log.Printf("[Err] User %s is not active in AuthService.ForgotPassword", req.Email)
+		return fmt.Errorf("email not verified. Please verify your email first")
+	}
+
+	if err := s.passwordResetRepo.DeletePasswordResetByUserID(user.ID); err != nil {
+		log.Printf("[Err] Error deleting existing password reset in AuthService.ForgotPassword: %v", err)
+	}
+
+	// Generate reset token
+	token, err := util.GenerateToken(32)
+	if err != nil {
+		log.Printf("[Err] Error generating token in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("failed to generate reset token")
+	}
+
+	conf := config.GetConfig()
+	passwordReset := &model.PasswordReset{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiredAt: time.Now().Add(time.Duration(conf.Auth.ResetTokenExpirationMinutes) * time.Minute),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.passwordResetRepo.CreatePasswordReset(passwordReset); err != nil {
+		log.Printf("[Err] Error creating password reset in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("failed to create password reset")
+	}
+
+	// Create bot task for sending email
+	resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
+	body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
+		"ResetLink":     template.URL(resetLink),
+		"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
+	})
+
+	if err != nil {
+		log.Printf("[Err] Error rendering email template in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("failed to render email template")
+	}
+
+	emailPayload := request.EmailPayload{
+		To:      user.Email,
+		Subject: "Reset Your Password",
+		Body:    body,
+	}
+
+	payloadBytes, err := json.Marshal(emailPayload)
+	if err != nil {
+		log.Printf("[Err] Error marshaling email payload in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("failed to marshal email payload")
+	}
+
+	rawPayload := json.RawMessage(payloadBytes)
+	now := time.Now()
+	botTask := &model.BotTask{
+		Action:     "send_email",
+		Payload:    &rawPayload,
+		CreatedAt:  now,
+		ExecutedAt: &now,
+	}
+
+	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+		log.Printf("[Err] Error creating bot task in AuthService.ForgotPassword: %v", err)
+		return fmt.Errorf("failed to create bot task")
+	}
+
+	return nil
+}
+
+func (s *AuthService) VerifyResetToken(token string) (string, error) {
+	passwordReset, err := s.passwordResetRepo.GetPasswordResetByToken(token)
+	if err != nil {
+		log.Printf("[Err] Error getting password reset by token in AuthService.VerifyResetToken: %v", err)
+		return "", fmt.Errorf("invalid or expired token")
+	}
+
+	// Check if token is expired
+	if time.Now().After(passwordReset.ExpiredAt) {
+		log.Printf("[Err] Token expired in AuthService.VerifyResetToken for user %d", passwordReset.UserID)
+		return "", fmt.Errorf("token has expired")
+	}
+
+	return token, nil
+}
+
+func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
+	// Verify token
+	passwordReset, err := s.passwordResetRepo.GetPasswordResetByToken(req.Token)
+	if err != nil {
+		log.Printf("[Err] Error getting password reset by token in AuthService.ResetPassword: %v", err)
+		return fmt.Errorf("invalid or expired token")
+	}
+
+	// Check if token is expired
+	if time.Now().After(passwordReset.ExpiredAt) {
+		log.Printf("[Err] Token expired in AuthService.ResetPassword for user %d", passwordReset.UserID)
+		return fmt.Errorf("token has expired")
+	}
+
+	// Hash new password
+	hashedPassword, err := util.HashPassword(req.NewPassword)
+	if err != nil {
+		log.Printf("[Err] Error hashing password in AuthService.ResetPassword: %v", err)
+		return fmt.Errorf("failed to hash password")
+	}
+
+	if err := s.userRepo.UpdatePasswordAndSetChangedAt(passwordReset.UserID, hashedPassword); err != nil {
+		log.Printf("[Err] Error updating password in AuthService.ResetPassword: %v", err)
+		return fmt.Errorf("failed to update password")
+	}
+
+	if err := s.passwordResetRepo.DeletePasswordReset(passwordReset.ID); err != nil {
+		log.Printf("[Err] Error deleting password reset in AuthService.ResetPassword: %v", err)
+	}
+
+	return nil
 }
