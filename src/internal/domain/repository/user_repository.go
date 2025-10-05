@@ -8,4 +8,5 @@ type UserRepository interface {
 	GetUserByID(id uint64) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
 	ActivateUser(id uint64) error
+	UpdatePasswordAndSetChangedAt(id uint64, hashedPassword string) error
 }
