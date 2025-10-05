@@ -238,3 +238,93 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		Message: "Password has been reset successfully. You can now login with your new password",
 	})
 }
+
+func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+	var req request.ResendVerificationRequest
+
+	// Validate request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in AuthHandler.ResendVerificationEmail: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	// Resend verification email
+	if err := h.authService.ResendVerificationEmail(&req); err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.ResendVerificationEmail: %v", err)
+		if strings.Contains(err.Error(), "already verified") {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: "Email is already verified",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Email not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to resend verification email",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Verification email has been resent. Please check your email",
+	})
+}
+
+func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
+	var req request.ResendVerificationRequest
+
+	// Validate request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in AuthHandler.ResendResetPasswordEmail: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	// Resend reset password email
+	if err := h.authService.ResendResetPasswordEmail(&req); err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.ResendResetPasswordEmail: %v", err)
+		if strings.Contains(err.Error(), "not verified") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Email not verified. Please verify your email first",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Email not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to resend reset password email",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Reset password email has been resent. Please check your email",
+	})
+}

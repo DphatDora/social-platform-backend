@@ -6,4 +6,5 @@ type UserVerificationRepository interface {
 	CreateVerification(verification *model.UserVerification) error
 	GetVerificationByToken(token string) (*model.UserVerification, error)
 	DeleteVerification(id uint64) error
+	DeleteVerificationByUserID(userID uint64) error
 }
