@@ -4,6 +4,7 @@ import (
 	"social-platform-backend/config"
 	"social-platform-backend/internal/infrastructure/db/repository"
 	"social-platform-backend/internal/interface/handler"
+	"social-platform-backend/internal/interface/middleware"
 	"social-platform-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,7 @@ import (
 
 func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	router := gin.Default()
+	router.Use(middleware.CORSMiddleware(conf.App.Whitelist))
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
