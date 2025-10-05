@@ -31,3 +31,7 @@ func (r *UserVerificationRepositoryImpl) GetVerificationByToken(token string) (*
 func (r *UserVerificationRepositoryImpl) DeleteVerification(id uint64) error {
 	return r.db.Delete(&model.UserVerification{}, id).Error
 }
+
+func (r *UserVerificationRepositoryImpl) DeleteVerificationByUserID(userID uint64) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.UserVerification{}).Error
+}

@@ -52,6 +52,8 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
 		auth.POST("/forgot-password", authHandler.ForgotPassword)
 		auth.GET("/verify-reset", authHandler.VerifyResetToken)
 		auth.POST("/reset-password", authHandler.ResetPassword)
+		auth.POST("/resend-verification", authHandler.ResendVerificationEmail)
+		auth.POST("/resend-reset-password", authHandler.ResendResetPasswordEmail)
 	}
 }
 

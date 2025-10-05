@@ -326,3 +326,163 @@ func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
 
 	return nil
 }
+
+func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationRequest) error {
+	// Check if email exists
+	user, err := s.userRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		log.Printf("[Err] Error getting user by email in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("email not found")
+	}
+
+	// Check if user is already active
+	if user.IsActive {
+		log.Printf("[Err] User %s is already active in AuthService.ResendVerificationEmail", req.Email)
+		return fmt.Errorf("email is already verified")
+	}
+
+	// Delete existed verification tokens
+	if err := s.verificationRepo.DeleteVerificationByUserID(user.ID); err != nil {
+		log.Printf("[Err] Error deleting existing verification in AuthService.ResendVerificationEmail: %v", err)
+	}
+
+	// Generate new token
+	token, err := util.GenerateToken(32)
+	if err != nil {
+		log.Printf("[Err] Error generating token in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("failed to generate token")
+	}
+
+	conf := config.GetConfig()
+	verification := &model.UserVerification{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiredAt: time.Now().UTC().Add(time.Duration(conf.Auth.VerifyTokenExpirationMinutes) * time.Minute),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := s.verificationRepo.CreateVerification(verification); err != nil {
+		log.Printf("[Err] Error creating verification in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("failed to create verification")
+	}
+
+	// Create bot task for sending email
+	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
+	body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
+		"VerificationLink": template.URL(verificationLink),
+		"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
+	})
+
+	if err != nil {
+		log.Printf("[Err] Error rendering email template in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("failed to render email template")
+	}
+
+	emailPayload := request.EmailPayload{
+		To:      user.Email,
+		Subject: "Verify Your Account",
+		Body:    body,
+	}
+
+	payloadBytes, err := json.Marshal(emailPayload)
+	if err != nil {
+		log.Printf("[Err] Error marshaling email payload in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("failed to marshal email payload")
+	}
+
+	rawPayload := json.RawMessage(payloadBytes)
+	now := time.Now().UTC()
+	botTask := &model.BotTask{
+		Action:     "send_email",
+		Payload:    &rawPayload,
+		CreatedAt:  now,
+		ExecutedAt: &now,
+	}
+
+	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+		log.Printf("[Err] Error creating bot task in AuthService.ResendVerificationEmail: %v", err)
+		return fmt.Errorf("failed to create bot task")
+	}
+
+	return nil
+}
+
+func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRequest) error {
+	// Check if email exists
+	user, err := s.userRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		log.Printf("[Err] Error getting user by email in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("email not found")
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		log.Printf("[Err] User %s is not active in AuthService.ResendResetPasswordEmail", req.Email)
+		return fmt.Errorf("email not verified. Please verify your email first")
+	}
+
+	// Delete any existing password reset tokens for this user
+	if err := s.passwordResetRepo.DeletePasswordResetByUserID(user.ID); err != nil {
+		log.Printf("[Err] Error deleting existing password reset in AuthService.ResendResetPasswordEmail: %v", err)
+	}
+
+	// Generate reset token
+	token, err := util.GenerateToken(32)
+	if err != nil {
+		log.Printf("[Err] Error generating token in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("failed to generate reset token")
+	}
+
+	conf := config.GetConfig()
+	passwordReset := &model.PasswordReset{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiredAt: time.Now().UTC().Add(time.Duration(conf.Auth.ResetTokenExpirationMinutes) * time.Minute),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := s.passwordResetRepo.CreatePasswordReset(passwordReset); err != nil {
+		log.Printf("[Err] Error creating password reset in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("failed to create password reset")
+	}
+
+	// Create bot task for sending email
+	resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
+	body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
+		"ResetLink":     template.URL(resetLink),
+		"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
+	})
+
+	if err != nil {
+		log.Printf("[Err] Error rendering email template in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("failed to render email template")
+	}
+
+	emailPayload := request.EmailPayload{
+		To:      user.Email,
+		Subject: "Reset Your Password",
+		Body:    body,
+	}
+
+	payloadBytes, err := json.Marshal(emailPayload)
+	if err != nil {
+		log.Printf("[Err] Error marshaling email payload in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("failed to marshal email payload")
+	}
+
+	rawPayload := json.RawMessage(payloadBytes)
+	now := time.Now().UTC()
+	botTask := &model.BotTask{
+		Action:     "send_email",
+		Payload:    &rawPayload,
+		CreatedAt:  now,
+		ExecutedAt: &now,
+	}
+
+	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+		log.Printf("[Err] Error creating bot task in AuthService.ResendResetPasswordEmail: %v", err)
+		return fmt.Errorf("failed to create bot task")
+	}
+
+	return nil
+}
