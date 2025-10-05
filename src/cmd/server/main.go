@@ -7,6 +7,7 @@ import (
 	"social-platform-backend/internal/infrastructure/db"
 	"social-platform-backend/internal/interface/router"
 	"strconv"
+	"time"
 )
 
 const (
@@ -19,6 +20,9 @@ func main() {
 }
 
 func setUpInfrastructure() {
+	// Set timezone to UTC
+	time.Local = time.UTC
+
 	conf := config.GetConfig()
 	fmt.Println("[DEBUG] Config:", conf)
 
