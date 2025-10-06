@@ -23,15 +23,17 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
+	userService := service.NewUserService(userRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
+	userHandler := handler.NewUserHandler(userService)
 
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
 		setupPublicRoutes(api, authHandler)
-		setupProtectedRoutes(api, authHandler, conf)
+		setupProtectedRoutes(api, userHandler, conf)
 	}
 
 	return router
@@ -57,13 +59,13 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
 	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, conf *config.Config) {
-	// protected := rg.Group("")
-	// protected.Use(middleware.AuthMiddleware(conf))
-	// {
-	// 	users := protected.Group("/users")
-	// 	{
-	// 		// users.GET("/me", userHandler.GetCurrentUser)
-	// 	}
-	// }
+func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler, conf *config.Config) {
+	protected := rg.Group("")
+	protected.Use(middleware.AuthMiddleware(conf))
+	{
+		users := protected.Group("/users")
+		{
+			users.GET("/me", userHandler.GetCurrentUser)
+		}
+	}
 }
