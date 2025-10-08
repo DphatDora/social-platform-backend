@@ -66,6 +66,8 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 		users := protected.Group("/users")
 		{
 			users.GET("/me", userHandler.GetCurrentUser)
+			users.PUT("/me", userHandler.UpdateUserProfile)
+			users.PUT("/change-password", userHandler.ChangePassword)
 		}
 	}
 }
