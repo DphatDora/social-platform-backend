@@ -15,6 +15,10 @@ type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword" binding:"required,min=8"`
+	NewPassword string `json:"newPassword" binding:"required,min=8"`
+}
 type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
 	NewPassword string `json:"newPassword" binding:"required,min=8"`
