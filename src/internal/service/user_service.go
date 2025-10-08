@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"social-platform-backend/internal/domain/repository"
+	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 )
 
@@ -26,4 +27,13 @@ func (s *UserService) GetUserProfile(userID uint64) (*response.UserProfileRespon
 
 	userProfile := response.NewUserProfileResponse(user)
 	return userProfile, nil
+}
+
+func (s *UserService) UpdateUserProfile(userID uint64, updateReq *request.UpdateUserProfileRequest) error {
+	err := s.userRepo.UpdateUserProfile(userID, updateReq)
+	if err != nil {
+		log.Printf("[Err] Error updating user profile in UserService.UpdateUserProfile: %v", err)
+		return fmt.Errorf("failed to update user profile")
+	}
+	return nil
 }

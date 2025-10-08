@@ -1,6 +1,9 @@
 package repository
 
-import "social-platform-backend/internal/domain/model"
+import (
+	"social-platform-backend/internal/domain/model"
+	"social-platform-backend/internal/interface/dto/request"
+)
 
 type UserRepository interface {
 	IsEmailExisted(email string) (bool, error)
@@ -9,4 +12,5 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*model.User, error)
 	ActivateUser(id uint64) error
 	UpdatePasswordAndSetChangedAt(id uint64, hashedPassword string) error
+	UpdateUserProfile(id uint64, updateUser *request.UpdateUserProfileRequest) error
 }
