@@ -3,6 +3,7 @@ package repository
 import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
+	"social-platform-backend/internal/interface/dto/request"
 	"time"
 
 	"gorm.io/gorm"
@@ -57,4 +58,18 @@ func (r *UserRepositoryImpl) UpdatePasswordAndSetChangedAt(id uint64, hashedPass
 		"password":            hashedPassword,
 		"password_changed_at": now,
 	}).Error
+}
+
+func (r *UserRepositoryImpl) UpdateUserProfile(id uint64, updateUser *request.UpdateUserProfileRequest) error {
+	updates := make(map[string]interface{})
+	if updateUser.Username != nil {
+		updates["username"] = *updateUser.Username
+	}
+	if updateUser.Bio != nil {
+		updates["bio"] = *updateUser.Bio
+	}
+	if updateUser.Avatar != nil {
+		updates["avatar"] = *updateUser.Avatar
+	}
+	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(updates).Error
 }
