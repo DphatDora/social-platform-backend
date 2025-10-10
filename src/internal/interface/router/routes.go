@@ -20,26 +20,29 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	verificationRepo := repository.NewUserVerificationRepository(db)
 	passwordResetRepo := repository.NewPasswordResetRepository(db)
 	botTaskRepo := repository.NewBotTaskRepository(db)
+	communityRepo := repository.NewCommunityRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
 	userService := service.NewUserService(userRepo)
+	communityService := service.NewCommunityService(communityRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
+	communityHandler := handler.NewCommunityHandler(communityService)
 
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
-		setupPublicRoutes(api, authHandler)
-		setupProtectedRoutes(api, userHandler, conf)
+		setupPublicRoutes(api, authHandler, communityHandler)
+		setupProtectedRoutes(api, userHandler, communityHandler, conf)
 	}
 
 	return router
 }
 
-func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
+func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, communityHandler *handler.CommunityHandler) {
 	// Health check
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
@@ -57,9 +60,14 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler) {
 		auth.POST("/resend-verification", authHandler.ResendVerificationEmail)
 		auth.POST("/resend-reset-password", authHandler.ResendResetPasswordEmail)
 	}
+	// Community routes (public)
+	communities := rg.Group("/communities")
+	{
+		communities.GET("/:id", communityHandler.GetCommunityByID)
+	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler, conf *config.Config) {
+func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler, communityHandler *handler.CommunityHandler, conf *config.Config) {
 	protected := rg.Group("")
 	protected.Use(middleware.AuthMiddleware(conf))
 	{
@@ -68,6 +76,13 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 			users.GET("/me", userHandler.GetCurrentUser)
 			users.PUT("/me", userHandler.UpdateUserProfile)
 			users.PUT("/change-password", userHandler.ChangePassword)
+		}
+
+		communities := protected.Group("/communities")
+		{
+			communities.POST("", communityHandler.CreateCommunity)
+			communities.PUT("/:id", communityHandler.UpdateCommunity)
+			communities.DELETE("/:id", communityHandler.DeleteCommunity)
 		}
 	}
 }
