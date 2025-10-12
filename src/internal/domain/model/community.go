@@ -17,6 +17,9 @@ type Community struct {
 	IsPrivate        bool           `gorm:"column:is_private"`
 	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at"`
 
+	// computed column
+	MemberCount int64 `gorm:"column:member_count"`
+
 	// relation
 	Creator *User `gorm:"foreignKey:CreatedBy;references:ID"`
 }
