@@ -1,14 +1,19 @@
 package response
 
-import "social-platform-backend/internal/domain/model"
+import (
+	"social-platform-backend/internal/domain/model"
+	"time"
+)
 
 type CommunityDetailResponse struct {
-	ID               uint64  `json:"id"`
-	Name             string  `json:"name"`
-	ShortDescription string  `json:"shortDescription"`
-	Description      *string `json:"description,omitempty"`
-	CoverImage       *string `json:"coverImage,omitempty"`
-	IsPrivate        bool    `json:"isPrivate"`
+	ID               uint64    `json:"id"`
+	Name             string    `json:"name"`
+	ShortDescription string    `json:"shortDescription"`
+	Description      *string   `json:"description,omitempty"`
+	CoverImage       *string   `json:"coverImage,omitempty"`
+	IsPrivate        bool      `json:"isPrivate"`
+	CreatedAt        time.Time `json:"createdAt"`
+	TotalMembers     int64     `json:"totalMembers"`
 }
 
 func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResponse {
@@ -19,6 +24,7 @@ func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResp
 		Description:      community.Description,
 		CoverImage:       community.CoverImage,
 		IsPrivate:        community.IsPrivate,
+		CreatedAt:        community.CreatedAt,
 	}
 }
 
@@ -26,6 +32,8 @@ type CommunityListResponse struct {
 	ID               uint64 `json:"id"`
 	Name             string `json:"name"`
 	ShortDescription string `json:"shortDescription"`
+	IsPrivate        bool   `json:"isPrivate"`
+	TotalMembers     int64  `json:"totalMembers"`
 }
 
 func NewCommunityListResponse(community *model.Community) *CommunityListResponse {
@@ -33,5 +41,6 @@ func NewCommunityListResponse(community *model.Community) *CommunityListResponse
 		ID:               community.ID,
 		Name:             community.Name,
 		ShortDescription: community.ShortDescription,
+		IsPrivate:        community.IsPrivate,
 	}
 }
