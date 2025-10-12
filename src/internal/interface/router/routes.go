@@ -21,11 +21,13 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	passwordResetRepo := repository.NewPasswordResetRepository(db)
 	botTaskRepo := repository.NewBotTaskRepository(db)
 	communityRepo := repository.NewCommunityRepository(db)
+	subscriptionRepo := repository.NewSubscriptionRepository(db)
+	communityModeratorRepo := repository.NewCommunityModeratorRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
 	userService := service.NewUserService(userRepo)
-	communityService := service.NewCommunityService(communityRepo)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -63,6 +65,9 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, co
 	// Community routes (public)
 	communities := rg.Group("/communities")
 	{
+		communities.GET("", communityHandler.GetCommunities)
+		communities.GET("/search", communityHandler.SearchCommunities)
+		communities.GET("/filter", communityHandler.FilterCommunities)
 		communities.GET("/:id", communityHandler.GetCommunityByID)
 	}
 }
@@ -81,6 +86,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 		communities := protected.Group("/communities")
 		{
 			communities.POST("", communityHandler.CreateCommunity)
+			communities.POST("/:id/join", communityHandler.JoinCommunity)
 			communities.PUT("/:id", communityHandler.UpdateCommunity)
 			communities.DELETE("/:id", communityHandler.DeleteCommunity)
 		}
