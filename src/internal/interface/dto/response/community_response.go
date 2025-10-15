@@ -44,3 +44,21 @@ func NewCommunityListResponse(community *model.Community) *CommunityListResponse
 		IsPrivate:        community.IsPrivate,
 	}
 }
+
+type MemberListResponse struct {
+	UserID       uint64    `json:"userId"`
+	Username     string    `json:"username"`
+	Avatar       *string   `json:"avatar,omitempty"`
+	Karma        uint64    `json:"karma"`
+	SubscribedAt time.Time `json:"subscribedAt"`
+}
+
+func NewMemberListResponse(user *model.User, subscribedAt time.Time) *MemberListResponse {
+	return &MemberListResponse{
+		UserID:       user.ID,
+		Username:     user.Username,
+		Avatar:       user.Avatar,
+		Karma:        user.Karma,
+		SubscribedAt: subscribedAt,
+	}
+}
