@@ -329,3 +329,165 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		log.Printf("[Err] UserID not found in context in CommunityHandler.GetCommunityMembers")
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint64)
+	if !ok {
+		log.Printf("[Err] Invalid userID type in context in CommunityHandler.GetCommunityMembers")
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve user information",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.GetCommunityMembers: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEWEST)
+	searchName := c.Query("search")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	members, pagination, err := h.communityService.GetCommunityMembers(userID, communityID, sortBy, searchName, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting community members in CommunityHandler.GetCommunityMembers: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "You don't have permission to view members",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get community members",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Community members retrieved successfully",
+		Data:       members,
+		Pagination: pagination,
+	})
+}
+
+func (h *CommunityHandler) RemoveMember(c *gin.Context) {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		log.Printf("[Err] UserID not found in context in CommunityHandler.RemoveMember")
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint64)
+	if !ok {
+		log.Printf("[Err] Invalid userID type in context in CommunityHandler.RemoveMember")
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve user information",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.RemoveMember: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	memberIDParam := c.Param("memberId")
+	memberID, err := strconv.ParseUint(memberIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid member ID in CommunityHandler.RemoveMember: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid member ID",
+		})
+		return
+	}
+
+	if err := h.communityService.RemoveMember(userID, communityID, memberID); err != nil {
+		log.Printf("[Err] Error removing member in CommunityHandler.RemoveMember: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "You don't have permission to remove members",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "community not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "member not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Member not found in this community",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to remove member",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Member removed successfully",
+	})
+}

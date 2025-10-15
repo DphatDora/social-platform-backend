@@ -89,6 +89,8 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 			communities.POST("/:id/join", communityHandler.JoinCommunity)
 			communities.PUT("/:id", communityHandler.UpdateCommunity)
 			communities.DELETE("/:id", communityHandler.DeleteCommunity)
+			communities.GET("/:id/members", communityHandler.GetCommunityMembers)
+			communities.DELETE("/:id/members/:memberId", communityHandler.RemoveMember)
 		}
 	}
 }
