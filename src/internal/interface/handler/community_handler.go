@@ -7,6 +7,7 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/util"
 	"strconv"
 	"strings"
 
@@ -24,22 +25,12 @@ func NewCommunityHandler(communityService *service.CommunityService) *CommunityH
 }
 
 func (h *CommunityHandler) CreateCommunity(c *gin.Context) {
-	userIDValue, exists := c.Get("userID")
-	if !exists {
-		log.Printf("[Err] UserID not found in context in CommunityHandler.CreateCommunity")
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.CreateCommunity", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
-		})
-		return
-	}
-
-	userID, ok := userIDValue.(uint64)
-	if !ok {
-		log.Printf("[Err] Invalid userID type in context in CommunityHandler.CreateCommunity")
-		c.JSON(http.StatusInternalServerError, response.APIResponse{
-			Success: false,
-			Message: "Failed to retrieve user information",
 		})
 		return
 	}
@@ -99,6 +90,16 @@ func (h *CommunityHandler) GetCommunityByID(c *gin.Context) {
 }
 
 func (h *CommunityHandler) UpdateCommunity(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UpdateCommunity", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
@@ -120,8 +121,25 @@ func (h *CommunityHandler) UpdateCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateCommunity(id, &req); err != nil {
+	if err := h.communityService.UpdateCommunity(userID, id, &req); err != nil {
 		log.Printf("[Err] Error updating community in CommunityHandler.UpdateCommunity: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Only super admin can update community",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to update community",
@@ -136,6 +154,16 @@ func (h *CommunityHandler) UpdateCommunity(c *gin.Context) {
 }
 
 func (h *CommunityHandler) DeleteCommunity(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.DeleteCommunity", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
@@ -147,8 +175,25 @@ func (h *CommunityHandler) DeleteCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeleteCommunity(id); err != nil {
+	if err := h.communityService.DeleteCommunity(userID, id); err != nil {
 		log.Printf("[Err] Error deleting community in CommunityHandler.DeleteCommunity: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Only super admin can delete community",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to delete community",
@@ -163,22 +208,12 @@ func (h *CommunityHandler) DeleteCommunity(c *gin.Context) {
 }
 
 func (h *CommunityHandler) JoinCommunity(c *gin.Context) {
-	userIDValue, exists := c.Get("userID")
-	if !exists {
-		log.Printf("[Err] UserID not found in context in CommunityHandler.JoinCommunity")
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.JoinCommunity", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
-		})
-		return
-	}
-
-	userID, ok := userIDValue.(uint64)
-	if !ok {
-		log.Printf("[Err] Invalid userID type in context in CommunityHandler.JoinCommunity")
-		c.JSON(http.StatusInternalServerError, response.APIResponse{
-			Success: false,
-			Message: "Failed to retrieve user information",
 		})
 		return
 	}
@@ -331,22 +366,12 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 }
 
 func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
-	userIDValue, exists := c.Get("userID")
-	if !exists {
-		log.Printf("[Err] UserID not found in context in CommunityHandler.GetCommunityMembers")
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.GetCommunityMembers", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
-		})
-		return
-	}
-
-	userID, ok := userIDValue.(uint64)
-	if !ok {
-		log.Printf("[Err] Invalid userID type in context in CommunityHandler.GetCommunityMembers")
-		c.JSON(http.StatusInternalServerError, response.APIResponse{
-			Success: false,
-			Message: "Failed to retrieve user information",
 		})
 		return
 	}
@@ -410,22 +435,12 @@ func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
 }
 
 func (h *CommunityHandler) RemoveMember(c *gin.Context) {
-	userIDValue, exists := c.Get("userID")
-	if !exists {
-		log.Printf("[Err] UserID not found in context in CommunityHandler.RemoveMember")
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.RemoveMember", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
-		})
-		return
-	}
-
-	userID, ok := userIDValue.(uint64)
-	if !ok {
-		log.Printf("[Err] Invalid userID type in context in CommunityHandler.RemoveMember")
-		c.JSON(http.StatusInternalServerError, response.APIResponse{
-			Success: false,
-			Message: "Failed to retrieve user information",
 		})
 		return
 	}
@@ -489,5 +504,44 @@ func (h *CommunityHandler) RemoveMember(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Member removed successfully",
+	})
+}
+
+func (h *CommunityHandler) GetUserRoleInCommunity(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.GetUserRoleInCommunity", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.GetUserRoleInCommunity: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	role, err := h.communityService.GetUserRoleInCommunity(userID, communityID)
+	if err != nil {
+		log.Printf("[Err] Error getting user role in CommunityHandler.GetUserRoleInCommunity: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get user role",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "User role retrieved successfully",
+		Data:    gin.H{"role": role},
 	})
 }

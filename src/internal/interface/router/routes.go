@@ -91,6 +91,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 			communities.DELETE("/:id", communityHandler.DeleteCommunity)
 			communities.GET("/:id/members", communityHandler.GetCommunityMembers)
 			communities.DELETE("/:id/members/:memberId", communityHandler.RemoveMember)
+			communities.GET("/:id/role", communityHandler.GetUserRoleInCommunity)
 		}
 	}
 }
