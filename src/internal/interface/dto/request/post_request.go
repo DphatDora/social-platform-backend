@@ -1,0 +1,45 @@
+package request
+
+import (
+	"encoding/json"
+
+	"github.com/lib/pq"
+)
+
+type CreatePostRequest struct {
+	CommunityID uint64           `json:"community_id" binding:"required"`
+	Title       string           `json:"title" binding:"required"`
+	Type        string           `json:"type" binding:"required,oneof=text link media poll"`
+	Content     string           `json:"content" binding:"required"`
+	URL         *string          `json:"url,omitempty"`
+	MediaURLs   *pq.StringArray  `json:"media_urls,omitempty"`
+	PollData    *json.RawMessage `json:"poll_data,omitempty"`
+	Tags        *pq.StringArray  `json:"tags,omitempty"`
+}
+
+type UpdatePostTextRequest struct {
+	Title   *string         `json:"title,omitempty"`
+	Content *string         `json:"content,omitempty"`
+	Tags    *pq.StringArray `json:"tags,omitempty"`
+}
+
+type UpdatePostLinkRequest struct {
+	Title   *string         `json:"title,omitempty"`
+	Content *string         `json:"content,omitempty"`
+	URL     *string         `json:"url,omitempty"`
+	Tags    *pq.StringArray `json:"tags,omitempty"`
+}
+
+type UpdatePostMediaRequest struct {
+	Title     *string         `json:"title,omitempty"`
+	Content   *string         `json:"content,omitempty"`
+	MediaURLs *pq.StringArray `json:"media_urls,omitempty"`
+	Tags      *pq.StringArray `json:"tags,omitempty"`
+}
+
+type UpdatePostPollRequest struct {
+	Title    *string          `json:"title,omitempty"`
+	Content  *string          `json:"content,omitempty"`
+	PollData *json.RawMessage `json:"poll_data,omitempty"`
+	Tags     *pq.StringArray  `json:"tags,omitempty"`
+}
