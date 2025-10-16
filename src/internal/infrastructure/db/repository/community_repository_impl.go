@@ -159,21 +159,3 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 
 	return communities, total, err
 }
-
-func (r *CommunityRepositoryImpl) GetCommunityRole(userID, communityID uint64) (string, error) {
-	var role string
-	err := r.db.Model(&model.CommunityModerator{}).
-		Select("role").
-		Where("community_id = ? AND user_id = ?", communityID, userID).
-		Scan(&role).Error
-
-	if err != nil {
-		return "", err
-	}
-
-	if role == "" {
-		return constant.ROLE_USER, nil
-	}
-
-	return role, nil
-}
