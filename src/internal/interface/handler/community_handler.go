@@ -491,3 +491,52 @@ func (h *CommunityHandler) RemoveMember(c *gin.Context) {
 		Message: "Member removed successfully",
 	})
 }
+
+func (h *CommunityHandler) GetUserRoleInCommunity(c *gin.Context) {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		log.Printf("[Err] UserID not found in context in CommunityHandler.GetUserRoleInCommunity")
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint64)
+	if !ok {
+		log.Printf("[Err] Invalid userID type in context in CommunityHandler.GetUserRoleInCommunity")
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve user information",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.GetUserRoleInCommunity: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	role, err := h.communityService.GetUserRoleInCommunity(userID, communityID)
+	if err != nil {
+		log.Printf("[Err] Error getting user role in CommunityHandler.GetUserRoleInCommunity: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get user role",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "User role retrieved successfully",
+		Data:    gin.H{"role": role},
+	})
+}

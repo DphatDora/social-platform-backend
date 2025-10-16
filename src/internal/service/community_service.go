@@ -315,3 +315,12 @@ func (s *CommunityService) RemoveMember(userID, communityID, memberID uint64) er
 
 	return nil
 }
+
+func (s *CommunityService) GetUserRoleInCommunity(userID, communityID uint64) (string, error) {
+	role, err := s.communityRepo.GetCommunityRole(userID, communityID)
+	if err != nil {
+		log.Printf("[Err] Error getting user role in CommunityService.GetUserRoleInCommunity: %v", err)
+		return "", fmt.Errorf("failed to get user role")
+	}
+	return role, nil
+}
