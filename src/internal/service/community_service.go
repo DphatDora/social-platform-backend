@@ -74,12 +74,19 @@ func (s *CommunityService) GetCommunityByID(id uint64) (*response.CommunityDetai
 	return communityResponse, nil
 }
 
-func (s *CommunityService) UpdateCommunity(id uint64, req *request.UpdateCommunityRequest) error {
+func (s *CommunityService) UpdateCommunity(userID, id uint64, req *request.UpdateCommunityRequest) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(id)
 	if err != nil {
 		log.Printf("[Err] Community not found in CommunityService.UpdateCommunity: %v", err)
 		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(id, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateCommunity: userID=%d, communityID=%d", userID, id)
+		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.communityRepo.UpdateCommunity(id, req); err != nil {
@@ -90,12 +97,19 @@ func (s *CommunityService) UpdateCommunity(id uint64, req *request.UpdateCommuni
 	return nil
 }
 
-func (s *CommunityService) DeleteCommunity(id uint64) error {
+func (s *CommunityService) DeleteCommunity(userID, id uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(id)
 	if err != nil {
 		log.Printf("[Err] Community not found in CommunityService.DeleteCommunity: %v", err)
 		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(id, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.DeleteCommunity: userID=%d, communityID=%d", userID, id)
+		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.communityRepo.DeleteCommunity(id); err != nil {
@@ -314,4 +328,13 @@ func (s *CommunityService) RemoveMember(userID, communityID, memberID uint64) er
 	}
 
 	return nil
+}
+
+func (s *CommunityService) GetUserRoleInCommunity(userID, communityID uint64) (string, error) {
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user role in CommunityService.GetUserRoleInCommunity: %v", err)
+		return "", fmt.Errorf("failed to get user role")
+	}
+	return role, nil
 }
