@@ -23,22 +23,25 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	communityRepo := repository.NewCommunityRepository(db)
 	subscriptionRepo := repository.NewSubscriptionRepository(db)
 	communityModeratorRepo := repository.NewCommunityModeratorRepository(db)
+	postRepo := repository.NewPostRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
 	userService := service.NewUserService(userRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
+	postService := service.NewPostService(postRepo, communityRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
 	communityHandler := handler.NewCommunityHandler(communityService)
+	postHandler := handler.NewPostHandler(postService)
 
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
 		setupPublicRoutes(api, authHandler, communityHandler)
-		setupProtectedRoutes(api, userHandler, communityHandler, conf)
+		setupProtectedRoutes(api, userHandler, communityHandler, postHandler, conf)
 	}
 
 	return router
@@ -72,7 +75,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, co
 	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler, communityHandler *handler.CommunityHandler, conf *config.Config) {
+func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler, communityHandler *handler.CommunityHandler, postHandler *handler.PostHandler, conf *config.Config) {
 	protected := rg.Group("")
 	protected.Use(middleware.AuthMiddleware(conf))
 	{
@@ -92,6 +95,13 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 			communities.GET("/:id/members", communityHandler.GetCommunityMembers)
 			communities.DELETE("/:id/members/:memberId", communityHandler.RemoveMember)
 			communities.GET("/:id/role", communityHandler.GetUserRoleInCommunity)
+		}
+
+		posts := protected.Group("/posts")
+		{
+			posts.POST("", postHandler.CreatePost)
+			posts.PUT("/:id", postHandler.UpdatePost)
+			posts.DELETE("/:id", postHandler.DeletePost)
 		}
 	}
 }
