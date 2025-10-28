@@ -26,7 +26,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	postRepo := repository.NewPostRepository(db)
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
 	userService := service.NewUserService(userRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 	postService := service.NewPostService(postRepo, communityRepo)
