@@ -23,6 +23,9 @@ type Post struct {
 	UpdatedAt   *time.Time       `gorm:"column:updated_at;autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt   `gorm:"column:deleted_at"`
 
+	// Total vote
+	Vote int64 `gorm:"column:vote;<-:false"`
+
 	// relation
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`
 	Author    *User      `gorm:"foreignKey:AuthorID;references:ID"`

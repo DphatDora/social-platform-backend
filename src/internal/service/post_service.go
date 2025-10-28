@@ -6,6 +6,7 @@ import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
+	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 )
 
@@ -159,4 +160,62 @@ func (s *PostService) DeletePost(userID, postID uint64) error {
 	}
 
 	return nil
+}
+
+func (s *PostService) GetAllPosts(sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
+		return nil, nil, fmt.Errorf("failed to get posts")
+	}
+
+	postResponses := make([]*response.PostListResponse, len(posts))
+	for i, post := range posts {
+		postResponses[i] = response.NewPostListResponse(post)
+	}
+
+	// Set pagination
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		pagination.NextURL = fmt.Sprintf("/api/v1/posts?sortBy=%s&page=%d&limit=%d", sortBy, page+1, limit)
+	}
+
+	return postResponses, pagination, nil
+}
+
+func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in PostService.GetPostsByCommunityID: %v", err)
+		return nil, nil, fmt.Errorf("community not found")
+	}
+
+	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting posts by community ID in PostService.GetPostsByCommunityID: %v", err)
+		return nil, nil, fmt.Errorf("failed to get posts")
+	}
+
+	postResponses := make([]*response.PostListResponse, len(posts))
+	for i, post := range posts {
+		postResponses[i] = response.NewPostListResponse(post)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		pagination.NextURL = fmt.Sprintf("/api/v1/communities/%d/posts?sortBy=%s&page=%d&limit=%d", communityID, sortBy, page+1, limit)
+	}
+
+	return postResponses, pagination, nil
 }

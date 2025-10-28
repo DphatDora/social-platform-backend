@@ -114,3 +114,74 @@ func (r *PostRepositoryImpl) UpdatePostPoll(id uint64, updatePost *request.Updat
 func (r *PostRepositoryImpl) DeletePost(id uint64) error {
 	return r.db.Model(&model.Post{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
 }
+
+func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*model.Post, int64, error) {
+	var posts []*model.Post
+	var total int64
+
+	// Count total posts
+	if err := r.db.Model(&model.Post{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Table("posts").
+		Select(`posts.*,
+			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Group("posts.id").
+		Preload("Community").
+		Preload("Author")
+
+	// Sort method
+	switch sortBy {
+	case "hot", "top":
+		query = query.Order("vote DESC")
+	case "new", "best":
+		fallthrough
+	default:
+		query = query.Order("posts.created_at DESC")
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
+}
+
+func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error) {
+	var posts []*model.Post
+	var total int64
+
+	// Count total posts in community
+	if err := r.db.Model(&model.Post{}).Where("community_id = ?", communityID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Table("posts").
+		Select(`posts.*,
+			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Where("posts.community_id = ?", communityID).
+		Group("posts.id").
+		Preload("Community").
+		Preload("Author")
+
+	// Sort method
+	switch sortBy {
+	case "hot", "top":
+		query = query.Order("vote DESC")
+	case "new", "best":
+		fallthrough
+	default:
+		query = query.Order("posts.created_at DESC")
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
+}
