@@ -351,3 +351,13 @@ func (s *CommunityService) GetUserRoleInCommunity(userID, communityID uint64) (s
 	}
 	return role, nil
 }
+
+func (s *CommunityService) VerifyCommunityName(name string) (bool, error) {
+	exists, err := s.communityRepo.IsCommunityNameExists(name)
+	if err != nil {
+		log.Printf("[Err] Error checking community name in CommunityService.VerifyCommunityName: %v", err)
+		return false, fmt.Errorf("failed to check community name")
+	}
+
+	return !exists, nil
+}

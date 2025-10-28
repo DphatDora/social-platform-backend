@@ -15,3 +15,8 @@ type UpdateCommunityRequest struct {
 	CoverImage       *string `json:"coverImage,omitempty"`
 	IsPrivate        *bool   `json:"isPrivate,omitempty"`
 }
+
+// verify community name is unique request
+type VerifyCommunityNameRequest struct {
+	Name string `json:"name" binding:"required"`
+}

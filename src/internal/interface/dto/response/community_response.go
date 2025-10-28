@@ -82,3 +82,8 @@ func NewModeratorResponse(user *model.User, role string) *ModeratorResponse {
 		Role:     role,
 	}
 }
+
+// verify community name is unique response
+type VerifyCommunityNameResponse struct {
+	IsUnique bool `json:"isUnique"`
+}
