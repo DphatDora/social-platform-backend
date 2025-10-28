@@ -302,3 +302,42 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *PostHandler) SearchPosts(c *gin.Context) {
+	searchQuery := c.Query("search")
+	if searchQuery == "" {
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Search query is required",
+		})
+		return
+	}
+
+	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to search posts",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Posts searched successfully",
+		Data:       posts,
+		Pagination: pagination,
+	})
+}

@@ -15,4 +15,5 @@ type PostRepository interface {
 	DeletePost(id uint64) error
 	GetAllPosts(sortBy string, page, limit int) ([]*model.Post, int64, error)
 	GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error)
+	SearchPostsByTitle(title, sortBy string, page, limit int) ([]*model.Post, int64, error)
 }

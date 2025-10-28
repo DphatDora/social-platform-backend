@@ -80,6 +80,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, co
 	posts := rg.Group("/posts")
 	{
 		posts.GET("", postHandler.GetAllPosts)
+		posts.GET("/search", postHandler.SearchPosts)
 	}
 }
 

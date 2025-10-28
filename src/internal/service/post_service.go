@@ -219,3 +219,29 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 
 	return postResponses, pagination, nil
 }
+
+func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error searching posts by title in PostService.SearchPostsByTitle: %v", err)
+		return nil, nil, fmt.Errorf("failed to search posts")
+	}
+
+	postResponses := make([]*response.PostListResponse, len(posts))
+	for i, post := range posts {
+		postResponses[i] = response.NewPostListResponse(post)
+	}
+
+	// Set pagination
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		pagination.NextURL = fmt.Sprintf("/api/v1/posts/search?search=%s&sortBy=%s&page=%d&limit=%d", title, sortBy, page+1, limit)
+	}
+
+	return postResponses, pagination, nil
+}
