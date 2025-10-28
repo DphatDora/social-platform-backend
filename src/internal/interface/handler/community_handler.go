@@ -545,3 +545,31 @@ func (h *CommunityHandler) GetUserRoleInCommunity(c *gin.Context) {
 		Data:    gin.H{"role": role},
 	})
 }
+
+func (h *CommunityHandler) VerifyCommunityName(c *gin.Context) {
+	var req request.VerifyCommunityNameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in CommunityHandler.VerifyCommunityName: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	isUnique, err := h.communityService.VerifyCommunityName(req.Name)
+	if err != nil {
+		log.Printf("[Err] Error verifying community name in CommunityHandler.VerifyCommunityName: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to verify community name",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Community name verification completed",
+		Data:    response.VerifyCommunityNameResponse{IsUnique: isUnique},
+	})
+}

@@ -72,6 +72,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, co
 		communities.GET("/search", communityHandler.SearchCommunities)
 		communities.GET("/filter", communityHandler.FilterCommunities)
 		communities.GET("/:id", communityHandler.GetCommunityByID)
+		communities.POST("/verify-name", communityHandler.VerifyCommunityName)
 	}
 }
 

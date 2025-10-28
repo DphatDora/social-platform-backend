@@ -159,3 +159,14 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 
 	return communities, total, err
 }
+
+func (r *CommunityRepositoryImpl) IsCommunityNameExists(name string) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.Community{}).
+		Where("name = ?", name).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

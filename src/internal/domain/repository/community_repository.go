@@ -14,4 +14,5 @@ type CommunityRepository interface {
 	GetCommunities(page, limit int) ([]*model.Community, int64, error)
 	SearchCommunitiesByName(name string, page, limit int) ([]*model.Community, int64, error)
 	FilterCommunities(sortBy string, isPrivate *bool, page, limit int) ([]*model.Community, int64, error)
+	IsCommunityNameExists(name string) (bool, error)
 }
