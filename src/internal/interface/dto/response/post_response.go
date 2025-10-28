@@ -1,0 +1,73 @@
+package response
+
+import (
+	"encoding/json"
+	"social-platform-backend/internal/domain/model"
+	"time"
+
+	"github.com/lib/pq"
+)
+
+type PostListResponse struct {
+	ID          uint64           `json:"id"`
+	CommunityID uint64           `json:"communityId"`
+	Community   *CommunityInfo   `json:"community,omitempty"`
+	AuthorID    uint64           `json:"authorId"`
+	Author      *AuthorInfo      `json:"author,omitempty"`
+	Title       string           `json:"title"`
+	Type        string           `json:"type"`
+	Content     string           `json:"content"`
+	URL         *string          `json:"url,omitempty"`
+	MediaURLs   *pq.StringArray  `json:"mediaUrls,omitempty"`
+	PollData    *json.RawMessage `json:"pollData,omitempty"`
+	Tags        *pq.StringArray  `json:"tags,omitempty"`
+	Vote        int64            `json:"vote"`
+	CreatedAt   time.Time        `json:"createdAt"`
+	UpdatedAt   *time.Time       `json:"updatedAt,omitempty"`
+}
+
+type CommunityInfo struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"name"`
+}
+
+type AuthorInfo struct {
+	ID       uint64  `json:"id"`
+	Username string  `json:"username"`
+	Avatar   *string `json:"avatar,omitempty"`
+}
+
+func NewPostListResponse(post *model.Post) *PostListResponse {
+	response := &PostListResponse{
+		ID:          post.ID,
+		CommunityID: post.CommunityID,
+		AuthorID:    post.AuthorID,
+		Title:       post.Title,
+		Type:        post.Type,
+		Content:     post.Content,
+		URL:         post.URL,
+		MediaURLs:   post.MediaURLs,
+		PollData:    post.PollData,
+		Tags:        post.Tags,
+		Vote:        post.Vote,
+		CreatedAt:   post.CreatedAt,
+		UpdatedAt:   post.UpdatedAt,
+	}
+
+	if post.Community != nil {
+		response.Community = &CommunityInfo{
+			ID:   post.Community.ID,
+			Name: post.Community.Name,
+		}
+	}
+
+	if post.Author != nil {
+		response.Author = &AuthorInfo{
+			ID:       post.Author.ID,
+			Username: post.Author.Username,
+			Avatar:   post.Author.Avatar,
+		}
+	}
+
+	return response
+}

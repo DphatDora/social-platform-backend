@@ -40,14 +40,14 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
-		setupPublicRoutes(api, authHandler, communityHandler)
+		setupPublicRoutes(api, authHandler, communityHandler, postHandler)
 		setupProtectedRoutes(api, userHandler, communityHandler, postHandler, conf)
 	}
 
 	return router
 }
 
-func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, communityHandler *handler.CommunityHandler) {
+func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, communityHandler *handler.CommunityHandler, postHandler *handler.PostHandler) {
 	// Health check
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
@@ -72,7 +72,15 @@ func setupPublicRoutes(rg *gin.RouterGroup, authHandler *handler.AuthHandler, co
 		communities.GET("/search", communityHandler.SearchCommunities)
 		communities.GET("/filter", communityHandler.FilterCommunities)
 		communities.GET("/:id", communityHandler.GetCommunityByID)
+		communities.GET("/:id/posts", postHandler.GetPostsByCommunity)
 		communities.POST("/verify-name", communityHandler.VerifyCommunityName)
+	}
+
+	// Post routes (public)
+	posts := rg.Group("/posts")
+	{
+		posts.GET("", postHandler.GetAllPosts)
+		posts.GET("/search", postHandler.SearchPosts)
 	}
 }
 
