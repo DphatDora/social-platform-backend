@@ -43,3 +43,7 @@ type UpdatePostPollRequest struct {
 	PollData *json.RawMessage `json:"poll_data,omitempty"`
 	Tags     *pq.StringArray  `json:"tags,omitempty"`
 }
+
+type VotePostRequest struct {
+	Vote bool `json:"vote"`
+}

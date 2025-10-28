@@ -341,3 +341,105 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *PostHandler) VotePost(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in PostHandler.VotePost", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.VotePost: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	var req request.VotePostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in PostHandler.VotePost: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.postService.VotePost(userID, postID, req.Vote); err != nil {
+		log.Printf("[Err] Error voting post in PostHandler.VotePost: %v", err)
+
+		if err.Error() == "post not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to vote post",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Post voted successfully",
+	})
+}
+
+func (h *PostHandler) UnvotePost(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in PostHandler.UnvotePost", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.UnvotePost: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	if err := h.postService.UnvotePost(userID, postID); err != nil {
+		log.Printf("[Err] Error unvoting post in PostHandler.UnvotePost: %v", err)
+
+		if err.Error() == "post not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to unvote post",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Post unvoted successfully",
+	})
+}

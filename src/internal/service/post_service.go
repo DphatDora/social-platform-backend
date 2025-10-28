@@ -13,15 +13,18 @@ import (
 type PostService struct {
 	postRepo      repository.PostRepository
 	communityRepo repository.CommunityRepository
+	postVoteRepo  repository.PostVoteRepository
 }
 
 func NewPostService(
 	postRepo repository.PostRepository,
 	communityRepo repository.CommunityRepository,
+	postVoteRepo repository.PostVoteRepository,
 ) *PostService {
 	return &PostService{
 		postRepo:      postRepo,
 		communityRepo: communityRepo,
+		postVoteRepo:  postVoteRepo,
 	}
 }
 
@@ -244,4 +247,43 @@ func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int) 
 	}
 
 	return postResponses, pagination, nil
+}
+
+func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
+	// Check if post exists
+	_, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.VotePost: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	postVote := &model.PostVote{
+		UserID: userID,
+		PostID: postID,
+		Vote:   vote,
+	}
+
+	if err := s.postVoteRepo.UpsertPostVote(postVote); err != nil {
+		log.Printf("[Err] Error upserting post vote in PostService.VotePost: %v", err)
+		return fmt.Errorf("failed to vote post")
+	}
+
+	return nil
+}
+
+func (s *PostService) UnvotePost(userID, postID uint64) error {
+	// Check if post exists
+	_, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.UnvotePost: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	// Delete vote
+	if err := s.postVoteRepo.DeletePostVote(userID, postID); err != nil {
+		log.Printf("[Err] Error deleting post vote in PostService.UnvotePost: %v", err)
+		return fmt.Errorf("failed to unvote post")
+	}
+
+	return nil
 }
