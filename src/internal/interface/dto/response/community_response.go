@@ -14,6 +14,9 @@ type CommunityDetailResponse struct {
 	IsPrivate        bool      `json:"isPrivate"`
 	CreatedAt        time.Time `json:"createdAt"`
 	TotalMembers     int64     `json:"totalMembers"`
+
+	// List of moderators
+	Moderators []ModeratorResponse `json:"moderators,omitempty"`
 }
 
 func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResponse {
@@ -60,5 +63,22 @@ func NewMemberListResponse(user *model.User, subscribedAt time.Time) *MemberList
 		Avatar:       user.Avatar,
 		Karma:        user.Karma,
 		SubscribedAt: subscribedAt,
+	}
+}
+
+// Moderator of community response
+type ModeratorResponse struct {
+	UserID   uint64  `json:"userId"`
+	Username string  `json:"username"`
+	Avatar   *string `json:"avatar,omitempty"`
+	Role     string  `json:"role"`
+}
+
+func NewModeratorResponse(user *model.User, role string) *ModeratorResponse {
+	return &ModeratorResponse{
+		UserID:   user.ID,
+		Username: user.Username,
+		Avatar:   user.Avatar,
+		Role:     role,
 	}
 }
