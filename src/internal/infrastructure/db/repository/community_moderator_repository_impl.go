@@ -37,3 +37,24 @@ func (r *CommunityModeratorRepositoryImpl) GetModeratorRole(communityID, userID 
 
 	return role, nil
 }
+
+func (r *CommunityModeratorRepositoryImpl) GetModeratorCommunitiesByUserID(userID uint64) ([]*model.CommunityModerator, error) {
+	var moderators []*model.CommunityModerator
+	err := r.db.Where("user_id = ?", userID).
+		Find(&moderators).Error
+	if err != nil {
+		return nil, err
+	}
+	return moderators, nil
+}
+
+func (r *CommunityModeratorRepositoryImpl) GetCommunityModerators(communityID uint64) ([]*model.CommunityModerator, error) {
+	var moderators []*model.CommunityModerator
+	err := r.db.Preload("User").
+		Where("community_id = ?", communityID).
+		Find(&moderators).Error
+	if err != nil {
+		return nil, err
+	}
+	return moderators, nil
+}

@@ -68,8 +68,21 @@ func (s *CommunityService) GetCommunityByID(id uint64) (*response.CommunityDetai
 		return nil, fmt.Errorf("community not found")
 	}
 
+	// Get community moderators
+	moderators, err := s.communityModeratorRepo.GetCommunityModerators(id)
+	if err != nil {
+		log.Printf("[Err] Error getting community moderators in CommunityService.GetCommunityByID: %v", err)
+		moderators = []*model.CommunityModerator{}
+	}
+
+	moderatorResponses := make([]response.ModeratorResponse, len(moderators))
+	for i, mod := range moderators {
+		moderatorResponses[i] = *response.NewModeratorResponse(mod.User, mod.Role)
+	}
+
 	communityResponse := response.NewCommunityDetailResponse(community)
 	communityResponse.TotalMembers = memberCount
+	communityResponse.Moderators = moderatorResponses
 
 	return communityResponse, nil
 }

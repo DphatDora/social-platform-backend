@@ -16,10 +16,11 @@ import (
 )
 
 type AuthService struct {
-	userRepo          repository.UserRepository
-	verificationRepo  repository.UserVerificationRepository
-	passwordResetRepo repository.PasswordResetRepository
-	botTaskRepo       repository.BotTaskRepository
+	userRepo               repository.UserRepository
+	verificationRepo       repository.UserVerificationRepository
+	passwordResetRepo      repository.PasswordResetRepository
+	botTaskRepo            repository.BotTaskRepository
+	communityModeratorRepo repository.CommunityModeratorRepository
 }
 
 func NewAuthService(
@@ -27,12 +28,14 @@ func NewAuthService(
 	verificationRepo repository.UserVerificationRepository,
 	passwordResetRepo repository.PasswordResetRepository,
 	botTaskRepo repository.BotTaskRepository,
+	communityModeratorRepo repository.CommunityModeratorRepository,
 ) *AuthService {
 	return &AuthService{
-		userRepo:          userRepo,
-		verificationRepo:  verificationRepo,
-		passwordResetRepo: passwordResetRepo,
-		botTaskRepo:       botTaskRepo,
+		userRepo:               userRepo,
+		verificationRepo:       verificationRepo,
+		passwordResetRepo:      passwordResetRepo,
+		botTaskRepo:            botTaskRepo,
+		communityModeratorRepo: communityModeratorRepo,
 	}
 }
 
@@ -187,9 +190,26 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
+	// Get moderated communities
+	moderators, err := s.communityModeratorRepo.GetModeratorCommunitiesByUserID(user.ID)
+	if err != nil {
+		log.Printf("[Err] Error getting moderated communities in AuthService.Login: %v", err)
+		// Don't fail login if we can't get moderated communities
+		moderators = []*model.CommunityModerator{}
+	}
+
+	moderatedCommunities := make([]response.CommunityModerator, len(moderators))
+	for i, mod := range moderators {
+		moderatedCommunities[i] = response.CommunityModerator{
+			CommunityID: mod.CommunityID,
+			Role:        mod.Role,
+		}
+	}
+
 	loginResponse := &response.LoginResponse{
-		Username:    user.Username,
-		AccessToken: accessToken,
+		Username:             user.Username,
+		AccessToken:          accessToken,
+		ModeratedCommunities: moderatedCommunities,
 	}
 
 	if user.Avatar != nil {
