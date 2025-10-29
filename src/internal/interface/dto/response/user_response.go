@@ -13,8 +13,8 @@ type UserProfileResponse struct {
 	Bio       *string    `json:"bio,omitempty"`
 	Avatar    *string    `json:"avatar,omitempty"`
 	Role      string     `json:"role"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
 func NewUserProfileResponse(user *model.User) *UserProfileResponse {
