@@ -7,13 +7,13 @@ import (
 )
 
 type CreatePostRequest struct {
-	CommunityID uint64           `json:"community_id" binding:"required"`
+	CommunityID uint64           `json:"communityId" binding:"required"`
 	Title       string           `json:"title" binding:"required"`
 	Type        string           `json:"type" binding:"required,oneof=text link media poll"`
 	Content     string           `json:"content" binding:"required"`
 	URL         *string          `json:"url,omitempty"`
-	MediaURLs   *pq.StringArray  `json:"media_urls,omitempty"`
-	PollData    *json.RawMessage `json:"poll_data,omitempty"`
+	MediaURLs   *pq.StringArray  `json:"mediaUrls,omitempty"`
+	PollData    *json.RawMessage `json:"pollData,omitempty"`
 	Tags        *pq.StringArray  `json:"tags,omitempty"`
 }
 
@@ -33,14 +33,14 @@ type UpdatePostLinkRequest struct {
 type UpdatePostMediaRequest struct {
 	Title     *string         `json:"title,omitempty"`
 	Content   *string         `json:"content,omitempty"`
-	MediaURLs *pq.StringArray `json:"media_urls,omitempty"`
+	MediaURLs *pq.StringArray `json:"mediaUrls,omitempty"`
 	Tags      *pq.StringArray `json:"tags,omitempty"`
 }
 
 type UpdatePostPollRequest struct {
 	Title    *string          `json:"title,omitempty"`
 	Content  *string          `json:"content,omitempty"`
-	PollData *json.RawMessage `json:"poll_data,omitempty"`
+	PollData *json.RawMessage `json:"pollData,omitempty"`
 	Tags     *pq.StringArray  `json:"tags,omitempty"`
 }
 
