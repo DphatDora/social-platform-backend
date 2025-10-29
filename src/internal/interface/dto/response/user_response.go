@@ -30,3 +30,18 @@ func NewUserProfileResponse(user *model.User) *UserProfileResponse {
 		UpdatedAt: user.UpdatedAt,
 	}
 }
+
+// user config, return after login
+type UserConfigResponse struct {
+	Username string  `json:"username"`
+	Avatar   *string `json:"avatar,omitempty"`
+	// List of communities where the user is a moderator
+	ModeratedCommunities []CommunityModerator `json:"moderatedCommunities,omitempty"`
+
+	// more config fields can be added later
+}
+
+type CommunityModerator struct {
+	CommunityID uint64 `json:"communityId"`
+	Role        string `json:"role"`
+}

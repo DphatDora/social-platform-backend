@@ -160,3 +160,42 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		Message: "Password changed successfully",
 	})
 }
+
+func (h *UserHandler) GetUserConfig(c *gin.Context) {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		log.Printf("[Err] UserID not found in context in UserHandler.GetUserConfig")
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint64)
+	if !ok {
+		log.Printf("[Err] Invalid userID type in context in UserHandler.GetUserConfig")
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve user config",
+		})
+		return
+	}
+
+	// Get user config
+	userConfig, err := h.userService.GetUserConfig(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user config in UserHandler.GetUserConfig: %v", err)
+		c.JSON(http.StatusNotFound, response.APIResponse{
+			Success: false,
+			Message: "Failed to get user config",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "User config retrieved successfully",
+		Data:    userConfig,
+	})
+}

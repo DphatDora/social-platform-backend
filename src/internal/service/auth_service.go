@@ -190,30 +190,8 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
-	// Get moderated communities
-	moderators, err := s.communityModeratorRepo.GetModeratorCommunitiesByUserID(user.ID)
-	if err != nil {
-		log.Printf("[Err] Error getting moderated communities in AuthService.Login: %v", err)
-		// Don't fail login if we can't get moderated communities
-		moderators = []*model.CommunityModerator{}
-	}
-
-	moderatedCommunities := make([]response.CommunityModerator, len(moderators))
-	for i, mod := range moderators {
-		moderatedCommunities[i] = response.CommunityModerator{
-			CommunityID: mod.CommunityID,
-			Role:        mod.Role,
-		}
-	}
-
 	loginResponse := &response.LoginResponse{
-		Username:             user.Username,
-		AccessToken:          accessToken,
-		ModeratedCommunities: moderatedCommunities,
-	}
-
-	if user.Avatar != nil {
-		loginResponse.Avatar = *user.Avatar
+		AccessToken: accessToken,
 	}
 
 	return loginResponse, nil

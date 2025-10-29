@@ -28,7 +28,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, communityModeratorRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo)
 
@@ -94,6 +94,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, userHandler *handler.UserHandler,
 			users.GET("/me", userHandler.GetCurrentUser)
 			users.PUT("/me", userHandler.UpdateUserProfile)
 			users.PUT("/change-password", userHandler.ChangePassword)
+			users.GET("/config", userHandler.GetUserConfig)
 		}
 
 		communities := protected.Group("/communities")

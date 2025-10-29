@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"log"
+	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
@@ -10,12 +11,14 @@ import (
 )
 
 type UserService struct {
-	userRepo repository.UserRepository
+	userRepo               repository.UserRepository
+	communityModeratorRepo repository.CommunityModeratorRepository
 }
 
-func NewUserService(userRepo repository.UserRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, communityModeratorRepo repository.CommunityModeratorRepository) *UserService {
 	return &UserService{
-		userRepo: userRepo,
+		userRepo:               userRepo,
+		communityModeratorRepo: communityModeratorRepo,
 	}
 }
 
@@ -63,4 +66,37 @@ func (s *UserService) ChangePassword(userID uint64, changePasswordReq *request.C
 	}
 
 	return nil
+}
+
+func (s *UserService) GetUserConfig(userID uint64) (*response.UserConfigResponse, error) {
+	// Get user information
+	user, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user by ID in UserService.GetUserConfig: %v", err)
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Get moderated communities
+	moderators, err := s.communityModeratorRepo.GetModeratorCommunitiesByUserID(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting moderated communities in UserService.GetUserConfig: %v", err)
+		// Don't fail if we can't get moderated communities
+		moderators = []*model.CommunityModerator{}
+	}
+
+	moderatedCommunities := make([]response.CommunityModerator, len(moderators))
+	for i, mod := range moderators {
+		moderatedCommunities[i] = response.CommunityModerator{
+			CommunityID: mod.CommunityID,
+			Role:        mod.Role,
+		}
+	}
+
+	userConfig := &response.UserConfigResponse{
+		Username:             user.Username,
+		Avatar:               user.Avatar,
+		ModeratedCommunities: moderatedCommunities,
+	}
+
+	return userConfig, nil
 }
