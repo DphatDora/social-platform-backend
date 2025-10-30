@@ -8,8 +8,9 @@ type Comment struct {
 	AuthorID        uint64     `gorm:"column:author_id"`
 	ParentCommentID *uint64    `gorm:"column:parent_comment_id"`
 	Content         string     `gorm:"column:content"`
+	MediaURL        *string    `gorm:"column:media_url"`
 	CreatedAt       time.Time  `gorm:"column:created_at"`
-	UpdatedAt       *time.Time `gorm:"column:updated_at"`
+	UpdatedAt       *time.Time `gorm:"column:updated_at;autoUpdateTime"`
 
 	// relation
 	Post          *Post      `gorm:"foreignKey:PostID;references:ID"`
