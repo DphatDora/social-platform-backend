@@ -12,6 +12,7 @@ type CommentResponse struct {
 	ParentCommentID *uint64            `json:"parentCommentId,omitempty"`
 	Content         string             `json:"content"`
 	MediaURL        *string            `json:"mediaUrl,omitempty"`
+	Vote            int64              `json:"vote"`
 	CreatedAt       time.Time          `json:"createdAt"`
 	UpdatedAt       *time.Time         `json:"updatedAt,omitempty"`
 	Replies         []*CommentResponse `json:"replies,omitempty"`
@@ -24,6 +25,7 @@ func NewCommentResponse(comment *model.Comment) *CommentResponse {
 		ParentCommentID: comment.ParentCommentID,
 		Content:         comment.Content,
 		MediaURL:        comment.MediaURL,
+		Vote:            comment.Vote,
 		CreatedAt:       comment.CreatedAt,
 		UpdatedAt:       comment.UpdatedAt,
 	}
