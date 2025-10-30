@@ -34,13 +34,14 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	postRepo := repository.NewPostRepository(db)
 	postVoteRepo := repository.NewPostVoteRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
+	commentVoteRepo := repository.NewCommentVoteRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
 	userService := service.NewUserService(userRepo, communityModeratorRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo)
-	commentService := service.NewCommentService(commentRepo, postRepo)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -142,6 +143,8 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			comments.POST("", appHandler.commentHandler.CreateComment)
 			comments.PUT("/:id", appHandler.commentHandler.UpdateComment)
 			comments.DELETE("/:id", appHandler.commentHandler.DeleteComment)
+			comments.POST("/:id/vote", appHandler.commentHandler.VoteComment)
+			comments.DELETE("/:id/vote", appHandler.commentHandler.UnvoteComment)
 		}
 	}
 }

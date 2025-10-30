@@ -194,3 +194,95 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 		Message: "Comment deleted successfully",
 	})
 }
+
+func (h *CommentHandler) VoteComment(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommentHandler.VoteComment", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	commentIDParam := c.Param("id")
+	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid comment ID in CommentHandler.VoteComment: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid comment ID",
+		})
+		return
+	}
+
+	var req request.VoteCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in CommentHandler.VoteComment: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.commentService.VoteComment(userID, commentID, req.Vote); err != nil {
+		log.Printf("[Err] Error voting comment in CommentHandler.VoteComment: %v", err)
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "comment not found" {
+			statusCode = http.StatusNotFound
+		}
+		c.JSON(statusCode, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Comment voted successfully",
+	})
+}
+
+func (h *CommentHandler) UnvoteComment(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommentHandler.UnvoteComment", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	commentIDParam := c.Param("id")
+	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid comment ID in CommentHandler.UnvoteComment: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid comment ID",
+		})
+		return
+	}
+
+	if err := h.commentService.UnvoteComment(userID, commentID); err != nil {
+		log.Printf("[Err] Error unvoting comment in CommentHandler.UnvoteComment: %v", err)
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "comment not found" {
+			statusCode = http.StatusNotFound
+		}
+		c.JSON(statusCode, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Comment unvoted successfully",
+	})
+}

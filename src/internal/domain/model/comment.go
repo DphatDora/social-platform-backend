@@ -12,6 +12,9 @@ type Comment struct {
 	CreatedAt       time.Time  `gorm:"column:created_at"`
 	UpdatedAt       *time.Time `gorm:"column:updated_at;autoUpdateTime"`
 
+	// Total vote
+	Vote int64 `gorm:"column:vote;<-:false"`
+
 	// relation
 	Post          *Post      `gorm:"foreignKey:PostID;references:ID"`
 	Author        *User      `gorm:"foreignKey:AuthorID;references:ID"`

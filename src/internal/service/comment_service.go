@@ -11,17 +11,20 @@ import (
 )
 
 type CommentService struct {
-	commentRepo repository.CommentRepository
-	postRepo    repository.PostRepository
+	commentRepo     repository.CommentRepository
+	postRepo        repository.PostRepository
+	commentVoteRepo repository.CommentVoteRepository
 }
 
 func NewCommentService(
 	commentRepo repository.CommentRepository,
 	postRepo repository.PostRepository,
+	commentVoteRepo repository.CommentVoteRepository,
 ) *CommentService {
 	return &CommentService{
-		commentRepo: commentRepo,
-		postRepo:    postRepo,
+		commentRepo:     commentRepo,
+		postRepo:        postRepo,
+		commentVoteRepo: commentVoteRepo,
 	}
 }
 
@@ -172,6 +175,45 @@ func (s *CommentService) DeleteComment(userID, commentID uint64) error {
 	if err := s.commentRepo.DeleteComment(commentID, comment.ParentCommentID); err != nil {
 		log.Printf("[Err] Error deleting comment in CommentService.DeleteComment: %v", err)
 		return fmt.Errorf("failed to delete comment")
+	}
+
+	return nil
+}
+
+func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error {
+	// Check if comment exists
+	_, err := s.commentRepo.GetCommentByID(commentID)
+	if err != nil {
+		log.Printf("[Err] Comment not found in CommentService.VoteComment: %v", err)
+		return fmt.Errorf("comment not found")
+	}
+
+	commentVote := &model.CommentVote{
+		UserID:    userID,
+		CommentID: commentID,
+		Vote:      vote,
+	}
+
+	if err := s.commentVoteRepo.UpsertCommentVote(commentVote); err != nil {
+		log.Printf("[Err] Error voting comment in CommentService.VoteComment: %v", err)
+		return fmt.Errorf("failed to vote comment")
+	}
+
+	return nil
+}
+
+func (s *CommentService) UnvoteComment(userID, commentID uint64) error {
+	// Check if comment exists
+	_, err := s.commentRepo.GetCommentByID(commentID)
+	if err != nil {
+		log.Printf("[Err] Comment not found in CommentService.UnvoteComment: %v", err)
+		return fmt.Errorf("comment not found")
+	}
+
+	// Delete vote
+	if err := s.commentVoteRepo.DeleteCommentVote(userID, commentID); err != nil {
+		log.Printf("[Err] Error unvoting comment in CommentService.UnvoteComment: %v", err)
+		return fmt.Errorf("failed to unvote comment")
 	}
 
 	return nil

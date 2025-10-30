@@ -39,10 +39,15 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, limit, offset
 		return nil, 0, err
 	}
 
-	// Get top-level comments with author info
-	err := r.db.Preload("Author").
-		Where("post_id = ? AND parent_comment_id IS NULL", postID).
-		Order("created_at DESC").
+	// Get top-level comments with author info and vote count
+	err := r.db.Table("comments").
+		Select(`comments.*,
+			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Where("comments.post_id = ? AND comments.parent_comment_id IS NULL", postID).
+		Group("comments.id").
+		Order("comments.created_at DESC").
+		Preload("Author").
 		Limit(limit).
 		Offset(offset).
 		Find(&comments).Error
@@ -55,9 +60,16 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, limit, offset
 
 func (r *CommentRepositoryImpl) GetRepliesByParentID(parentID uint64) ([]*model.Comment, error) {
 	var replies []*model.Comment
-	err := r.db.Preload("Author").
-		Where("parent_comment_id = ?", parentID).
-		Order("created_at ASC").
+
+	// Get replies with vote count
+	err := r.db.Table("comments").
+		Select(`comments.*,
+			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Where("comments.parent_comment_id = ?", parentID).
+		Group("comments.id").
+		Order("comments.created_at ASC").
+		Preload("Author").
 		Find(&replies).Error
 	if err != nil {
 		return nil, err
