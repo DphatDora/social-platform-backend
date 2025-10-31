@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -11,6 +12,8 @@ type Community struct {
 	Name             string         `gorm:"column:name"`
 	ShortDescription string         `gorm:"column:short_description"`
 	Description      *string        `gorm:"column:description"`
+	Topic            pq.StringArray `gorm:"column:topic;type:text[]"`
+	CommunityAvatar  *string        `gorm:"column:community_avatar"`
 	CoverImage       *string        `gorm:"column:cover_image"`
 	CreatedAt        time.Time      `gorm:"column:created_at"`
 	CreatedBy        uint64         `gorm:"column:created_by"`
