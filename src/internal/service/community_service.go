@@ -34,6 +34,8 @@ func (s *CommunityService) CreateCommunity(userID uint64, req *request.CreateCom
 		Name:             req.Name,
 		ShortDescription: req.ShortDescription,
 		Description:      req.Description,
+		Topic:            req.Topic,
+		CommunityAvatar:  req.CommunityAvatar,
 		CoverImage:       req.CoverImage,
 		IsPrivate:        req.IsPrivate,
 		CreatedBy:        userID,

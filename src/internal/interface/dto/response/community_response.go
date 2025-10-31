@@ -3,17 +3,21 @@ package response
 import (
 	"social-platform-backend/internal/domain/model"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type CommunityDetailResponse struct {
-	ID               uint64    `json:"id"`
-	Name             string    `json:"name"`
-	ShortDescription string    `json:"shortDescription"`
-	Description      *string   `json:"description,omitempty"`
-	CoverImage       *string   `json:"coverImage,omitempty"`
-	IsPrivate        bool      `json:"isPrivate"`
-	CreatedAt        time.Time `json:"createdAt"`
-	TotalMembers     int64     `json:"totalMembers"`
+	ID               uint64         `json:"id"`
+	Name             string         `json:"name"`
+	ShortDescription string         `json:"shortDescription"`
+	Description      *string        `json:"description,omitempty"`
+	Topic            pq.StringArray `json:"topic,omitempty"`
+	CommunityAvatar  *string        `json:"communityAvatar,omitempty"`
+	CoverImage       *string        `json:"coverImage,omitempty"`
+	IsPrivate        bool           `json:"isPrivate"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	TotalMembers     int64          `json:"totalMembers"`
 
 	// List of moderators
 	Moderators []ModeratorResponse `json:"moderators,omitempty"`
@@ -25,6 +29,8 @@ func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResp
 		Name:             community.Name,
 		ShortDescription: community.ShortDescription,
 		Description:      community.Description,
+		Topic:            community.Topic,
+		CommunityAvatar:  community.CommunityAvatar,
 		CoverImage:       community.CoverImage,
 		IsPrivate:        community.IsPrivate,
 		CreatedAt:        community.CreatedAt,
@@ -32,11 +38,13 @@ func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResp
 }
 
 type CommunityListResponse struct {
-	ID               uint64 `json:"id"`
-	Name             string `json:"name"`
-	ShortDescription string `json:"shortDescription"`
-	IsPrivate        bool   `json:"isPrivate"`
-	TotalMembers     int64  `json:"totalMembers"`
+	ID               uint64         `json:"id"`
+	Name             string         `json:"name"`
+	ShortDescription string         `json:"shortDescription"`
+	Topic            pq.StringArray `json:"topic,omitempty"`
+	CommunityAvatar  *string        `json:"communityAvatar,omitempty"`
+	IsPrivate        bool           `json:"isPrivate"`
+	TotalMembers     int64          `json:"totalMembers"`
 }
 
 func NewCommunityListResponse(community *model.Community) *CommunityListResponse {
@@ -44,6 +52,8 @@ func NewCommunityListResponse(community *model.Community) *CommunityListResponse
 		ID:               community.ID,
 		Name:             community.Name,
 		ShortDescription: community.ShortDescription,
+		Topic:            community.Topic,
+		CommunityAvatar:  community.CommunityAvatar,
 		IsPrivate:        community.IsPrivate,
 	}
 }
