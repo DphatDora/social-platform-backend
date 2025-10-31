@@ -31,6 +31,23 @@ func (r *PostRepositoryImpl) GetPostByID(id uint64) (*model.Post, error) {
 	return &post, nil
 }
 
+func (r *PostRepositoryImpl) GetPostDetailByID(id uint64) (*model.Post, error) {
+	var post model.Post
+	err := r.db.Table("posts").
+		Select(`posts.*,
+			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Where("posts.id = ?", id).
+		Group("posts.id").
+		Preload("Community").
+		Preload("Author").
+		First(&post).Error
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
 func (r *PostRepositoryImpl) UpdatePostText(id uint64, updatePost *request.UpdatePostTextRequest) error {
 	updates := make(map[string]interface{})
 	if updatePost.Title != nil {
