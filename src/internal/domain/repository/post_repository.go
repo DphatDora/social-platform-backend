@@ -8,6 +8,7 @@ import (
 type PostRepository interface {
 	CreatePost(post *model.Post) error
 	GetPostByID(id uint64) (*model.Post, error)
+	GetPostDetailByID(id uint64) (*model.Post, error)
 	UpdatePostText(id uint64, updatePost *request.UpdatePostTextRequest) error
 	UpdatePostLink(id uint64, updatePost *request.UpdatePostLinkRequest) error
 	UpdatePostMedia(id uint64, updatePost *request.UpdatePostMediaRequest) error

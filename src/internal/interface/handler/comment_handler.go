@@ -59,11 +59,11 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 	})
 }
 
-func (h *CommentHandler) GetCommentsByPostID(c *gin.Context) {
-	postIDParam := c.Param("postId")
+func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
+	postIDParam := c.Param("id")
 	postID, err := strconv.ParseUint(postIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in CommentHandler.GetCommentsByPostID: %v", err)
+		log.Printf("[Err] Invalid post ID in CommentHandler.GetCommentsOnPost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",

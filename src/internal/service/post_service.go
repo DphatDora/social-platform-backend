@@ -249,6 +249,16 @@ func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int) 
 	return postResponses, pagination, nil
 }
 
+func (s *PostService) GetPostDetailByID(postID uint64) (*response.PostDetailResponse, error) {
+	post, err := s.postRepo.GetPostDetailByID(postID)
+	if err != nil {
+		log.Printf("[Err] Error getting post detail in PostService.GetPostDetailByID: %v", err)
+		return nil, fmt.Errorf("post not found")
+	}
+
+	return response.NewPostDetailResponse(post), nil
+}
+
 func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 	// Check if post exists
 	_, err := s.postRepo.GetPostByID(postID)
