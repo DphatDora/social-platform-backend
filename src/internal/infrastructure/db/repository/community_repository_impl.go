@@ -58,6 +58,12 @@ func (r *CommunityRepositoryImpl) UpdateCommunity(id uint64, updateCommunity *re
 	if updateCommunity.Description != nil {
 		updates["description"] = *updateCommunity.Description
 	}
+	if updateCommunity.Topic != nil {
+		updates["topic"] = *updateCommunity.Topic
+	}
+	if updateCommunity.CommunityAvatar != nil {
+		updates["community_avatar"] = *updateCommunity.CommunityAvatar
+	}
 	if updateCommunity.CoverImage != nil {
 		updates["cover_image"] = *updateCommunity.CoverImage
 	}
