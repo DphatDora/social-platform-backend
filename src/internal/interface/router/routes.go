@@ -17,6 +17,7 @@ type AppHandler struct {
 	postHandler      *handler.PostHandler
 	commentHandler   *handler.CommentHandler
 	authHandler      *handler.AuthHandler
+	messageHandler   *handler.MessageHandler
 }
 
 func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
@@ -35,6 +36,8 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	postVoteRepo := repository.NewPostVoteRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
 	commentVoteRepo := repository.NewCommentVoteRepository(db)
+	conversationRepo := repository.NewConversationRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
@@ -42,6 +45,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo)
+	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -49,6 +53,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	communityHandler := handler.NewCommunityHandler(communityService)
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
+	messageHandler := handler.NewMessageHandler(messageService)
 
 	appHandler := &AppHandler{
 		userHandler:      userHandler,
@@ -56,6 +61,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 		postHandler:      postHandler,
 		commentHandler:   commentHandler,
 		authHandler:      authHandler,
+		messageHandler:   messageHandler,
 	}
 
 	// Setup route groups
@@ -74,7 +80,6 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
 
-	// Auth routes (public)
 	auth := rg.Group("/auth")
 	{
 		auth.POST("/register", appHandler.authHandler.Register)
@@ -86,7 +91,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		auth.POST("/resend-verification", appHandler.authHandler.ResendVerificationEmail)
 		auth.POST("/resend-reset-password", appHandler.authHandler.ResendResetPasswordEmail)
 	}
-	// Community routes (public)
+
 	communities := rg.Group("/communities")
 	{
 		communities.GET("", appHandler.communityHandler.GetCommunities)
@@ -97,7 +102,6 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		communities.POST("/verify-name", appHandler.communityHandler.VerifyCommunityName)
 	}
 
-	// Post routes (public)
 	posts := rg.Group("/posts")
 	{
 		posts.GET("", appHandler.postHandler.GetAllPosts)
@@ -146,6 +150,17 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			comments.DELETE("/:id", appHandler.commentHandler.DeleteComment)
 			comments.POST("/:id/vote", appHandler.commentHandler.VoteComment)
 			comments.DELETE("/:id/vote", appHandler.commentHandler.UnvoteComment)
+		}
+
+		messages := protected.Group("/messages")
+		{
+			messages.POST("", appHandler.messageHandler.SendMessage)
+			messages.GET("/conversations", appHandler.messageHandler.GetConversations)
+			messages.GET("/conversations/stream", appHandler.messageHandler.StreamConversations)
+			messages.GET("/conversations/:conversationId/messages", appHandler.messageHandler.GetMessages)
+			messages.GET("/conversations/:conversationId/stream", appHandler.messageHandler.StreamMessages)
+			messages.PATCH("/conversations/:conversationId/read", appHandler.messageHandler.MarkConversationAsRead)
+			messages.PATCH("/:messageId/read", appHandler.messageHandler.MarkAsRead)
 		}
 	}
 }

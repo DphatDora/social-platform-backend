@@ -14,11 +14,13 @@ type Message struct {
 	Content        string         `gorm:"column:content"`
 	CreatedAt      time.Time      `gorm:"column:created_at"`
 	IsRead         bool           `gorm:"column:is_read"`
+	ReadAt         *time.Time     `gorm:"column:read_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at"`
 
 	// relation
-	Sender       *User         `gorm:"foreignKey:SenderID;references:ID"`
-	Conversation *Conversation `gorm:"foreignKey:ConversationID;references:ID"`
+	Sender       *User               `gorm:"foreignKey:SenderID;references:ID"`
+	Conversation *Conversation       `gorm:"foreignKey:ConversationID;references:ID"`
+	Attachments  []MessageAttachment `gorm:"foreignKey:MessageID;references:ID"`
 }
 
 func (Message) TableName() string {
