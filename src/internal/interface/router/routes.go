@@ -102,7 +102,8 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 	{
 		posts.GET("", appHandler.postHandler.GetAllPosts)
 		posts.GET("/search", appHandler.postHandler.SearchPosts)
-		posts.GET("/:postId/comments", appHandler.commentHandler.GetCommentsByPostID)
+		posts.GET("/:id", appHandler.postHandler.GetPostDetail)
+		posts.GET("/:id/comments", appHandler.commentHandler.GetCommentsOnPost)
 	}
 }
 

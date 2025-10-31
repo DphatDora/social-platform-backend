@@ -253,6 +253,44 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 	})
 }
 
+func (h *PostHandler) GetPostDetail(c *gin.Context) {
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.GetPostDetail: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	post, err := h.postService.GetPostDetailByID(postID)
+	if err != nil {
+		log.Printf("[Err] Error getting post detail in PostHandler.GetPostDetail: %v", err)
+
+		if err.Error() == "post not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get post detail",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Post detail retrieved successfully",
+		Data:    post,
+	})
+}
+
 func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 	idParam := c.Param("id")
 	communityID, err := strconv.ParseUint(idParam, 10, 64)
