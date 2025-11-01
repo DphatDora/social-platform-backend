@@ -11,6 +11,7 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/template/payload"
 	"social-platform-backend/package/util"
 	"time"
 )
@@ -102,7 +103,7 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		return fmt.Errorf("failed to render email template: %w", err)
 	}
 
-	emailPayload := request.EmailPayload{
+	emailPayload := payload.EmailPayload{
 		To:      user.Email,
 		Subject: "Verify Your Account",
 		Body:    body,
@@ -125,7 +126,6 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
 		log.Printf("[Err] Error creating bot task in AuthService.Register: %v", err)
-		return fmt.Errorf("failed to create bot task: %w", err)
 	}
 
 	return nil
@@ -247,7 +247,7 @@ func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
 		return fmt.Errorf("failed to render email template")
 	}
 
-	emailPayload := request.EmailPayload{
+	emailPayload := payload.EmailPayload{
 		To:      user.Email,
 		Subject: "Reset Your Password",
 		Body:    body,
@@ -270,7 +270,6 @@ func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
 		log.Printf("[Err] Error creating bot task in AuthService.ForgotPassword: %v", err)
-		return fmt.Errorf("failed to create bot task")
 	}
 
 	return nil
@@ -376,7 +375,7 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 		return fmt.Errorf("failed to render email template")
 	}
 
-	emailPayload := request.EmailPayload{
+	emailPayload := payload.EmailPayload{
 		To:      user.Email,
 		Subject: "Verify Your Account",
 		Body:    body,
@@ -399,7 +398,6 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
 		log.Printf("[Err] Error creating bot task in AuthService.ResendVerificationEmail: %v", err)
-		return fmt.Errorf("failed to create bot task")
 	}
 
 	return nil
@@ -456,7 +454,7 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 		return fmt.Errorf("failed to render email template")
 	}
 
-	emailPayload := request.EmailPayload{
+	emailPayload := payload.EmailPayload{
 		To:      user.Email,
 		Subject: "Reset Your Password",
 		Body:    body,
@@ -479,7 +477,6 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
 		log.Printf("[Err] Error creating bot task in AuthService.ResendResetPasswordEmail: %v", err)
-		return fmt.Errorf("failed to create bot task")
 	}
 
 	return nil
