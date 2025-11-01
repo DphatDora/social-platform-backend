@@ -1,4 +1,4 @@
-package request
+package payload
 
 type EmailPayload struct {
 	To      string `json:"to"`

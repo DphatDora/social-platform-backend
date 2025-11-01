@@ -1,0 +1,15 @@
+package constant
+
+const (
+	BADGE_ID_BRONZE   = 1
+	BADGE_ID_SILVER   = 2
+	BADGE_ID_GOLD     = 3
+	BADGE_ID_PLATINUM = 4
+)
+
+const (
+	BADGE_LEVEL_BRONZE   = 50
+	BADGE_LEVEL_SILVER   = 200
+	BADGE_LEVEL_GOLD     = 500
+	BADGE_LEVEL_PLATINUM = 1000
+)

@@ -1,0 +1,23 @@
+package constant
+
+// const (
+// 	KARMA_SCORE_CREATE_POST    = 20
+// 	KARMA_SCORE_CREATE_COMMENT = 10
+// 	KARMA_SCORE_VOTE_POST      = 5
+// 	KARMA_SCORE_VOTE_COMMENT   = 2
+
+// 	KARMA_SCORE_GET_POST_UPVOTE      = 5
+// 	KARMA_SCORE_GET_POST_DOWNVOTE    = -2
+// 	KARMA_SCORE_GET_COMMENT_UPVOTE   = 2
+// 	KARMA_SCORE_GET_COMMENT_DOWNVOTE = -1
+// 	KARMA_SCORE_GET_POST_COMMENT     = 3
+// )
+
+const (
+	KARMA_ACTION_CREATE_POST      = "create_post"
+	KARMA_ACTION_CREATE_COMMENT   = "create_comment"
+	KARMA_ACTION_UPVOTE_POST      = "upvote_post"
+	KARMA_ACTION_DOWNVOTE_POST    = "downvote_post"
+	KARMA_ACTION_UPVOTE_COMMENT   = "upvote_comment"
+	KARMA_ACTION_DOWNVOTE_COMMENT = "downvote_comment"
+)
