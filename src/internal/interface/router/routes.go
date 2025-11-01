@@ -43,8 +43,8 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
 	userService := service.NewUserService(userRepo, communityModeratorRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
-	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo)
+	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, botTaskRepo)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo)
 
 	// Initialize handlers
