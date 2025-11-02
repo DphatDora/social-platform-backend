@@ -14,10 +14,12 @@ import (
 )
 
 type PostService struct {
-	postRepo      repository.PostRepository
-	communityRepo repository.CommunityRepository
-	postVoteRepo  repository.PostVoteRepository
-	botTaskRepo   repository.BotTaskRepository
+	postRepo            repository.PostRepository
+	communityRepo       repository.CommunityRepository
+	postVoteRepo        repository.PostVoteRepository
+	botTaskRepo         repository.BotTaskRepository
+	userRepo            repository.UserRepository
+	notificationService *NotificationService
 }
 
 func NewPostService(
@@ -25,12 +27,16 @@ func NewPostService(
 	communityRepo repository.CommunityRepository,
 	postVoteRepo repository.PostVoteRepository,
 	botTaskRepo repository.BotTaskRepository,
+	userRepo repository.UserRepository,
+	notificationService *NotificationService,
 ) *PostService {
 	return &PostService{
-		postRepo:      postRepo,
-		communityRepo: communityRepo,
-		postVoteRepo:  postVoteRepo,
-		botTaskRepo:   botTaskRepo,
+		postRepo:            postRepo,
+		communityRepo:       communityRepo,
+		postVoteRepo:        postVoteRepo,
+		botTaskRepo:         botTaskRepo,
+		userRepo:            userRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -83,31 +89,39 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		return fmt.Errorf("failed to create post")
 	}
 
-	karmaPayload := payload.UpdateUserKarmaPayload{
-		UserId:    userID,
-		TargetId:  nil,
-		Action:    constant.KARMA_ACTION_CREATE_POST,
-		UpdatedAt: time.Now(),
-	}
+	go func(userID uint64) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in PostService.CreatePost background task: %v", r)
+			}
+		}()
 
-	payloadBytes, err := json.Marshal(karmaPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling karma payload in PostService.CreatePost: %v", err)
-		return fmt.Errorf("failed to marshal karma payload: %w", err)
-	}
+		karmaPayload := payload.UpdateUserKarmaPayload{
+			UserId:    userID,
+			TargetId:  nil,
+			Action:    constant.KARMA_ACTION_CREATE_POST,
+			UpdatedAt: time.Now(),
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now()
-	botTask := &model.BotTask{
-		Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(karmaPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling karma payload in PostService.CreatePost: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in PostService.CreatePost: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now()
+		botTask := &model.BotTask{
+			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in PostService.CreatePost: %v", err)
+		}
+	}(userID)
 
 	return nil
 }
@@ -310,38 +324,67 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 		return fmt.Errorf("failed to vote post")
 	}
 
-	var action string
-	if vote {
-		action = constant.KARMA_ACTION_UPVOTE_POST
-	} else {
-		action = constant.KARMA_ACTION_DOWNVOTE_POST
-	}
+	go func(userID uint64, post *model.Post, vote bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in PostService.VotePost background task: %v", r)
+			}
+		}()
 
-	karmaPayload := payload.UpdateUserKarmaPayload{
-		UserId:    userID,
-		TargetId:  &post.AuthorID,
-		Action:    action,
-		UpdatedAt: time.Now(),
-	}
+		// Create bot task for updating karma
+		var action string
+		if vote {
+			action = constant.KARMA_ACTION_UPVOTE_POST
+		} else {
+			action = constant.KARMA_ACTION_DOWNVOTE_POST
+		}
 
-	payloadBytes, err := json.Marshal(karmaPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling karma payload in PostService.VotePost: %v", err)
-		return nil
-	}
+		karmaPayload := payload.UpdateUserKarmaPayload{
+			UserId:    userID,
+			TargetId:  &post.AuthorID,
+			Action:    action,
+			UpdatedAt: time.Now(),
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now()
-	botTask := &model.BotTask{
-		Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(karmaPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling karma payload in PostService.VotePost: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in PostService.VotePost: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now()
+		botTask := &model.BotTask{
+			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in PostService.VotePost: %v", err)
+		}
+
+		// Send notification to post author (if not voting own post)
+		if s.notificationService != nil && userID != post.AuthorID {
+			voter, err := s.userRepo.GetUserByID(userID)
+			if err != nil {
+				log.Printf("[Err] Error getting voter in PostService.VotePost: %v", err)
+				return
+			}
+
+			notifPayload := payload.PostVoteNotificationPayload{
+				PostID:   post.ID,
+				UserName: voter.Username,
+				VoteType: vote,
+			}
+			s.notificationService.CreateNotification(
+				post.AuthorID,
+				constant.NOTIFICATION_ACTION_GET_POST_VOTE,
+				notifPayload,
+			)
+		}
+	}(userID, post, vote)
 
 	return nil
 }
