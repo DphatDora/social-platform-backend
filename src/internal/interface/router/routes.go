@@ -12,12 +12,14 @@ import (
 )
 
 type AppHandler struct {
-	userHandler      *handler.UserHandler
-	communityHandler *handler.CommunityHandler
-	postHandler      *handler.PostHandler
-	commentHandler   *handler.CommentHandler
-	authHandler      *handler.AuthHandler
-	messageHandler   *handler.MessageHandler
+	userHandler         *handler.UserHandler
+	communityHandler    *handler.CommunityHandler
+	postHandler         *handler.PostHandler
+	commentHandler      *handler.CommentHandler
+	authHandler         *handler.AuthHandler
+	messageHandler      *handler.MessageHandler
+	notificationHandler *handler.NotificationHandler
+	sseHandler          *handler.SSEHandler
 }
 
 func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
@@ -38,14 +40,20 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	commentVoteRepo := repository.NewCommentVoteRepository(db)
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
+	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
 	userService := service.NewUserService(userRepo, communityModeratorRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
-	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, botTaskRepo)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo)
-	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo)
+
+	sseService := service.NewSSEService()
+
+	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
+	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
+	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, botTaskRepo, userRepo, notificationService)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, notificationService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -54,14 +62,18 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	postHandler := handler.NewPostHandler(postService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	messageHandler := handler.NewMessageHandler(messageService)
+	notificationHandler := handler.NewNotificationHandler(notificationService)
+	sseHandler := handler.NewSSEHandler(sseService)
 
 	appHandler := &AppHandler{
-		userHandler:      userHandler,
-		communityHandler: communityHandler,
-		postHandler:      postHandler,
-		commentHandler:   commentHandler,
-		authHandler:      authHandler,
-		messageHandler:   messageHandler,
+		userHandler:         userHandler,
+		communityHandler:    communityHandler,
+		postHandler:         postHandler,
+		commentHandler:      commentHandler,
+		authHandler:         authHandler,
+		messageHandler:      messageHandler,
+		notificationHandler: notificationHandler,
+		sseHandler:          sseHandler,
 	}
 
 	// Setup route groups
@@ -156,11 +168,24 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		{
 			messages.POST("", appHandler.messageHandler.SendMessage)
 			messages.GET("/conversations", appHandler.messageHandler.GetConversations)
-			messages.GET("/conversations/stream", appHandler.messageHandler.StreamConversations)
 			messages.GET("/conversations/:conversationId/messages", appHandler.messageHandler.GetMessages)
-			messages.GET("/conversations/:conversationId/stream", appHandler.messageHandler.StreamMessages)
 			messages.PATCH("/conversations/:conversationId/read", appHandler.messageHandler.MarkConversationAsRead)
 			messages.PATCH("/:messageId/read", appHandler.messageHandler.MarkAsRead)
+		}
+
+		notifications := protected.Group("/notifications")
+		{
+			notifications.GET("", appHandler.notificationHandler.GetNotifications)
+			notifications.GET("/unread-count", appHandler.notificationHandler.GetUnreadCount)
+			notifications.PATCH("/:id/read", appHandler.notificationHandler.MarkAsRead)
+			notifications.PATCH("/read-all", appHandler.notificationHandler.MarkAllAsRead)
+			notifications.DELETE("/:id", appHandler.notificationHandler.DeleteNotification)
+		}
+
+		sse := protected.Group("")
+		{
+			sse.GET("/stream", appHandler.sseHandler.Stream)
+			sse.GET("/conversations/:conversationId", appHandler.sseHandler.StreamConversationMessages)
 		}
 	}
 }
