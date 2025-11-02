@@ -92,41 +92,49 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		return fmt.Errorf("failed to create verification: %w", err)
 	}
 
-	// Create bot task for sending email
-	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
-	body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
-		"VerificationLink": template.URL(verificationLink),
-		"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
-	})
+	go func(userEmail string, token string) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in AuthService.Register bot task: %v", r)
+			}
+		}()
 
-	if err != nil {
-		return fmt.Errorf("failed to render email template: %w", err)
-	}
+		verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
+		body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
+			"VerificationLink": template.URL(verificationLink),
+			"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
+		})
 
-	emailPayload := payload.EmailPayload{
-		To:      user.Email,
-		Subject: "Verify Your Account",
-		Body:    body,
-	}
+		if err != nil {
+			log.Printf("[Err] Error rendering email template in AuthService.Register: %v", err)
+			return
+		}
 
-	payloadBytes, err := json.Marshal(emailPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling email payload in AuthService.Register: %v", err)
-		return fmt.Errorf("failed to marshal email payload: %w", err)
-	}
+		emailPayload := payload.EmailPayload{
+			To:      userEmail,
+			Subject: "Verify Your Account",
+			Body:    body,
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now()
-	botTask := &model.BotTask{
-		Action:     "send_email",
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(emailPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling email payload in AuthService.Register: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in AuthService.Register: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now()
+		botTask := &model.BotTask{
+			Action:     "send_email",
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in AuthService.Register: %v", err)
+		}
+	}(user.Email, token)
 
 	return nil
 }
@@ -235,42 +243,49 @@ func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
 		return fmt.Errorf("failed to create password reset")
 	}
 
-	// Create bot task for sending email
-	resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
-	body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
-		"ResetLink":     template.URL(resetLink),
-		"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
-	})
+	go func(userEmail string, token string) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in AuthService.ForgotPassword bot task: %v", r)
+			}
+		}()
 
-	if err != nil {
-		log.Printf("[Err] Error rendering email template in AuthService.ForgotPassword: %v", err)
-		return fmt.Errorf("failed to render email template")
-	}
+		resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
+		body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
+			"ResetLink":     template.URL(resetLink),
+			"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
+		})
 
-	emailPayload := payload.EmailPayload{
-		To:      user.Email,
-		Subject: "Reset Your Password",
-		Body:    body,
-	}
+		if err != nil {
+			log.Printf("[Err] Error rendering email template in AuthService.ForgotPassword: %v", err)
+			return
+		}
 
-	payloadBytes, err := json.Marshal(emailPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling email payload in AuthService.ForgotPassword: %v", err)
-		return fmt.Errorf("failed to marshal email payload")
-	}
+		emailPayload := payload.EmailPayload{
+			To:      userEmail,
+			Subject: "Reset Your Password",
+			Body:    body,
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now()
-	botTask := &model.BotTask{
-		Action:     "send_email",
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(emailPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling email payload in AuthService.ForgotPassword: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in AuthService.ForgotPassword: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now()
+		botTask := &model.BotTask{
+			Action:     "send_email",
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in AuthService.ForgotPassword: %v", err)
+		}
+	}(user.Email, token)
 
 	return nil
 }
@@ -363,42 +378,50 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 		return fmt.Errorf("failed to create verification")
 	}
 
-	// Create bot task for sending email
-	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
-	body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
-		"VerificationLink": template.URL(verificationLink),
-		"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
-	})
+	// Create bot task for sending email in background
+	go func(userEmail string, token string) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in AuthService.ResendVerificationEmail bot task: %v", r)
+			}
+		}()
 
-	if err != nil {
-		log.Printf("[Err] Error rendering email template in AuthService.ResendVerificationEmail: %v", err)
-		return fmt.Errorf("failed to render email template")
-	}
+		verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
+		body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
+			"VerificationLink": template.URL(verificationLink),
+			"ExpireMinutes":    conf.Auth.VerifyTokenExpirationMinutes,
+		})
 
-	emailPayload := payload.EmailPayload{
-		To:      user.Email,
-		Subject: "Verify Your Account",
-		Body:    body,
-	}
+		if err != nil {
+			log.Printf("[Err] Error rendering email template in AuthService.ResendVerificationEmail: %v", err)
+			return
+		}
 
-	payloadBytes, err := json.Marshal(emailPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling email payload in AuthService.ResendVerificationEmail: %v", err)
-		return fmt.Errorf("failed to marshal email payload")
-	}
+		emailPayload := payload.EmailPayload{
+			To:      userEmail,
+			Subject: "Verify Your Account",
+			Body:    body,
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now().UTC()
-	botTask := &model.BotTask{
-		Action:     "send_email",
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(emailPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling email payload in AuthService.ResendVerificationEmail: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in AuthService.ResendVerificationEmail: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now().UTC()
+		botTask := &model.BotTask{
+			Action:     "send_email",
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in AuthService.ResendVerificationEmail: %v", err)
+		}
+	}(user.Email, token)
 
 	return nil
 }
@@ -442,42 +465,50 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 		return fmt.Errorf("failed to create password reset")
 	}
 
-	// Create bot task for sending email
-	resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
-	body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
-		"ResetLink":     template.URL(resetLink),
-		"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
-	})
+	// Create bot task for sending email in background
+	go func(userEmail string, token string) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in AuthService.ResendResetPasswordEmail bot task: %v", r)
+			}
+		}()
 
-	if err != nil {
-		log.Printf("[Err] Error rendering email template in AuthService.ResendResetPasswordEmail: %v", err)
-		return fmt.Errorf("failed to render email template")
-	}
+		resetLink := fmt.Sprintf("%s/api/v1/auth/verify-reset?token=%s", conf.Server.Url, token)
+		body, err := util.RenderTemplate("package/template/email/password_reset.html", map[string]interface{}{
+			"ResetLink":     template.URL(resetLink),
+			"ExpireMinutes": conf.Auth.ResetTokenExpirationMinutes,
+		})
 
-	emailPayload := payload.EmailPayload{
-		To:      user.Email,
-		Subject: "Reset Your Password",
-		Body:    body,
-	}
+		if err != nil {
+			log.Printf("[Err] Error rendering email template in AuthService.ResendResetPasswordEmail: %v", err)
+			return
+		}
 
-	payloadBytes, err := json.Marshal(emailPayload)
-	if err != nil {
-		log.Printf("[Err] Error marshaling email payload in AuthService.ResendResetPasswordEmail: %v", err)
-		return fmt.Errorf("failed to marshal email payload")
-	}
+		emailPayload := payload.EmailPayload{
+			To:      userEmail,
+			Subject: "Reset Your Password",
+			Body:    body,
+		}
 
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now().UTC()
-	botTask := &model.BotTask{
-		Action:     "send_email",
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
+		payloadBytes, err := json.Marshal(emailPayload)
+		if err != nil {
+			log.Printf("[Err] Error marshaling email payload in AuthService.ResendResetPasswordEmail: %v", err)
+			return
+		}
 
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task in AuthService.ResendResetPasswordEmail: %v", err)
-	}
+		rawPayload := json.RawMessage(payloadBytes)
+		now := time.Now().UTC()
+		botTask := &model.BotTask{
+			Action:     "send_email",
+			Payload:    &rawPayload,
+			CreatedAt:  now,
+			ExecutedAt: &now,
+		}
+
+		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
+			log.Printf("[Err] Error creating bot task in AuthService.ResendResetPasswordEmail: %v", err)
+		}
+	}(user.Email, token)
 
 	return nil
 }

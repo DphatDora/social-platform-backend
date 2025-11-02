@@ -7,88 +7,27 @@ import (
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
-	"sync"
 	"time"
 )
-
-// represents a connected SSE client
-type SSEClient struct {
-	UserID  uint64
-	Channel chan *response.SSEEvent
-}
 
 type MessageService struct {
 	conversationRepo repository.ConversationRepository
 	messageRepo      repository.MessageRepository
 	userRepo         repository.UserRepository
-
-	// SSE client management
-	clients    map[uint64][]*SSEClient // list of clients (userID)
-	clientsMux sync.RWMutex
+	sseService       *SSEService
 }
 
 func NewMessageService(
 	conversationRepo repository.ConversationRepository,
 	messageRepo repository.MessageRepository,
 	userRepo repository.UserRepository,
+	sseService *SSEService,
 ) *MessageService {
 	return &MessageService{
 		conversationRepo: conversationRepo,
 		messageRepo:      messageRepo,
 		userRepo:         userRepo,
-		clients:          make(map[uint64][]*SSEClient),
-	}
-}
-
-func (s *MessageService) RegisterSSEClient(userID uint64) *SSEClient {
-	client := &SSEClient{
-		UserID:  userID,
-		Channel: make(chan *response.SSEEvent, 10),
-	}
-
-	s.clientsMux.Lock()
-	defer s.clientsMux.Unlock()
-
-	s.clients[userID] = append(s.clients[userID], client)
-	log.Printf("[Info] SSE client registered for user %d. Total clients: %d", userID, len(s.clients[userID]))
-
-	return client
-}
-
-func (s *MessageService) UnregisterSSEClient(userID uint64, client *SSEClient) {
-	s.clientsMux.Lock()
-	defer s.clientsMux.Unlock()
-
-	clients := s.clients[userID]
-	for i, c := range clients {
-		if c == client {
-			// Remove client from slice
-			s.clients[userID] = append(clients[:i], clients[i+1:]...)
-			close(client.Channel)
-			log.Printf("[Info] SSE client unregistered for user %d. Remaining clients: %d", userID, len(s.clients[userID]))
-			break
-		}
-	}
-
-	// Clean up empty user entries
-	if len(s.clients[userID]) == 0 {
-		delete(s.clients, userID)
-	}
-}
-
-// sends event to all SSE clients of a user
-func (s *MessageService) BroadcastToUser(userID uint64, event *response.SSEEvent) {
-	s.clientsMux.RLock()
-	defer s.clientsMux.RUnlock()
-
-	clients := s.clients[userID]
-	for _, client := range clients {
-		select {
-		case client.Channel <- event:
-			log.Printf("[Info] Event sent to user %d", userID)
-		default:
-			log.Printf("[Warn] Failed to send event to user %d - channel full", userID)
-		}
+		sseService:       sseService,
 	}
 }
 
@@ -162,7 +101,7 @@ func (s *MessageService) broadcastNewMessage(userID uint64, conversationID uint6
 			Message:        *message,
 		},
 	}
-	s.BroadcastToUser(userID, event)
+	s.sseService.BroadcastToUser(userID, event)
 }
 
 // sends conversation update event via SSE
@@ -182,7 +121,7 @@ func (s *MessageService) broadcastConversationUpdate(userID uint64, conversation
 			Conversation: *conversationResp,
 		},
 	}
-	s.BroadcastToUser(userID, event)
+	s.sseService.BroadcastToUser(userID, event)
 }
 
 func (s *MessageService) MarkMessageAsRead(userID, messageID uint64) error {
