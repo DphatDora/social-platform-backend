@@ -3,6 +3,7 @@ package repository
 import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
+	"social-platform-backend/package/constant"
 
 	"gorm.io/gorm"
 )
@@ -104,4 +105,41 @@ func (r *CommentRepositoryImpl) DeleteComment(commentID uint64, parentCommentID 
 
 		return nil
 	})
+}
+
+func (r *CommentRepositoryImpl) GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Comment, int64, error) {
+	var comments []*model.Comment
+	var total int64
+
+	// Count total comments by user
+	if err := r.db.Model(&model.Comment{}).
+		Where("author_id = ? AND deleted_at IS NULL", userID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Table("comments").
+		Select(`comments.*,
+			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Where("comments.author_id = ? AND comments.deleted_at IS NULL", userID).
+		Group("comments.id").
+		Preload("Author").
+		Preload("Post")
+
+	switch sortBy {
+	case constant.SORT_TOP:
+		query = query.Order("vote DESC, comments.created_at DESC")
+	case constant.SORT_NEW:
+		fallthrough
+	default:
+		query = query.Order("comments.created_at DESC")
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Find(&comments).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return comments, total, nil
 }

@@ -73,3 +73,31 @@ func (r *UserRepositoryImpl) UpdateUserProfile(id uint64, updateUser *request.Up
 	}
 	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(updates).Error
 }
+
+func (r *UserRepositoryImpl) GetLatestUserBadge(userID uint64) (*model.UserBadge, error) {
+	var userBadge model.UserBadge
+	err := r.db.Where("user_id = ?", userID).
+		Order("awarded_at DESC").
+		Preload("Badge").
+		First(&userBadge).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userBadge, nil
+}
+
+func (r *UserRepositoryImpl) GetUserPostCount(userID uint64) (uint64, error) {
+	var count int64
+	err := r.db.Model(&model.Post{}).
+		Where("author_id = ? AND deleted_at IS NULL", userID).
+		Count(&count).Error
+	return uint64(count), err
+}
+
+func (r *UserRepositoryImpl) GetUserCommentCount(userID uint64) (uint64, error) {
+	var count int64
+	err := r.db.Model(&model.Comment{}).
+		Where("author_id = ? AND deleted_at IS NULL", userID).
+		Count(&count).Error
+	return uint64(count), err
+}
