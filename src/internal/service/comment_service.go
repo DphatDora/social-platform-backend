@@ -363,3 +363,31 @@ func (s *CommentService) UnvoteComment(userID, commentID uint64) error {
 
 	return nil
 }
+
+func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*response.CommentResponse, *response.Pagination, error) {
+	// Check if user exists
+	_, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("[Err] User not found in CommentService.GetCommentsByUserID: %v", err)
+		return nil, nil, fmt.Errorf("user not found")
+	}
+
+	comments, total, err := s.commentRepo.GetCommentsByUserID(userID, sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting comments by user ID in CommentService.GetCommentsByUserID: %v", err)
+		return nil, nil, fmt.Errorf("failed to get comments")
+	}
+
+	commentResponses := make([]*response.CommentResponse, len(comments))
+	for i, comment := range comments {
+		commentResponses[i] = response.NewCommentResponse(comment)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+
+	return commentResponses, pagination, nil
+}

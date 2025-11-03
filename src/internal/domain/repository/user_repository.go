@@ -13,4 +13,7 @@ type UserRepository interface {
 	ActivateUser(id uint64) error
 	UpdatePasswordAndSetChangedAt(id uint64, hashedPassword string) error
 	UpdateUserProfile(id uint64, updateUser *request.UpdateUserProfileRequest) error
+	GetLatestUserBadge(userID uint64) (*model.UserBadge, error)
+	GetUserPostCount(userID uint64) (uint64, error)
+	GetUserCommentCount(userID uint64) (uint64, error)
 }

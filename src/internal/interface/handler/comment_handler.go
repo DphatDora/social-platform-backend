@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -284,5 +285,54 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment unvoted successfully",
+	})
+}
+
+func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in CommentHandler.GetCommentsByUser: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	comments, pagination, err := h.commentService.GetCommentsByUserID(userID, sortBy, page, limit)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "User not found",
+			})
+			return
+		}
+
+		log.Printf("[Err] Error getting comments by user in CommentHandler.GetCommentsByUser: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve comments",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Comments retrieved successfully",
+		Data:       comments,
+		Pagination: pagination,
 	})
 }

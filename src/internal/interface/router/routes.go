@@ -121,6 +121,13 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		posts.GET("/:id", appHandler.postHandler.GetPostDetail)
 		posts.GET("/:id/comments", appHandler.commentHandler.GetCommentsOnPost)
 	}
+
+	users := rg.Group("/users")
+	{
+		users.GET("/:id", appHandler.userHandler.GetUserByID)
+		users.GET("/:id/posts", appHandler.postHandler.GetPostsByUser)
+		users.GET("/:id/comments", appHandler.commentHandler.GetCommentsByUser)
+	}
 }
 
 func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config) {
