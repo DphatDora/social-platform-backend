@@ -6,6 +6,7 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -197,5 +198,34 @@ func (h *UserHandler) GetUserConfig(c *gin.Context) {
 		Success: true,
 		Message: "User config retrieved successfully",
 		Data:    userConfig,
+	})
+}
+
+func (h *UserHandler) GetUserByID(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in UserHandler.GetUserByID: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	userProfile, err := h.userService.GetUserProfile(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user profile in UserHandler.GetUserByID: %v", err)
+		c.JSON(http.StatusNotFound, response.APIResponse{
+			Success: false,
+			Message: "User not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "User profile retrieved successfully",
+		Data:    userProfile,
 	})
 }

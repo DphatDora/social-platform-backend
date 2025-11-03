@@ -4,6 +4,7 @@ import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
+	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"time"
 
@@ -243,6 +244,47 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		query = query.Order("posts.created_at DESC")
 	}
 
+	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
+}
+
+func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error) {
+	var posts []*model.Post
+	var total int64
+
+	// Count total posts by user
+	if err := r.db.Model(&model.Post{}).
+		Where("author_id = ? AND deleted_at IS NULL", userID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Table("posts").
+		Select(`posts.*,
+			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+			COUNT(DISTINCT comments.id) as comment_count`).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL").
+		Where("posts.author_id = ? AND posts.deleted_at IS NULL", userID).
+		Group("posts.id").
+		Preload("Community").
+		Preload("Author")
+
+	switch sortBy {
+	case constant.SORT_TOP:
+		query = query.Order("vote DESC, posts.created_at DESC")
+	case constant.SORT_HOT:
+		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
+	case constant.SORT_NEW:
+		fallthrough
+	default:
+		query = query.Order("posts.created_at DESC")
+	}
+
+	offset := (page - 1) * limit
 	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
 		return nil, 0, err
 	}

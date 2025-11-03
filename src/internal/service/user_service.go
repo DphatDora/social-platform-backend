@@ -29,7 +29,36 @@ func (s *UserService) GetUserProfile(userID uint64) (*response.UserProfileRespon
 		return nil, fmt.Errorf("user not found")
 	}
 
-	userProfile := response.NewUserProfileResponse(user)
+	// Get user achievement
+	achievement := response.UserAchievement{
+		Karma:         0,
+		Badge:         "",
+		TotalPosts:    0,
+		TotalComments: 0,
+	}
+
+	// Get latest badge
+	userBadge, err := s.userRepo.GetLatestUserBadge(userID)
+	if err == nil && userBadge != nil {
+		achievement.Karma = userBadge.Karma
+		if userBadge.Badge != nil {
+			achievement.Badge = userBadge.Badge.Name
+		}
+	}
+
+	// Get total posts
+	postCount, err := s.userRepo.GetUserPostCount(userID)
+	if err == nil {
+		achievement.TotalPosts = postCount
+	}
+
+	// Get total comments
+	commentCount, err := s.userRepo.GetUserCommentCount(userID)
+	if err == nil {
+		achievement.TotalComments = commentCount
+	}
+
+	userProfile := response.NewUserProfileResponse(user, achievement)
 	return userProfile, nil
 }
 

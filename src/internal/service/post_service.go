@@ -405,3 +405,31 @@ func (s *PostService) UnvotePost(userID, postID uint64) error {
 
 	return nil
 }
+
+func (s *PostService) GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+	// Check if user exists
+	_, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("[Err] User not found in PostService.GetPostsByUserID: %v", err)
+		return nil, nil, fmt.Errorf("user not found")
+	}
+
+	posts, total, err := s.postRepo.GetPostsByUserID(userID, sortBy, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting posts by user ID in PostService.GetPostsByUserID: %v", err)
+		return nil, nil, fmt.Errorf("failed to get posts")
+	}
+
+	postResponses := make([]*response.PostListResponse, len(posts))
+	for i, post := range posts {
+		postResponses[i] = response.NewPostListResponse(post)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+
+	return postResponses, pagination, nil
+}

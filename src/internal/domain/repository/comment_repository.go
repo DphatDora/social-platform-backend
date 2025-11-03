@@ -9,4 +9,5 @@ type CommentRepository interface {
 	UpdateComment(id uint64, content string, mediaURL *string) error
 	DeleteComment(commentID uint64, parentCommentID *uint64) error
 	GetRepliesByParentID(parentID uint64) ([]*model.Comment, error)
+	GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Comment, int64, error)
 }

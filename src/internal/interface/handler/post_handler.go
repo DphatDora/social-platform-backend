@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -479,5 +480,54 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post unvoted successfully",
+	})
+}
+
+func (h *PostHandler) GetPostsByUser(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in PostHandler.GetPostsByUser: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	posts, pagination, err := h.postService.GetPostsByUserID(userID, sortBy, page, limit)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "User not found",
+			})
+			return
+		}
+
+		log.Printf("[Err] Error getting posts by user in PostHandler.GetPostsByUser: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to retrieve posts",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Posts retrieved successfully",
+		Data:       posts,
+		Pagination: pagination,
 	})
 }
