@@ -44,7 +44,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
 	userService := service.NewUserService(userRepo, communityModeratorRepo)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
 
@@ -140,6 +140,8 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			users.PUT("/me", appHandler.userHandler.UpdateUserProfile)
 			users.PUT("/change-password", appHandler.userHandler.ChangePassword)
 			users.GET("/config", appHandler.userHandler.GetUserConfig)
+			users.GET("/notification-settings", appHandler.notificationHandler.GetNotificationSettings)
+			users.PATCH("/notification-settings", appHandler.notificationHandler.UpdateNotificationSetting)
 		}
 
 		communities := protected.Group("/communities")

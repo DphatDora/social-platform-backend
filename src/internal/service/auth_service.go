@@ -17,11 +17,12 @@ import (
 )
 
 type AuthService struct {
-	userRepo               repository.UserRepository
-	verificationRepo       repository.UserVerificationRepository
-	passwordResetRepo      repository.PasswordResetRepository
-	botTaskRepo            repository.BotTaskRepository
-	communityModeratorRepo repository.CommunityModeratorRepository
+	userRepo                repository.UserRepository
+	verificationRepo        repository.UserVerificationRepository
+	passwordResetRepo       repository.PasswordResetRepository
+	botTaskRepo             repository.BotTaskRepository
+	communityModeratorRepo  repository.CommunityModeratorRepository
+	notificationSettingRepo repository.NotificationSettingRepository
 }
 
 func NewAuthService(
@@ -30,13 +31,15 @@ func NewAuthService(
 	passwordResetRepo repository.PasswordResetRepository,
 	botTaskRepo repository.BotTaskRepository,
 	communityModeratorRepo repository.CommunityModeratorRepository,
+	notificationSettingRepo repository.NotificationSettingRepository,
 ) *AuthService {
 	return &AuthService{
-		userRepo:               userRepo,
-		verificationRepo:       verificationRepo,
-		passwordResetRepo:      passwordResetRepo,
-		botTaskRepo:            botTaskRepo,
-		communityModeratorRepo: communityModeratorRepo,
+		userRepo:                userRepo,
+		verificationRepo:        verificationRepo,
+		passwordResetRepo:       passwordResetRepo,
+		botTaskRepo:             botTaskRepo,
+		communityModeratorRepo:  communityModeratorRepo,
+		notificationSettingRepo: notificationSettingRepo,
 	}
 }
 
@@ -92,13 +95,38 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		return fmt.Errorf("failed to create verification: %w", err)
 	}
 
-	go func(userEmail string, token string) {
+	go func(userID uint64, userEmail string, token string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in AuthService.Register bot task: %v", r)
+				log.Printf("[Panic] Recovered in AuthService.Register background tasks: %v", r)
 			}
 		}()
 
+		actions := []string{
+			constant.NOTIFICATION_ACTION_GET_POST_VOTE,
+			constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
+			constant.NOTIFICATION_ACTION_GET_COMMENT_VOTE,
+			constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY,
+		}
+
+		now := time.Now()
+		settings := make([]*model.NotificationSetting, len(actions))
+		for i, action := range actions {
+			settings[i] = &model.NotificationSetting{
+				UserID:     userID,
+				Action:     action,
+				IsPush:     true,
+				IsSendMail: false,
+				CreatedAt:  now,
+				UpdatedAt:  now,
+			}
+		}
+
+		if err := s.notificationSettingRepo.CreateNotificationSettings(settings); err != nil {
+			log.Printf("[Err] Error creating notification settings in AuthService.Register: %v", err)
+		}
+
+		// Send verification email
 		verificationLink := fmt.Sprintf("%s/api/v1/auth/verify?token=%s", conf.Server.Url, token)
 		body, err := util.RenderTemplate("package/template/email/email_verification.html", map[string]interface{}{
 			"VerificationLink": template.URL(verificationLink),
@@ -123,18 +151,17 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		}
 
 		rawPayload := json.RawMessage(payloadBytes)
-		now := time.Now()
 		botTask := &model.BotTask{
 			Action:     "send_email",
 			Payload:    &rawPayload,
-			CreatedAt:  now,
+			CreatedAt:  time.Now(),
 			ExecutedAt: &now,
 		}
 
 		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
 			log.Printf("[Err] Error creating bot task in AuthService.Register: %v", err)
 		}
-	}(user.Email, token)
+	}(user.ID, user.Email, token)
 
 	return nil
 }

@@ -9,7 +9,7 @@ type NotificationSetting struct {
 	IsPush     bool      `gorm:"column:is_push"`
 	IsSendMail bool      `gorm:"column:is_send_mail"`
 	CreatedAt  time.Time `gorm:"column:created_at"`
-	UpdatedAt  time.Time `gorm:"column:updated_at"`
+	UpdatedAt  time.Time `gorm:"column:updated_at;autoUpdateTime"`
 
 	// relations
 	User *User `gorm:"foreignKey:UserID;references:ID"`

@@ -291,3 +291,75 @@ func (s *NotificationService) DeleteNotification(userID, notificationID uint64) 
 func (s *NotificationService) GetUnreadCount(userID uint64) (int64, error) {
 	return s.notificationRepo.GetUnreadCount(userID)
 }
+
+func (s *NotificationService) GetUserNotificationSettings(userID uint64) ([]*response.NotificationSettingResponse, error) {
+	settings, err := s.notificationSettingRepo.GetUserNotificationSettings(userID)
+	if err != nil {
+		log.Printf("[Err] Failed to get user notification settings: %v", err)
+		return nil, fmt.Errorf("failed to get notification settings")
+	}
+
+	settingResponses := make([]*response.NotificationSettingResponse, len(settings))
+	for i, setting := range settings {
+		settingResponses[i] = response.NewNotificationSettingResponse(setting)
+	}
+
+	return settingResponses, nil
+}
+
+func (s *NotificationService) UpdateNotificationSetting(userID uint64, action string, isPush, isSendMail *bool) error {
+	// Get existing setting
+	setting, err := s.notificationSettingRepo.GetUserNotificationSetting(userID, action)
+	if err != nil {
+		// If setting doesn't exist, create a new one with default values
+		setting = &model.NotificationSetting{
+			UserID:     userID,
+			Action:     action,
+			IsPush:     true,
+			IsSendMail: false,
+		}
+	}
+
+	if isPush != nil {
+		setting.IsPush = *isPush
+	}
+	if isSendMail != nil {
+		setting.IsSendMail = *isSendMail
+	}
+
+	// Upsert the setting
+	if err := s.notificationSettingRepo.UpsertNotificationSetting(setting); err != nil {
+		log.Printf("[Err] Failed to update notification setting: %v", err)
+		return fmt.Errorf("failed to update notification setting")
+	}
+
+	return nil
+}
+
+// func (s *NotificationService) CreateDefaultNotificationSettings(userID uint64) error {
+// 	actions := []string{
+// 		constant.NOTIFICATION_ACTION_GET_POST_VOTE,
+// 		constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
+// 		constant.NOTIFICATION_ACTION_GET_COMMENT_VOTE,
+// 		constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY,
+// 	}
+
+// 	now := time.Now()
+// 	settings := make([]*model.NotificationSetting, len(actions))
+// 	for i, action := range actions {
+// 		settings[i] = &model.NotificationSetting{
+// 			UserID:     userID,
+// 			Action:     action,
+// 			IsPush:     true,
+// 			IsSendMail: false,
+// 			CreatedAt:  now,
+// 		}
+// 	}
+
+// 	if err := s.notificationSettingRepo.CreateNotificationSettings(settings); err != nil {
+// 		log.Printf("[Err] Failed to create default notification settings: %v", err)
+// 		return fmt.Errorf("failed to create default notification settings")
+// 	}
+
+// 	return nil
+// }
