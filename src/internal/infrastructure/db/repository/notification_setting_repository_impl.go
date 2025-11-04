@@ -20,6 +20,13 @@ func (r *notificationSettingRepositoryImpl) CreateNotificationSetting(setting *m
 	return r.db.Create(setting).Error
 }
 
+func (r *notificationSettingRepositoryImpl) CreateNotificationSettings(settings []*model.NotificationSetting) error {
+	if len(settings) == 0 {
+		return nil
+	}
+	return r.db.Create(settings).Error
+}
+
 func (r *notificationSettingRepositoryImpl) GetUserNotificationSetting(userID uint64, action string) (*model.NotificationSetting, error) {
 	var setting model.NotificationSetting
 	err := r.db.Where("user_id = ? AND action = ?", userID, action).First(&setting).Error
