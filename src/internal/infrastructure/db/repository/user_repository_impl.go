@@ -101,3 +101,16 @@ func (r *UserRepositoryImpl) GetUserCommentCount(userID uint64) (uint64, error) 
 		Count(&count).Error
 	return uint64(count), err
 }
+
+func (r *UserRepositoryImpl) GetUserBadgeHistory(userID uint64) ([]*model.UserBadge, error) {
+	var userBadges []*model.UserBadge
+	err := r.db.Where("user_id = ?", userID).
+		Order("awarded_at DESC").
+		Preload("Badge").
+		Find(&userBadges).
+		Limit(5).Error
+	if err != nil {
+		return nil, err
+	}
+	return userBadges, nil
+}

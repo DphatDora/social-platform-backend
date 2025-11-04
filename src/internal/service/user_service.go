@@ -129,3 +129,22 @@ func (s *UserService) GetUserConfig(userID uint64) (*response.UserConfigResponse
 
 	return userConfig, nil
 }
+
+func (s *UserService) GetUserBadgeHistory(userID uint64) ([]*response.UserBadgeResponse, error) {
+	userBadges, err := s.userRepo.GetUserBadgeHistory(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user badge history in UserService.GetUserBadgeHistory: %v", err)
+		return nil, fmt.Errorf("failed to get user badge history")
+	}
+
+	badgeResponses := make([]*response.UserBadgeResponse, len(userBadges))
+	for i, userBadge := range userBadges {
+		badgeName := ""
+		if userBadge.Badge != nil {
+			badgeName = userBadge.Badge.Name
+		}
+		badgeResponses[i] = response.NewUserBadgeResponse(badgeName, userBadge.Badge.IconURL, userBadge.MonthYear, userBadge.Karma)
+	}
+
+	return badgeResponses, nil
+}
