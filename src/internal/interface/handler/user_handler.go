@@ -229,3 +229,32 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		Data:    userProfile,
 	})
 }
+
+func (h *UserHandler) GetUserBadgeHistory(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in UserHandler.GetUserBadgeHistory: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	badgeHistory, err := h.userService.GetUserBadgeHistory(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting user badge history in UserHandler.GetUserBadgeHistory: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get user badge history",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "User badge history retrieved successfully",
+		Data:    badgeHistory,
+	})
+}
