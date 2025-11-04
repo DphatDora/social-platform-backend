@@ -127,6 +127,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		users.GET("/:id", appHandler.userHandler.GetUserByID)
 		users.GET("/:id/posts", appHandler.postHandler.GetPostsByUser)
 		users.GET("/:id/comments", appHandler.commentHandler.GetCommentsByUser)
+		users.GET("/:id/badge-history", appHandler.userHandler.GetUserBadgeHistory)
 	}
 }
 
