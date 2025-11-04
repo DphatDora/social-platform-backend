@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
@@ -188,5 +189,69 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 		Data: gin.H{
 			"unreadCount": count,
 		},
+	})
+}
+
+func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in NotificationHandler.GetNotificationSettings", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	settings, err := h.notificationService.GetUserNotificationSettings(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting notification settings in NotificationHandler.GetNotificationSettings: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get notification settings",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Notification settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in NotificationHandler.UpdateNotificationSetting", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	var req request.UpdateNotificationSettingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Invalid request body in NotificationHandler.UpdateNotificationSetting: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if err := h.notificationService.UpdateNotificationSetting(userID, req.Action, req.IsPush, req.IsSendMail); err != nil {
+		log.Printf("[Err] Error updating notification setting in NotificationHandler.UpdateNotificationSetting: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Notification setting updated successfully",
 	})
 }
