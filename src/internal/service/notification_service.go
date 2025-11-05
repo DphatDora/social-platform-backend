@@ -48,7 +48,7 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 	// Check notification settings for this action
 	setting, err := s.notificationSettingRepo.GetUserNotificationSetting(userID, action)
 	if err != nil {
-		// If no setting found, create default settings (both enabled)
+		// If no setting found, use default settings
 		log.Printf("[Info] No notification setting found for user %d and action %s, using defaults", userID, action)
 		setting = &model.NotificationSetting{
 			UserID:     userID,
@@ -122,6 +122,12 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "comment_vote.txt"
 	case constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY:
 		return basePath + "comment_reply.txt"
+	case constant.NOTIFICATION_ACTION_POST_APPROVED:
+		return basePath + "post_approved.txt"
+	case constant.NOTIFICATION_ACTION_POST_REJECTED:
+		return basePath + "post_rejected.txt"
+	case constant.NOTIFICATION_ACTION_POST_DELETED:
+		return basePath + "post_deleted.txt"
 	default:
 		return ""
 	}
@@ -138,6 +144,12 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 		return basePath + "comment_vote_email.html"
 	case constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY:
 		return basePath + "comment_reply_email.html"
+	case constant.NOTIFICATION_ACTION_POST_APPROVED:
+		return basePath + "post_approved_email.html"
+	case constant.NOTIFICATION_ACTION_POST_REJECTED:
+		return basePath + "post_rejected_email.html"
+	case constant.NOTIFICATION_ACTION_POST_DELETED:
+		return basePath + "post_deleted_email.html"
 	default:
 		return ""
 	}
@@ -176,6 +188,14 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 		if p, ok := notifPayload.(payload.CommentReplyNotificationPayload); ok {
 			data.UserName = p.UserName
 			data.CommentID = p.CommentID
+		}
+	case constant.NOTIFICATION_ACTION_POST_APPROVED,
+		constant.NOTIFICATION_ACTION_POST_REJECTED,
+		constant.NOTIFICATION_ACTION_POST_DELETED:
+		if p, ok := notifPayload.(map[string]interface{}); ok {
+			if postID, ok := p["postId"].(uint64); ok {
+				data.PostID = postID
+			}
 		}
 	}
 

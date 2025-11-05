@@ -13,9 +13,11 @@ type PostRepository interface {
 	UpdatePostLink(id uint64, updatePost *request.UpdatePostLinkRequest) error
 	UpdatePostMedia(id uint64, updatePost *request.UpdatePostMediaRequest) error
 	UpdatePostPoll(id uint64, updatePost *request.UpdatePostPollRequest) error
+	UpdatePostStatus(id uint64, status string) error
 	DeletePost(id uint64) error
 	GetAllPosts(sortBy string, page, limit int) ([]*model.Post, int64, error)
 	GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error)
+	GetCommunityPostsForModerator(communityID uint64, status, searchTitle string, page, limit int) ([]*model.Post, int64, error)
 	SearchPostsByTitle(title, sortBy string, page, limit int) ([]*model.Post, int64, error)
 	GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error)
 }

@@ -15,17 +15,23 @@ type CommunityService struct {
 	communityRepo          repository.CommunityRepository
 	subscriptionRepo       repository.SubscriptionRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
+	postRepo               repository.PostRepository
+	notificationService    *NotificationService
 }
 
 func NewCommunityService(
 	communityRepo repository.CommunityRepository,
 	subscriptionRepo repository.SubscriptionRepository,
 	communityModeratorRepo repository.CommunityModeratorRepository,
+	postRepo repository.PostRepository,
+	notificationService *NotificationService,
 ) *CommunityService {
 	return &CommunityService{
 		communityRepo:          communityRepo,
 		subscriptionRepo:       subscriptionRepo,
 		communityModeratorRepo: communityModeratorRepo,
+		postRepo:               postRepo,
+		notificationService:    notificationService,
 	}
 }
 
@@ -362,4 +368,161 @@ func (s *CommunityService) VerifyCommunityName(name string) (bool, error) {
 	}
 
 	return !exists, nil
+}
+
+func (s *CommunityService) GetCommunityPostsForModerator(userID, communityID uint64, status, searchTitle string, page, limit int) ([]*response.CommunityPostListResponse, *response.Pagination, error) {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.GetCommunityPostsForModerator: %v", err)
+		return nil, nil, fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityPostsForModerator: userID=%d, communityID=%d", userID, communityID)
+		return nil, nil, fmt.Errorf("permission denied")
+	}
+
+	posts, total, err := s.postRepo.GetCommunityPostsForModerator(communityID, status, searchTitle, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting community posts for moderator in CommunityService.GetCommunityPostsForModerator: %v", err)
+		return nil, nil, fmt.Errorf("failed to get posts")
+	}
+
+	postResponses := make([]*response.CommunityPostListResponse, len(posts))
+	for i, post := range posts {
+		postResponses[i] = response.NewCommunityPostListResponse(post)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		nextURL := fmt.Sprintf("/api/v1/communities/%d/manage/posts?page=%d&limit=%d", communityID, page+1, limit)
+		if status != "" {
+			nextURL += fmt.Sprintf("&status=%s", status)
+		}
+		if searchTitle != "" {
+			nextURL += fmt.Sprintf("&search=%s", searchTitle)
+		}
+		pagination.NextURL = nextURL
+	}
+
+	return postResponses, pagination, nil
+}
+
+func (s *CommunityService) UpdatePostStatusByModerator(userID, communityID, postID uint64, status string) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdatePostStatusByModerator: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdatePostStatusByModerator: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Get post
+	post, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in CommunityService.UpdatePostStatusByModerator: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	// Verify post belongs to this community
+	if post.CommunityID != communityID {
+		log.Printf("[Err] Post does not belong to community in CommunityService.UpdatePostStatusByModerator: postID=%d, communityID=%d", postID, communityID)
+		return fmt.Errorf("post not found in this community")
+	}
+
+	if err := s.postRepo.UpdatePostStatus(postID, status); err != nil {
+		log.Printf("[Err] Error updating post status in CommunityService.UpdatePostStatusByModerator: %v", err)
+		return fmt.Errorf("failed to update post status")
+	}
+
+	// Send notification to post author
+	if status == constant.POST_STATUS_APPROVED || status == constant.POST_STATUS_REJECTED {
+		go func(authorID uint64, postID uint64, postTitle string, status string) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Panic] Recovered in CommunityService.UpdatePostStatusByModerator notification: %v", r)
+				}
+			}()
+
+			action := ""
+			if status == constant.POST_STATUS_APPROVED {
+				action = constant.NOTIFICATION_ACTION_POST_APPROVED
+			} else {
+				action = constant.NOTIFICATION_ACTION_POST_REJECTED
+			}
+
+			notifPayload := map[string]interface{}{
+				"postId": postID,
+			}
+
+			s.notificationService.CreateNotification(authorID, action, notifPayload)
+		}(post.AuthorID, postID, post.Title, status)
+	}
+
+	return nil
+}
+
+func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uint64) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.DeletePostByModerator: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.DeletePostByModerator: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Get post
+	post, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in CommunityService.DeletePostByModerator: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	// Verify post belongs to this community
+	if post.CommunityID != communityID {
+		log.Printf("[Err] Post does not belong to community in CommunityService.DeletePostByModerator: postID=%d, communityID=%d", postID, communityID)
+		return fmt.Errorf("post not found in this community")
+	}
+
+	if err := s.postRepo.DeletePost(postID); err != nil {
+		log.Printf("[Err] Error deleting post in CommunityService.DeletePostByModerator: %v", err)
+		return fmt.Errorf("failed to delete post")
+	}
+
+	// Send notification to post author
+	go func(authorID uint64, postID uint64) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in CommunityService.DeletePostByModerator notification: %v", r)
+			}
+		}()
+
+		notifPayload := map[string]interface{}{
+			"postId": postID,
+		}
+
+		s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_DELETED, notifPayload)
+	}(post.AuthorID, postID)
+
+	return nil
 }
