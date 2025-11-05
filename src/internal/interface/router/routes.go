@@ -42,11 +42,11 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	messageRepo := repository.NewMessageRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
 	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
+	userSavedPostRepo := repository.NewUserSavedPostRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
-	userService := service.NewUserService(userRepo, communityModeratorRepo)
-	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo)
+	userService := service.NewUserService(userRepo, communityModeratorRepo, userSavedPostRepo)
 
 	sseService := service.NewSSEService()
 
@@ -54,6 +54,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, botTaskRepo, userRepo, notificationService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, notificationService)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, notificationService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -143,6 +144,10 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			users.GET("/config", appHandler.userHandler.GetUserConfig)
 			users.GET("/notification-settings", appHandler.notificationHandler.GetNotificationSettings)
 			users.PATCH("/notification-settings", appHandler.notificationHandler.UpdateNotificationSetting)
+			users.GET("/saved-posts", appHandler.userHandler.GetUserSavedPosts)
+			users.POST("/saved-posts", appHandler.userHandler.CreateUserSavedPost)
+			users.PATCH("/saved-posts/:postId", appHandler.userHandler.UpdateUserSavedPostFollowStatus)
+			users.DELETE("/saved-posts/:postId", appHandler.userHandler.DeleteUserSavedPost)
 		}
 
 		communities := protected.Group("/communities")
@@ -154,6 +159,9 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.GET("/:id/members", appHandler.communityHandler.GetCommunityMembers)
 			communities.DELETE("/:id/members/:memberId", appHandler.communityHandler.RemoveMember)
 			communities.GET("/:id/role", appHandler.communityHandler.GetUserRoleInCommunity)
+			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
+			communities.PATCH("/:id/manage/posts/:postId/status", appHandler.communityHandler.UpdatePostStatusByModerator)
+			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)
 		}
 
 		posts := protected.Group("/posts")
