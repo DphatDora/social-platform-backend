@@ -19,6 +19,7 @@ type Post struct {
 	MediaURLs   *pq.StringArray  `gorm:"column:media_urls;type:text[]"`
 	PollData    *json.RawMessage `gorm:"column:poll_data"`
 	Tags        *pq.StringArray  `gorm:"column:tags;type:text[]"`
+	Status      string           `gorm:"column:status"`
 	CreatedAt   time.Time        `gorm:"column:created_at"`
 	UpdatedAt   *time.Time       `gorm:"column:updated_at;autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt   `gorm:"column:deleted_at"`

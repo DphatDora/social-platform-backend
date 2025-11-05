@@ -134,6 +134,13 @@ func (r *PostRepositoryImpl) DeletePost(id uint64) error {
 	return r.db.Model(&model.Post{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
 }
 
+func (r *PostRepositoryImpl) UpdatePostStatus(id uint64, status string) error {
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	return r.db.Model(&model.Post{}).Where("id = ?", id).Updates(updates).Error
+}
+
 func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
@@ -147,6 +154,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*mod
 		Select(`posts.*,
 			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Where("posts.status = ?", constant.POST_STATUS_APPROVED).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author")
@@ -182,7 +190,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 		Select(`posts.*,
 			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
-		Where("posts.community_id = ?", communityID).
+		Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author")
@@ -227,7 +235,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
 
 	for _, p := range patterns {
-		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?))", p)
+		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?)) AND posts.status = ?", p, constant.POST_STATUS_APPROVED)
 	}
 
 	query = query.Group("posts.id").
@@ -268,7 +276,7 @@ func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page
 			COUNT(DISTINCT comments.id) as comment_count`).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL").
-		Where("posts.author_id = ? AND posts.deleted_at IS NULL", userID).
+		Where("posts.author_id = ? AND posts.status = ? AND posts.deleted_at IS NULL", userID, constant.POST_STATUS_APPROVED).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author")
@@ -283,6 +291,44 @@ func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page
 	default:
 		query = query.Order("posts.created_at DESC")
 	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
+}
+
+func (r *PostRepositoryImpl) GetCommunityPostsForModerator(communityID uint64, status, searchTitle string, page, limit int) ([]*model.Post, int64, error) {
+	var posts []*model.Post
+	var total int64
+
+	countQuery := r.db.Model(&model.Post{}).Where("community_id = ? AND deleted_at IS NULL", communityID)
+
+	query := r.db.Table("posts").
+		Select("posts.*").
+		Where("posts.community_id = ? AND posts.deleted_at IS NULL", communityID)
+
+	if status != "" {
+		countQuery = countQuery.Where("status = ?", status)
+		query = query.Where("posts.status = ?", status)
+	}
+
+	if searchTitle != "" {
+		patterns := util.BuildSearchPattern(searchTitle)
+		for _, p := range patterns {
+			countQuery = countQuery.Where("unaccent(lower(title)) LIKE unaccent(lower(?))", p)
+			query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?))", p)
+		}
+	}
+
+	// Count total
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query = query.Preload("Author").Order("posts.created_at DESC")
 
 	offset := (page - 1) * limit
 	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {

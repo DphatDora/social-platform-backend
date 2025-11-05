@@ -8,17 +8,20 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/util"
+	"strings"
 )
 
 type UserService struct {
 	userRepo               repository.UserRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
+	userSavedPostRepo      repository.UserSavedPostRepository
 }
 
-func NewUserService(userRepo repository.UserRepository, communityModeratorRepo repository.CommunityModeratorRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, communityModeratorRepo repository.CommunityModeratorRepository, userSavedPostRepo repository.UserSavedPostRepository) *UserService {
 	return &UserService{
 		userRepo:               userRepo,
 		communityModeratorRepo: communityModeratorRepo,
+		userSavedPostRepo:      userSavedPostRepo,
 	}
 }
 
@@ -147,4 +150,64 @@ func (s *UserService) GetUserBadgeHistory(userID uint64) ([]*response.UserBadgeR
 	}
 
 	return badgeResponses, nil
+}
+
+func (s *UserService) GetUserSavedPosts(userID uint64, searchTitle string, isFollowed *bool, page, limit int) ([]*response.SavedPostResponse, *response.Pagination, error) {
+	savedPosts, total, err := s.userSavedPostRepo.GetUserSavedPosts(userID, searchTitle, isFollowed, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting user saved posts in UserService.GetUserSavedPosts: %v", err)
+		return nil, nil, fmt.Errorf("failed to get saved posts")
+	}
+
+	savedPostResponses := make([]*response.SavedPostResponse, len(savedPosts))
+	for i, savedPost := range savedPosts {
+		savedPostResponses[i] = response.NewSavedPostResponse(savedPost)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		nextURL := fmt.Sprintf("/api/v1/users/saved-posts?page=%d&limit=%d", page+1, limit)
+		if searchTitle != "" {
+			nextURL += fmt.Sprintf("&search=%s", searchTitle)
+		}
+		if isFollowed != nil {
+			nextURL += fmt.Sprintf("&isFollowed=%t", *isFollowed)
+		}
+		pagination.NextURL = nextURL
+	}
+
+	return savedPostResponses, pagination, nil
+}
+
+func (s *UserService) CreateUserSavedPost(userID uint64, savedPostReq *request.UserSavedPostRequest) error {
+	if err := s.userSavedPostRepo.CreateUserSavedPost(userID, savedPostReq); err != nil {
+		if strings.Contains(err.Error(), "duplicate key value") {
+			return fmt.Errorf("post already saved")
+		}
+
+		log.Printf("[Err] Error creating user saved post in UserService.CreateUserSavedPost: %v", err)
+		return fmt.Errorf("failed to save post")
+	}
+	return nil
+}
+
+func (s *UserService) UpdateUserSavedPostFollowStatus(userID, postID uint64, updateReq *request.UpdateUserSavedPostRequest) error {
+	if err := s.userSavedPostRepo.UpdateFollowedStatus(userID, postID, updateReq.IsFollowed); err != nil {
+		log.Printf("[Err] Error updating user saved post follow status in UserService.UpdateUserSavedPostFollowStatus: %v", err)
+		return fmt.Errorf("failed to update follow status")
+	}
+	return nil
+}
+
+func (s *UserService) DeleteUserSavedPost(userID, postID uint64) error {
+	if err := s.userSavedPostRepo.DeleteUserSavedPost(userID, postID); err != nil {
+		log.Printf("[Err] Error deleting user saved post in UserService.DeleteUserSavedPost: %v", err)
+		return fmt.Errorf("failed to delete saved post")
+	}
+	return nil
 }

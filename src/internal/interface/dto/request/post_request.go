@@ -47,3 +47,7 @@ type UpdatePostPollRequest struct {
 type VotePostRequest struct {
 	Vote bool `json:"vote"`
 }
+
+type UpdatePostStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=pending approved rejected"`
+}
