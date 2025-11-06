@@ -81,7 +81,12 @@ func (s *UserService) ChangePassword(userID uint64, changePasswordReq *request.C
 		return fmt.Errorf("user not found")
 	}
 
-	if err := util.ComparePassword(user.Password, changePasswordReq.OldPassword); err != nil {
+	if user.Password == nil {
+		log.Printf("[Err] User ID %d registered with Google, cannot change password", userID)
+		return fmt.Errorf("this account is registered with Google and does not have a password")
+	}
+
+	if err := util.ComparePassword(*user.Password, changePasswordReq.OldPassword); err != nil {
 		log.Printf("[Err] Old password is incorrect in UserService.ChangePassword for user ID: %d", userID)
 		return fmt.Errorf("old password is incorrect")
 	}

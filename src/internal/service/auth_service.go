@@ -62,12 +62,13 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	}
 
 	user := &model.User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: hashedPassword,
-		IsActive: false,
-		Role:     constant.ROLE_USER,
-		Karma:    0,
+		Username:     req.Username,
+		Email:        req.Email,
+		Password:     &hashedPassword,
+		IsActive:     false,
+		Role:         constant.ROLE_USER,
+		Karma:        0,
+		AuthProvider: "email",
 	}
 
 	if err := s.userRepo.CreateUser(user); err != nil {
@@ -207,7 +208,13 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 		return nil, fmt.Errorf("email not verified. Please verify your email first")
 	}
 
-	if err := util.ComparePassword(user.Password, req.Password); err != nil {
+	// Check if user has password (email/password login)
+	if user.Password == nil {
+		log.Printf("[Err] User %s registered with Google, no password set", req.Email)
+		return nil, fmt.Errorf("this account is registered with Google. Please use Google Sign-In")
+	}
+
+	if err := util.ComparePassword(*user.Password, req.Password); err != nil {
 		log.Printf("[Err] Invalid password for user %s in AuthService.Login", req.Email)
 		return nil, fmt.Errorf("invalid email or password")
 	}
@@ -538,4 +545,153 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 	}(user.Email, token)
 
 	return nil
+}
+
+func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.LoginResponse, error) {
+	conf := config.GetConfig()
+
+	// Verify Google ID Token
+	googleUserInfo, err := util.VerifyGoogleIDToken(req.IDToken, conf.Auth.GoogleClientID)
+	if err != nil {
+		log.Printf("[Err] Error verifying Google ID token in AuthService.GoogleLogin: %v", err)
+		return nil, fmt.Errorf("invalid Google ID token: %w", err)
+	}
+
+	// Check if user exists by Google ID
+	existingUser, err := s.userRepo.GetUserByGoogleID(googleUserInfo.GoogleID)
+	if err == nil && existingUser != nil {
+		// User already logged in with Google before
+		log.Printf("[Info] User %s already exists with Google ID", googleUserInfo.Email)
+
+		// Generate JWT token
+		accessToken, err := util.GenerateJWT(
+			existingUser.ID,
+			existingUser.Role,
+			conf.Auth.AccessTokenExpirationMinutes,
+			conf.Auth.JWTSecret,
+		)
+		if err != nil {
+			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to generate access token")
+		}
+
+		return &response.LoginResponse{
+			AccessToken: accessToken,
+		}, nil
+	}
+
+	// Check if user exists by email
+	existingUser, err = s.userRepo.GetUserByEmail(googleUserInfo.Email)
+	if err == nil && existingUser != nil {
+		log.Printf("[Info] Linking Google account for user %s", googleUserInfo.Email)
+
+		// set new auth provider
+		newProvider := constant.ACCOUNT_TYPE_BOTH
+		if existingUser.AuthProvider == constant.ACCOUNT_TYPE_GOOGLE {
+			newProvider = constant.ACCOUNT_TYPE_GOOGLE
+		}
+
+		// Link Google account
+		if err := s.userRepo.LinkGoogleAccount(existingUser.ID, googleUserInfo.GoogleID, newProvider); err != nil {
+			log.Printf("[Err] Error linking Google account in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to link Google account: %w", err)
+		}
+
+		// Activate user if not already active
+		if !existingUser.IsActive {
+			if err := s.userRepo.ActivateUser(existingUser.ID); err != nil {
+				log.Printf("[Err] Error activating user in AuthService.GoogleLogin: %v", err)
+			}
+		}
+
+		accessToken, err := util.GenerateJWT(
+			existingUser.ID,
+			existingUser.Role,
+			conf.Auth.AccessTokenExpirationMinutes,
+			conf.Auth.JWTSecret,
+		)
+		if err != nil {
+			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to generate access token")
+		}
+
+		return &response.LoginResponse{
+			AccessToken: accessToken,
+		}, nil
+	}
+
+	username := googleUserInfo.Name
+	if username == "" {
+		username = googleUserInfo.Email
+	}
+
+	var avatar *string
+	if googleUserInfo.Picture != "" {
+		avatar = &googleUserInfo.Picture
+	}
+
+	newUser := &model.User{
+		Username:     username,
+		Email:        googleUserInfo.Email,
+		Password:     nil,
+		GoogleID:     &googleUserInfo.GoogleID,
+		AuthProvider: constant.ACCOUNT_TYPE_GOOGLE,
+		IsActive:     true,
+		Role:         constant.ROLE_USER,
+		Karma:        0,
+		Avatar:       avatar,
+	}
+
+	if err := s.userRepo.CreateUser(newUser); err != nil {
+		log.Printf("[Err] Error creating user in AuthService.GoogleLogin: %v", err)
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Create default notification settings for user
+	go func(userID uint64) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Err] Panic in goroutine AuthService.GoogleLogin: %v", r)
+			}
+		}()
+
+		actions := []string{
+			constant.NOTIFICATION_ACTION_GET_POST_VOTE,
+			constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
+			constant.NOTIFICATION_ACTION_GET_COMMENT_VOTE,
+			constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY,
+		}
+
+		now := time.Now()
+		settings := make([]*model.NotificationSetting, len(actions))
+		for i, action := range actions {
+			settings[i] = &model.NotificationSetting{
+				UserID:     userID,
+				Action:     action,
+				IsPush:     true,
+				IsSendMail: false,
+				CreatedAt:  now,
+				UpdatedAt:  now,
+			}
+		}
+
+		if err := s.notificationSettingRepo.CreateNotificationSettings(settings); err != nil {
+			log.Printf("[Err] Error creating notification settings in AuthService.GoogleLogin: %v", err)
+		}
+	}(newUser.ID)
+
+	accessToken, err := util.GenerateJWT(
+		newUser.ID,
+		newUser.Role,
+		conf.Auth.AccessTokenExpirationMinutes,
+		conf.Auth.JWTSecret,
+	)
+	if err != nil {
+		log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+		return nil, fmt.Errorf("failed to generate access token")
+	}
+
+	return &response.LoginResponse{
+		AccessToken: accessToken,
+	}, nil
 }

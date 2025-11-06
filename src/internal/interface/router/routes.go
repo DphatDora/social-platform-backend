@@ -99,6 +99,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 		auth.POST("/register", appHandler.authHandler.Register)
 		auth.GET("/verify", appHandler.authHandler.VerifyEmail)
 		auth.POST("/login", appHandler.authHandler.Login)
+		auth.POST("/google-login", appHandler.authHandler.GoogleLogin)
 		auth.POST("/forgot-password", appHandler.authHandler.ForgotPassword)
 		auth.GET("/verify-reset", appHandler.authHandler.VerifyResetToken)
 		auth.POST("/reset-password", appHandler.authHandler.ResetPassword)

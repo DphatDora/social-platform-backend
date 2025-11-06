@@ -6,7 +6,9 @@ type User struct {
 	ID                uint64     `gorm:"column:id;primaryKey"`
 	Username          string     `gorm:"column:username"`
 	Email             string     `gorm:"column:email"`
-	Password          string     `gorm:"column:password"`
+	Password          *string    `gorm:"column:password"`
+	GoogleID          *string    `gorm:"column:google_id;unique"`
+	AuthProvider      string     `gorm:"column:auth_provider;default:'email'"`
 	Karma             uint64     `gorm:"column:karma"`
 	Bio               *string    `gorm:"column:bio"`
 	Avatar            *string    `gorm:"column:avatar"`
