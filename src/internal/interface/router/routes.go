@@ -36,6 +36,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	communityModeratorRepo := repository.NewCommunityModeratorRepository(db)
 	postRepo := repository.NewPostRepository(db)
 	postVoteRepo := repository.NewPostVoteRepository(db)
+	postReportRepo := repository.NewPostReportRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
 	commentVoteRepo := repository.NewCommentVoteRepository(db)
 	conversationRepo := repository.NewConversationRepository(db)
@@ -52,9 +53,9 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
-	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, botTaskRepo, userRepo, notificationService)
+	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, notificationService)
-	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, notificationService)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, notificationService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -162,6 +163,8 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
 			communities.PATCH("/:id/manage/posts/:postId/status", appHandler.communityHandler.UpdatePostStatusByModerator)
 			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)
+			communities.GET("/:id/manage/reports", appHandler.communityHandler.GetCommunityPostReports)
+			communities.DELETE("/:id/manage/reports/:reportId", appHandler.communityHandler.DeletePostReport)
 		}
 
 		posts := protected.Group("/posts")
@@ -171,6 +174,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			posts.DELETE("/:id", appHandler.postHandler.DeletePost)
 			posts.POST("/:id/vote", appHandler.postHandler.VotePost)
 			posts.DELETE("/:id/vote", appHandler.postHandler.UnvotePost)
+			posts.POST("/:id/report", appHandler.postHandler.ReportPost)
 		}
 
 		comments := protected.Group("/comments")

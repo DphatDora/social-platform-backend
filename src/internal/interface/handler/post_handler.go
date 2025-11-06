@@ -531,3 +531,67 @@ func (h *PostHandler) GetPostsByUser(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *PostHandler) ReportPost(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in PostHandler.ReportPost", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.ReportPost: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	var req request.ReportPostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in PostHandler.ReportPost: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.postService.ReportPost(userID, postID, &req); err != nil {
+		log.Printf("[Err] Error reporting post in PostHandler.ReportPost: %v", err)
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "already reported") {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: "You have already reported this post",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to report post",
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, response.APIResponse{
+		Success: true,
+		Message: "Post reported successfully",
+	})
+}
