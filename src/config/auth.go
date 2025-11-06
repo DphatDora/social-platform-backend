@@ -5,4 +5,7 @@ type Auth struct {
 	AccessTokenExpirationMinutes int
 	ResetTokenExpirationMinutes  int
 	JWTSecret                    string
+	GoogleClientID               string
+	GoogleClientSecret           string
+	GoogleRedirectURL            string
 }

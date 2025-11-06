@@ -48,6 +48,15 @@ func (r *UserRepositoryImpl) GetUserByEmail(email string) (*model.User, error) {
 	return &user, nil
 }
 
+func (r *UserRepositoryImpl) GetUserByGoogleID(googleID string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("google_id = ?", googleID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *UserRepositoryImpl) ActivateUser(id uint64) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).Update("is_active", true).Error
 }
@@ -72,6 +81,18 @@ func (r *UserRepositoryImpl) UpdateUserProfile(id uint64, updateUser *request.Up
 		updates["avatar"] = *updateUser.Avatar
 	}
 	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *UserRepositoryImpl) UpdateAuthProvider(userID uint64, provider string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("auth_provider", provider).Error
+}
+
+func (r *UserRepositoryImpl) LinkGoogleAccount(userID uint64, googleID string, provider string) error {
+	updates := map[string]interface{}{
+		"google_id":     googleID,
+		"auth_provider": provider,
+	}
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error
 }
 
 func (r *UserRepositoryImpl) GetLatestUserBadge(userID uint64) (*model.UserBadge, error) {

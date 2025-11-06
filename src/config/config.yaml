@@ -38,3 +38,6 @@ auth:
   accessTokenExpirationMinutes: 60
   resetTokenExpirationMinutes: 10
   jwtSecret:
+  googleClientId:
+  googleClientSecret:
+  googleRedirectUrl:

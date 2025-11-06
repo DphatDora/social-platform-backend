@@ -78,4 +78,7 @@ func bindEnvs() {
 
 	// Auth
 	_ = viper.BindEnv("auth.jwtSecret", "JWT_SECRET")
+	_ = viper.BindEnv("auth.googleClientID", "GOOGLE_CLIENT_ID")
+	_ = viper.BindEnv("auth.googleClientSecret", "GOOGLE_CLIENT_SECRET")
+	_ = viper.BindEnv("auth.googleRedirectURL", "GOOGLE_REDIRECT_URL")
 }
