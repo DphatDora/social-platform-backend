@@ -16,6 +16,7 @@ type CommunityService struct {
 	subscriptionRepo       repository.SubscriptionRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
 	postRepo               repository.PostRepository
+	postReportRepo         repository.PostReportRepository
 	notificationService    *NotificationService
 }
 
@@ -24,6 +25,7 @@ func NewCommunityService(
 	subscriptionRepo repository.SubscriptionRepository,
 	communityModeratorRepo repository.CommunityModeratorRepository,
 	postRepo repository.PostRepository,
+	postReportRepo repository.PostReportRepository,
 	notificationService *NotificationService,
 ) *CommunityService {
 	return &CommunityService{
@@ -31,6 +33,7 @@ func NewCommunityService(
 		subscriptionRepo:       subscriptionRepo,
 		communityModeratorRepo: communityModeratorRepo,
 		postRepo:               postRepo,
+		postReportRepo:         postReportRepo,
 		notificationService:    notificationService,
 	}
 }
@@ -523,6 +526,99 @@ func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uin
 
 		s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_DELETED, notifPayload)
 	}(post.AuthorID, postID)
+
+	return nil
+}
+
+func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, page, limit int) ([]*response.PostReportResponse, *response.Pagination, error) {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.GetCommunityPostReports: %v", err)
+		return nil, nil, fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityPostReports: userID=%d, communityID=%d", userID, communityID)
+		return nil, nil, fmt.Errorf("permission denied")
+	}
+
+	reports, total, err := s.postReportRepo.GetPostReportsByCommunityID(communityID, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting community post reports in CommunityService.GetCommunityPostReports: %v", err)
+		return nil, nil, fmt.Errorf("failed to get post reports")
+	}
+
+	// Group reports by post
+	reportMap := make(map[uint64]*response.PostReportResponse)
+	for _, report := range reports {
+		if reportMap[report.PostID] == nil {
+			reportMap[report.PostID] = &response.PostReportResponse{
+				PostID:    report.Post.ID,
+				PostTitle: report.Post.Title,
+				Author: response.AuthorInfo{
+					ID:       report.Post.Author.ID,
+					Username: report.Post.Author.Username,
+					Avatar:   report.Post.Author.Avatar,
+				},
+				Reporters:    []response.ReporterInfo{},
+				TotalReports: 0,
+			}
+		}
+
+		reporterInfo := response.ReporterInfo{
+			ID:       report.Reporter.ID,
+			Username: report.Reporter.Username,
+			Avatar:   report.Reporter.Avatar,
+			Reasons:  report.Reasons,
+			Note:     report.Note,
+		}
+
+		reportMap[report.PostID].Reporters = append(reportMap[report.PostID].Reporters, reporterInfo)
+		reportMap[report.PostID].TotalReports++
+	}
+
+	// Convert map to slice
+	reportResponses := make([]*response.PostReportResponse, 0, len(reportMap))
+	for _, reportResp := range reportMap {
+		reportResponses = append(reportResponses, reportResp)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		pagination.NextURL = fmt.Sprintf("/api/v1/communities/%d/manage/reports?page=%d&limit=%d", communityID, page+1, limit)
+	}
+
+	return reportResponses, pagination, nil
+}
+
+func (s *CommunityService) DeletePostReport(userID, communityID, reportID uint64) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.DeletePostReport: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.DeletePostReport: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Delete report
+	if err := s.postReportRepo.DeletePostReport(reportID); err != nil {
+		log.Printf("[Err] Error deleting post report in CommunityService.DeletePostReport: %v", err)
+		return fmt.Errorf("failed to delete post report")
+	}
 
 	return nil
 }

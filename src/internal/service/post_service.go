@@ -17,6 +17,7 @@ type PostService struct {
 	postRepo            repository.PostRepository
 	communityRepo       repository.CommunityRepository
 	postVoteRepo        repository.PostVoteRepository
+	postReportRepo      repository.PostReportRepository
 	botTaskRepo         repository.BotTaskRepository
 	userRepo            repository.UserRepository
 	notificationService *NotificationService
@@ -26,6 +27,7 @@ func NewPostService(
 	postRepo repository.PostRepository,
 	communityRepo repository.CommunityRepository,
 	postVoteRepo repository.PostVoteRepository,
+	postReportRepo repository.PostReportRepository,
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
 	notificationService *NotificationService,
@@ -34,6 +36,7 @@ func NewPostService(
 		postRepo:            postRepo,
 		communityRepo:       communityRepo,
 		postVoteRepo:        postVoteRepo,
+		postReportRepo:      postReportRepo,
 		botTaskRepo:         botTaskRepo,
 		userRepo:            userRepo,
 		notificationService: notificationService,
@@ -432,4 +435,62 @@ func (s *PostService) GetPostsByUserID(userID uint64, sortBy string, page, limit
 	}
 
 	return postResponses, pagination, nil
+}
+
+func (s *PostService) ReportPost(userID, postID uint64, req *request.ReportPostRequest) error {
+	// Check if post exists
+	post, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.ReportPost: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	// Check if user already reported this post
+	alreadyReported, err := s.postReportRepo.IsUserReportedPost(userID, postID)
+	if err != nil {
+		log.Printf("[Err] Error checking if user reported post in PostService.ReportPost: %v", err)
+		return fmt.Errorf("failed to check report status")
+	}
+	if alreadyReported {
+		return fmt.Errorf("you have already reported this post")
+	}
+
+	// Create report
+	report := &model.PostReport{
+		PostID:     postID,
+		ReporterID: userID,
+		Reasons:    req.Reasons,
+		Note:       req.Note,
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.postReportRepo.CreatePostReport(report); err != nil {
+		log.Printf("[Err] Error creating post report in PostService.ReportPost: %v", err)
+		return fmt.Errorf("failed to report post")
+	}
+
+	// Send notification to post author
+	go func(authorID uint64, postID uint64, reporterID uint64) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Panic] Recovered in PostService.ReportPost notification: %v", r)
+			}
+		}()
+
+		// Get reporter info
+		reporter, err := s.userRepo.GetUserByID(reporterID)
+		if err != nil {
+			log.Printf("[Err] Error getting reporter in PostService.ReportPost: %v", err)
+			return
+		}
+
+		notifPayload := payload.PostReportNotificationPayload{
+			PostID:   postID,
+			UserName: reporter.Username,
+		}
+
+		s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_REPORTED, notifPayload)
+	}(post.AuthorID, postID, userID)
+
+	return nil
 }

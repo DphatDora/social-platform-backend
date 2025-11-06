@@ -128,6 +128,8 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "post_rejected.txt"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted.txt"
+	case constant.NOTIFICATION_ACTION_POST_REPORTED:
+		return basePath + "post_reported.txt"
 	default:
 		return ""
 	}
@@ -150,6 +152,8 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 		return basePath + "post_rejected_email.html"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted_email.html"
+	case constant.NOTIFICATION_ACTION_POST_REPORTED:
+		return basePath + "post_reported_email.html"
 	default:
 		return ""
 	}
@@ -188,6 +192,11 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 		if p, ok := notifPayload.(payload.CommentReplyNotificationPayload); ok {
 			data.UserName = p.UserName
 			data.CommentID = p.CommentID
+		}
+	case constant.NOTIFICATION_ACTION_POST_REPORTED:
+		if p, ok := notifPayload.(payload.PostReportNotificationPayload); ok {
+			data.UserName = p.UserName
+			data.PostID = p.PostID
 		}
 	case constant.NOTIFICATION_ACTION_POST_APPROVED,
 		constant.NOTIFICATION_ACTION_POST_REJECTED,

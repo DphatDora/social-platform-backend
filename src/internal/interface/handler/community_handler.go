@@ -790,3 +790,127 @@ func (h *CommunityHandler) DeletePostByModerator(c *gin.Context) {
 		Message: "Post deleted successfully",
 	})
 }
+
+func (h *CommunityHandler) GetCommunityPostReports(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.GetCommunityPostReports", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	communityIDParam := c.Param("id")
+	communityID, err := strconv.ParseUint(communityIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.GetCommunityPostReports: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	reports, pagination, err := h.communityService.GetCommunityPostReports(userID, communityID, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error getting community post reports in CommunityHandler.GetCommunityPostReports: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "You don't have permission to view post reports",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get post reports",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Post reports retrieved successfully",
+		Data:       reports,
+		Pagination: pagination,
+	})
+}
+
+func (h *CommunityHandler) DeletePostReport(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.DeletePostReport", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	communityIDParam := c.Param("id")
+	communityID, err := strconv.ParseUint(communityIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.DeletePostReport: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	reportIDParam := c.Param("reportId")
+	reportID, err := strconv.ParseUint(reportIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid report ID in CommunityHandler.DeletePostReport: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid report ID",
+		})
+		return
+	}
+
+	if err := h.communityService.DeletePostReport(userID, communityID, reportID); err != nil {
+		log.Printf("[Err] Error deleting post report in CommunityHandler.DeletePostReport: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "You don't have permission to delete post reports",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to delete post report",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Post report deleted successfully",
+	})
+}

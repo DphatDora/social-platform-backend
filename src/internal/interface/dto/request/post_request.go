@@ -51,3 +51,8 @@ type VotePostRequest struct {
 type UpdatePostStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=pending approved rejected"`
 }
+
+type ReportPostRequest struct {
+	Reasons []string `json:"reasons" binding:"required,min=1"`
+	Note    *string  `json:"note,omitempty"`
+}
