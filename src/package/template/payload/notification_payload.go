@@ -21,3 +21,8 @@ type CommentReplyNotificationPayload struct {
 	CommentID uint64 `json:"commentId"`
 	UserName  string `json:"userName"`
 }
+
+type PostReportNotificationPayload struct {
+	PostID   uint64 `json:"postId"`
+	UserName string `json:"userName"`
+}

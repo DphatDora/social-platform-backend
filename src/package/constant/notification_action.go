@@ -8,4 +8,5 @@ const (
 	NOTIFICATION_ACTION_POST_APPROVED        = "post_approved"
 	NOTIFICATION_ACTION_POST_REJECTED        = "post_rejected"
 	NOTIFICATION_ACTION_POST_DELETED         = "post_deleted"
+	NOTIFICATION_ACTION_POST_REPORTED        = "post_reported"
 )
