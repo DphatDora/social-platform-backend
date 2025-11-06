@@ -59,3 +59,41 @@ func AuthMiddleware(conf *config.Config) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// OptionalAuthMiddleware validates JWT token if present, but allows request to continue if not
+func OptionalAuthMiddleware(conf *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			// No token provided, continue without setting user context
+			c.Next()
+			return
+		}
+
+		// Check if it's a Bearer token
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			// Invalid format, but allow request to continue
+			c.Next()
+			return
+		}
+
+		tokenString := parts[1]
+
+		// Verify JWT token
+		claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
+		if err != nil {
+			// Invalid token, but allow request to continue
+			log.Printf("[Warn] Invalid JWT token in optional auth: %v", err)
+			c.Next()
+			return
+		}
+
+		// Set user information in context if token is valid
+		c.Set("userID", claims.UserID)
+		c.Set("userRole", claims.Role)
+
+		c.Next()
+	}
+}

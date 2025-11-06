@@ -44,7 +44,7 @@ func (r *UserSavedPostRepositoryImpl) GetUserSavedPosts(userID uint64, searchTit
 	query = query.Order("created_at DESC")
 
 	offset := (page - 1) * limit
-	if err := query.Offset(offset).Limit(limit).Find(&savedPosts).Error; err != nil {
+	if err := query.Offset(offset).Limit(limit).Preload("Community").Find(&savedPosts).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -53,7 +53,7 @@ func (r *UserSavedPostRepositoryImpl) GetUserSavedPosts(userID uint64, searchTit
 
 func (r *UserSavedPostRepositoryImpl) CreateUserSavedPost(userID uint64, savedPost *request.UserSavedPostRequest) error {
 	var post model.Post
-	if err := r.db.Select("id, title, created_at, author_id").Where("id = ?", savedPost.PostID).First(&post).Error; err != nil {
+	if err := r.db.Select("id, title, created_at, author_id, community_id").Where("id = ?", savedPost.PostID).First(&post).Error; err != nil {
 		return err
 	}
 
@@ -70,6 +70,7 @@ func (r *UserSavedPostRepositoryImpl) CreateUserSavedPost(userID uint64, savedPo
 		AuthorID:      author.ID,
 		AuthorName:    author.Username,
 		AuthorAvatar:  author.Avatar,
+		CommunityID:   post.CommunityID,
 		IsFollowed:    savedPost.IsFollowed,
 	}
 
@@ -84,4 +85,12 @@ func (r *UserSavedPostRepositoryImpl) UpdateFollowedStatus(userID, postID uint64
 
 func (r *UserSavedPostRepositoryImpl) DeleteUserSavedPost(userID, postID uint64) error {
 	return r.db.Where("user_id = ? AND post_id = ?", userID, postID).Delete(&model.UserSavedPost{}).Error
+}
+
+func (r *UserSavedPostRepositoryImpl) CheckUserSavedPostExists(userID, postID uint64) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.UserSavedPost{}).
+		Where("user_id = ? AND post_id = ?", userID, postID).
+		Count(&count).Error
+	return count > 0, err
 }

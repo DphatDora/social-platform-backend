@@ -81,14 +81,17 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
-		setupPublicRoutes(api, appHandler)
+		setupPublicRoutes(api, appHandler, conf)
 		setupProtectedRoutes(api, appHandler, conf)
 	}
 
 	return router
 }
 
-func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
+func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config) {
+	// Apply optional auth middleware to all public routes
+	rg.Use(middleware.OptionalAuthMiddleware(conf))
+
 	// Health check
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
@@ -127,6 +130,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler) {
 
 	users := rg.Group("/users")
 	{
+		users.GET("/search", appHandler.userHandler.SearchUsers)
 		users.GET("/:id", appHandler.userHandler.GetUserByID)
 		users.GET("/:id/posts", appHandler.postHandler.GetPostsByUser)
 		users.GET("/:id/comments", appHandler.commentHandler.GetCommentsByUser)
