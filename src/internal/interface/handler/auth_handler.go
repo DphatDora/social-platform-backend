@@ -328,3 +328,41 @@ func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
 		Message: "Reset password email has been resent. Please check your email",
 	})
 }
+
+func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	var req request.GoogleLoginRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in AuthHandler.GoogleLogin: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	loginResponse, err := h.authService.GoogleLogin(&req)
+	if err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.GoogleLogin: %v", err)
+
+		if strings.Contains(err.Error(), "invalid Google ID token") {
+			c.JSON(http.StatusUnauthorized, response.APIResponse{
+				Success: false,
+				Message: "Invalid Google ID token. Please try again",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to login with Google",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Google login successful",
+		Data:    loginResponse,
+	})
+}

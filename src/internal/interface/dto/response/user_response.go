@@ -9,6 +9,7 @@ type UserProfileResponse struct {
 	ID              uint64          `json:"id"`
 	Username        string          `json:"username"`
 	Email           string          `json:"email"`
+	AuthProvider    string          `json:"authProvider"`
 	Bio             *string         `json:"bio,omitempty"`
 	Avatar          *string         `json:"avatar,omitempty"`
 	UserAchievement UserAchievement `json:"achievement"`
@@ -20,6 +21,7 @@ func NewUserProfileResponse(user *model.User, achievement UserAchievement) *User
 		ID:              user.ID,
 		Username:        user.Username,
 		Email:           user.Email,
+		AuthProvider:    user.AuthProvider,
 		Bio:             user.Bio,
 		Avatar:          user.Avatar,
 		UserAchievement: achievement,

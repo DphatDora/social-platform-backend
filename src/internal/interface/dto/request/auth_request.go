@@ -27,3 +27,7 @@ type ResetPasswordRequest struct {
 type ResendVerificationRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
+
+type GoogleLoginRequest struct {
+	IDToken string `json:"idToken" binding:"required"`
+}
