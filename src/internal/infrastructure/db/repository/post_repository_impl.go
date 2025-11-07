@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"encoding/json"
+	"fmt"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
@@ -32,13 +34,27 @@ func (r *PostRepositoryImpl) GetPostByID(id uint64) (*model.Post, error) {
 	return &post, nil
 }
 
-func (r *PostRepositoryImpl) GetPostDetailByID(id uint64) (*model.Post, error) {
+func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*model.Post, error) {
 	var post model.Post
-	err := r.db.Table("posts").
-		Select(`posts.*,
-			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
-		Where("posts.id = ?", id).
+
+	selectFields := `posts.*,
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+	}
+
+	query := r.db.Table("posts").
+		Select(selectFields).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+
+	// Join with user's votes if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
+	}
+
+	err := query.Where("posts.id = ?", id).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author").
@@ -141,7 +157,14 @@ func (r *PostRepositoryImpl) UpdatePostStatus(id uint64, status string) error {
 	return r.db.Model(&model.Post{}).Where("id = ?", id).Updates(updates).Error
 }
 
-func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) UpdatePollData(postID uint64, pollData *json.RawMessage) error {
+	updates := map[string]interface{}{
+		"poll_data": pollData,
+	}
+	return r.db.Model(&model.Post{}).Where("id = ?", postID).Updates(updates).Error
+}
+
+func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
@@ -150,11 +173,24 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*mod
 		return nil, 0, err
 	}
 
+	selectFields := `posts.*,
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+	}
+
 	query := r.db.Table("posts").
-		Select(`posts.*,
-			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
-		Where("posts.status = ?", constant.POST_STATUS_APPROVED).
+		Select(selectFields).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+
+	// Join with user's votes if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
+	}
+
+	query = query.Where("posts.status = ?", constant.POST_STATUS_APPROVED).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author")
@@ -177,7 +213,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int) ([]*mod
 	return posts, total, nil
 }
 
-func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
@@ -186,11 +222,24 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 		return nil, 0, err
 	}
 
+	selectFields := `posts.*,
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+	}
+
 	query := r.db.Table("posts").
-		Select(`posts.*,
-			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
-		Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED).
+		Select(selectFields).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+
+	// Join with user's votes if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
+	}
+
+	query = query.Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED).
 		Group("posts.id").
 		Preload("Community").
 		Preload("Author")
@@ -213,7 +262,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	return posts, total, nil
 }
 
-func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limit int) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
@@ -229,10 +278,22 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		return nil, 0, err
 	}
 
+	selectFields := `posts.*,
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+	}
+
 	query := r.db.Table("posts").
-		Select(`posts.*,
-			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
+		Select(selectFields).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+
+	// Join with user's votes if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
+	}
 
 	for _, p := range patterns {
 		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?)) AND posts.status = ?", p, constant.POST_STATUS_APPROVED)

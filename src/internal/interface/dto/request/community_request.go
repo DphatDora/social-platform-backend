@@ -26,3 +26,7 @@ type UpdateCommunityRequest struct {
 type VerifyCommunityNameRequest struct {
 	Name string `json:"name" binding:"required"`
 }
+
+type UpdateMemberRoleRequest struct {
+	Role string `json:"role" binding:"required,oneof=admin user"`
+}

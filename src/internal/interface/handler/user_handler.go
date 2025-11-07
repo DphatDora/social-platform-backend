@@ -434,3 +434,32 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *UserHandler) GetUserSuperAdminCommunities(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in UserHandler.GetUserSuperAdminCommunities: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	communities, err := h.userService.GetUserSuperAdminCommunities(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting super admin communities in UserHandler.GetUserSuperAdminCommunities: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get super admin communities",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Super admin communities retrieved successfully",
+		Data:    communities,
+	})
+}

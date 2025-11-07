@@ -8,4 +8,6 @@ type CommunityModeratorRepository interface {
 	GetModeratorRole(communityID, userID uint64) (string, error)
 	GetModeratorCommunitiesByUserID(userID uint64) ([]*model.CommunityModerator, error)
 	GetCommunityModerators(communityID uint64) ([]*model.CommunityModerator, error)
+	UpsertModerator(moderator *model.CommunityModerator) error
+	GetSuperAdminCommunitiesByUserID(userID uint64) ([]*model.CommunityModerator, error)
 }

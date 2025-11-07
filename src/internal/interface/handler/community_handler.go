@@ -262,6 +262,14 @@ func (h *CommunityHandler) JoinCommunity(c *gin.Context) {
 }
 
 func (h *CommunityHandler) GetCommunities(c *gin.Context) {
+	// Get userID from context (if exists)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -272,7 +280,7 @@ func (h *CommunityHandler) GetCommunities(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	communities, pagination, err := h.communityService.GetCommunities(page, limit)
+	communities, pagination, err := h.communityService.GetCommunities(page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting communities in CommunityHandler.GetCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -310,7 +318,15 @@ func (h *CommunityHandler) SearchCommunities(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, page, limit)
+	// Get userID from context (set by OptionalAuthMiddleware)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
+	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching communities in CommunityHandler.SearchCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -347,7 +363,15 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, page, limit)
+	// Get userID from context (set by OptionalAuthMiddleware)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
+	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error filtering communities in CommunityHandler.FilterCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -431,6 +455,89 @@ func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
 		Message:    "Community members retrieved successfully",
 		Data:       members,
 		Pagination: pagination,
+	})
+}
+
+func (h *CommunityHandler) UpdateMemberRole(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UpdateMemberRole", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateMemberRole: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	userIDParam := c.Param("userId")
+	targetUserID, err := strconv.ParseUint(userIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in CommunityHandler.UpdateMemberRole: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	var req request.UpdateMemberRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Invalid request body in CommunityHandler.UpdateMemberRole: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if err := h.communityService.UpdateMemberRole(userID, communityID, targetUserID, req.Role); err != nil {
+		log.Printf("[Err] Error updating member role in CommunityHandler.UpdateMemberRole: %v", err)
+
+		if strings.Contains(err.Error(), "permission denied") {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "You don't have permission to update member roles",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community or user not found",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not a member") {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: "User is not a member of this community",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to update member role",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Member role updated successfully",
 	})
 }
 

@@ -214,8 +214,8 @@ func (s *PostService) DeletePost(userID, postID uint64) error {
 	return nil
 }
 
-func (s *PostService) GetAllPosts(sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
-	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit)
+func (s *PostService) GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
@@ -240,7 +240,7 @@ func (s *PostService) GetAllPosts(sortBy string, page, limit int) ([]*response.P
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
@@ -248,7 +248,7 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
-	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit)
+	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting posts by community ID in PostService.GetPostsByCommunityID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
@@ -272,8 +272,8 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
-	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit)
+func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching posts by title in PostService.SearchPostsByTitle: %v", err)
 		return nil, nil, fmt.Errorf("failed to search posts")
@@ -298,12 +298,15 @@ func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int) 
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) GetPostDetailByID(postID uint64) (*response.PostDetailResponse, error) {
-	post, err := s.postRepo.GetPostDetailByID(postID)
+func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*response.PostDetailResponse, error) {
+	post, err := s.postRepo.GetPostDetailByID(postID, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting post detail in PostService.GetPostDetailByID: %v", err)
 		return nil, fmt.Errorf("post not found")
 	}
+
+	// check user vote
+	log.Printf("---- Check user vote: %v", post.UserVote)
 
 	return response.NewPostDetailResponse(post), nil
 }
@@ -404,6 +407,120 @@ func (s *PostService) UnvotePost(userID, postID uint64) error {
 	if err := s.postVoteRepo.DeletePostVote(userID, postID); err != nil {
 		log.Printf("[Err] Error deleting post vote in PostService.UnvotePost: %v", err)
 		return fmt.Errorf("failed to unvote post")
+	}
+
+	return nil
+}
+
+func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollRequest) error {
+	post, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.VotePoll: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	if post.Type != constant.PostTypePoll {
+		return fmt.Errorf("post is not a poll")
+	}
+
+	if post.PollData == nil {
+		log.Printf("[Err] Poll data is nil in PostService.VotePoll")
+		return fmt.Errorf("poll data not found")
+	}
+
+	var pollData payload.PollData
+	if err := json.Unmarshal(*post.PollData, &pollData); err != nil {
+		log.Printf("[Err] Error unmarshalling poll data in PostService.VotePoll: %v", err)
+		return fmt.Errorf("invalid poll data")
+	}
+
+	// Check expiration time
+	if pollData.ExpiresAt != nil && time.Now().After(*pollData.ExpiresAt) {
+		return fmt.Errorf("poll has expired")
+	}
+
+	// Find the option
+	optionIndex := -1
+	for i, option := range pollData.Options {
+		if option.ID == req.OptionID {
+			optionIndex = i
+			break
+		}
+	}
+
+	if optionIndex == -1 {
+		return fmt.Errorf("option not found")
+	}
+
+	// Check if user has already voted
+	hasVoted := false
+	var previousOptionIndex int
+	for i, option := range pollData.Options {
+		for _, voterID := range option.Voters {
+			if voterID == userID {
+				hasVoted = true
+				previousOptionIndex = i
+				break
+			}
+		}
+		if hasVoted {
+			break
+		}
+	}
+
+	if hasVoted {
+		// If not multiple choice and voting for same option, return error
+		if !pollData.MultipleChoice && previousOptionIndex == optionIndex {
+			return fmt.Errorf("already voted for this option")
+		}
+
+		// If not multiple choice and voting for different option, remove previous vote
+		if !pollData.MultipleChoice && previousOptionIndex != optionIndex {
+			// Remove from previous option
+			newVoters := []uint64{}
+			for _, voterID := range pollData.Options[previousOptionIndex].Voters {
+				if voterID != userID {
+					newVoters = append(newVoters, voterID)
+				}
+			}
+			pollData.Options[previousOptionIndex].Voters = newVoters
+			pollData.Options[previousOptionIndex].Votes = len(newVoters)
+		}
+
+		// If multiple choice, check if already voted for this option
+		if pollData.MultipleChoice {
+			for _, voterID := range pollData.Options[optionIndex].Voters {
+				if voterID == userID {
+					return fmt.Errorf("already voted for this option")
+				}
+			}
+		}
+	}
+
+	// Add vote to the selected option
+	pollData.Options[optionIndex].Voters = append(pollData.Options[optionIndex].Voters, userID)
+	pollData.Options[optionIndex].Votes = len(pollData.Options[optionIndex].Voters)
+
+	// Recalculate total votes (count unique voters)
+	uniqueVoters := make(map[uint64]bool)
+	for _, option := range pollData.Options {
+		for _, voterID := range option.Voters {
+			uniqueVoters[voterID] = true
+		}
+	}
+	pollData.TotalVotes = len(uniqueVoters)
+
+	updatedPollData, err := json.Marshal(pollData)
+	if err != nil {
+		log.Printf("[Err] Error marshalling poll data in PostService.VotePoll: %v", err)
+		return fmt.Errorf("failed to update poll data")
+	}
+
+	rawMessage := json.RawMessage(updatedPollData)
+
+	if err := s.postRepo.UpdatePollData(postID, &rawMessage); err != nil {
+		log.Printf("[Err] Error updating poll data in PostService.VotePoll: %v", err)
+		return fmt.Errorf("failed to update poll")
 	}
 
 	return nil

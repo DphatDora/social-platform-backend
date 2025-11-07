@@ -34,6 +34,7 @@ type PostListResponse struct {
 	PollData    *json.RawMessage `json:"pollData,omitempty"`
 	Tags        *pq.StringArray  `json:"tags,omitempty"`
 	Vote        int64            `json:"vote"`
+	IsVoted     *bool            `json:"isVoted,omitempty"`
 	CreatedAt   time.Time        `json:"createdAt"`
 	UpdatedAt   *time.Time       `json:"updatedAt,omitempty"`
 }
@@ -54,6 +55,12 @@ func NewPostListResponse(post *model.Post) *PostListResponse {
 		CreatedAt:   post.CreatedAt,
 		UpdatedAt:   post.UpdatedAt,
 	}
+
+	if post.UserVote != nil {
+		isVoted := *post.UserVote == 1
+		response.IsVoted = &isVoted
+	}
+
 	if post.Community != nil {
 		response.Community = &CommunityInfo{
 			ID:     post.Community.ID,
@@ -84,6 +91,7 @@ type PostDetailResponse struct {
 	PollData  *json.RawMessage `json:"pollData,omitempty"`
 	Tags      *pq.StringArray  `json:"tags,omitempty"`
 	Vote      int64            `json:"vote"`
+	IsVoted   *bool            `json:"isVoted,omitempty"`
 	CreatedAt time.Time        `json:"createdAt"`
 	UpdatedAt *time.Time       `json:"updatedAt,omitempty"`
 }
@@ -102,6 +110,12 @@ func NewPostDetailResponse(post *model.Post) *PostDetailResponse {
 		CreatedAt: post.CreatedAt,
 		UpdatedAt: post.UpdatedAt,
 	}
+
+	if post.UserVote != nil {
+		isVoted := *post.UserVote == 1
+		response.IsVoted = &isVoted
+	}
+
 	if post.Community != nil {
 		response.Community = &CommunityInfo{
 			ID:   post.Community.ID,
