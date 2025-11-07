@@ -179,6 +179,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			posts.POST("/:id/vote", appHandler.postHandler.VotePost)
 			posts.DELETE("/:id/vote", appHandler.postHandler.UnvotePost)
 			posts.POST("/:id/poll/vote", appHandler.postHandler.VotePoll)
+			posts.DELETE("/:id/poll/vote", appHandler.postHandler.UnvotePoll)
 			posts.POST("/:id/report", appHandler.postHandler.ReportPost)
 		}
 

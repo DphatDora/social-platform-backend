@@ -20,3 +20,17 @@ func GetUserIDFromContext(c *gin.Context) (uint64, error) {
 
 	return userID, nil
 }
+
+func GetOptionalUserIDFromContext(c *gin.Context) *uint64 {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		return nil
+	}
+
+	userID, ok := userIDValue.(uint64)
+	if !ok {
+		return nil
+	}
+
+	return &userID
+}

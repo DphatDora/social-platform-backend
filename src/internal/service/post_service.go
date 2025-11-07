@@ -305,9 +305,6 @@ func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*respons
 		return nil, fmt.Errorf("post not found")
 	}
 
-	// check user vote
-	log.Printf("---- Check user vote: %v", post.UserVote)
-
 	return response.NewPostDetailResponse(post), nil
 }
 
@@ -520,6 +517,89 @@ func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollReque
 
 	if err := s.postRepo.UpdatePollData(postID, &rawMessage); err != nil {
 		log.Printf("[Err] Error updating poll data in PostService.VotePoll: %v", err)
+		return fmt.Errorf("failed to update poll")
+	}
+
+	return nil
+}
+
+func (s *PostService) UnvotePoll(userID, postID uint64, req *request.UnvotePollRequest) error {
+	post, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.UnvotePoll: %v", err)
+		return fmt.Errorf("post not found")
+	}
+
+	if post.Type != constant.PostTypePoll {
+		return fmt.Errorf("post is not a poll")
+	}
+
+	if post.PollData == nil {
+		log.Printf("[Err] Poll data is nil in PostService.UnvotePoll")
+		return fmt.Errorf("poll data not found")
+	}
+
+	var pollData payload.PollData
+	if err := json.Unmarshal(*post.PollData, &pollData); err != nil {
+		log.Printf("[Err] Error unmarshalling poll data in PostService.UnvotePoll: %v", err)
+		return fmt.Errorf("invalid poll data")
+	}
+
+	// Find the option
+	optionIndex := -1
+	for i, option := range pollData.Options {
+		if option.ID == req.OptionID {
+			optionIndex = i
+			break
+		}
+	}
+
+	if optionIndex == -1 {
+		return fmt.Errorf("option not found")
+	}
+
+	// Check if user has voted for this specific option
+	hasVoted := false
+	for _, voterID := range pollData.Options[optionIndex].Voters {
+		if voterID == userID {
+			hasVoted = true
+			break
+		}
+	}
+
+	if !hasVoted {
+		return fmt.Errorf("you have not voted for this option")
+	}
+
+	// Remove user's vote from this specific option
+	newVoters := []uint64{}
+	for _, voterID := range pollData.Options[optionIndex].Voters {
+		if voterID != userID {
+			newVoters = append(newVoters, voterID)
+		}
+	}
+	pollData.Options[optionIndex].Voters = newVoters
+	pollData.Options[optionIndex].Votes = len(newVoters)
+
+	// Recalculate total votes (count unique voters)
+	uniqueVoters := make(map[uint64]bool)
+	for _, option := range pollData.Options {
+		for _, voterID := range option.Voters {
+			uniqueVoters[voterID] = true
+		}
+	}
+	pollData.TotalVotes = len(uniqueVoters)
+
+	updatedPollData, err := json.Marshal(pollData)
+	if err != nil {
+		log.Printf("[Err] Error marshalling poll data in PostService.UnvotePoll: %v", err)
+		return fmt.Errorf("failed to update poll data")
+	}
+
+	rawMessage := json.RawMessage(updatedPollData)
+
+	if err := s.postRepo.UpdatePollData(postID, &rawMessage); err != nil {
+		log.Printf("[Err] Error updating poll data in PostService.UnvotePoll: %v", err)
 		return fmt.Errorf("failed to update poll")
 	}
 
