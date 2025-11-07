@@ -20,4 +20,5 @@ type UserRepository interface {
 	GetUserPostCount(userID uint64) (uint64, error)
 	GetUserCommentCount(userID uint64) (uint64, error)
 	GetUserBadgeHistory(userID uint64) ([]*model.UserBadge, error)
+	SearchUsers(searchTerm string, page, limit int) ([]*model.User, int64, error)
 }

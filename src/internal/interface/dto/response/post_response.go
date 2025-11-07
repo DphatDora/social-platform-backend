@@ -9,8 +9,9 @@ import (
 )
 
 type CommunityInfo struct {
-	ID   uint64 `json:"id"`
-	Name string `json:"name"`
+	ID     uint64  `json:"id"`
+	Name   string  `json:"name"`
+	Avatar *string `json:"avatar,omitempty"`
 }
 
 type AuthorInfo struct {
@@ -55,8 +56,9 @@ func NewPostListResponse(post *model.Post) *PostListResponse {
 	}
 	if post.Community != nil {
 		response.Community = &CommunityInfo{
-			ID:   post.Community.ID,
-			Name: post.Community.Name,
+			ID:     post.Community.ID,
+			Name:   post.Community.Name,
+			Avatar: post.Community.CommunityAvatar,
 		}
 	}
 	if post.Author != nil {
@@ -162,15 +164,16 @@ func NewCommunityPostListResponse(post *model.Post) *CommunityPostListResponse {
 }
 
 type SavedPostResponse struct {
-	PostID     uint64     `json:"postId"`
-	Title      string     `json:"title"`
-	Author     AuthorInfo `json:"author"`
-	IsFollowed bool       `json:"isFollowed"`
-	CreatedAt  time.Time  `json:"createdAt"`
+	PostID     uint64         `json:"postId"`
+	Title      string         `json:"title"`
+	Community  *CommunityInfo `json:"community,omitempty"`
+	Author     AuthorInfo     `json:"author"`
+	IsFollowed bool           `json:"isFollowed"`
+	CreatedAt  time.Time      `json:"createdAt"`
 }
 
 func NewSavedPostResponse(savedPost *model.UserSavedPost) *SavedPostResponse {
-	return &SavedPostResponse{
+	response := &SavedPostResponse{
 		PostID: savedPost.PostID,
 		Title:  savedPost.PostTitle,
 		Author: AuthorInfo{
@@ -181,4 +184,14 @@ func NewSavedPostResponse(savedPost *model.UserSavedPost) *SavedPostResponse {
 		IsFollowed: savedPost.IsFollowed,
 		CreatedAt:  savedPost.PostCreatedAt,
 	}
+
+	if savedPost.Community != nil {
+		response.Community = &CommunityInfo{
+			ID:     savedPost.Community.ID,
+			Name:   savedPost.Community.Name,
+			Avatar: savedPost.Community.CommunityAvatar,
+		}
+	}
+
+	return response
 }

@@ -50,3 +50,19 @@ type UserAchievement struct {
 	TotalPosts    uint64 `json:"totalPosts"`
 	TotalComments uint64 `json:"totalComments"`
 }
+
+type UserSearchResponse struct {
+	ID       uint64  `json:"id"`
+	Username string  `json:"username"`
+	Avatar   *string `json:"avatar,omitempty"`
+	Karma    uint64  `json:"karma"`
+}
+
+func NewUserSearchResponse(user *model.User, karma uint64) *UserSearchResponse {
+	return &UserSearchResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Avatar:   user.Avatar,
+		Karma:    karma,
+	}
+}

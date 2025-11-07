@@ -19,6 +19,7 @@ type CommentService struct {
 	commentVoteRepo     repository.CommentVoteRepository
 	botTaskRepo         repository.BotTaskRepository
 	userRepo            repository.UserRepository
+	userSavedPostRepo   repository.UserSavedPostRepository
 	notificationService *NotificationService
 }
 
@@ -28,6 +29,7 @@ func NewCommentService(
 	commentVoteRepo repository.CommentVoteRepository,
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
+	userSavedPostRepo repository.UserSavedPostRepository,
 	notificationService *NotificationService,
 ) *CommentService {
 	return &CommentService{
@@ -36,6 +38,7 @@ func NewCommentService(
 		commentVoteRepo:     commentVoteRepo,
 		botTaskRepo:         botTaskRepo,
 		userRepo:            userRepo,
+		userSavedPostRepo:   userSavedPostRepo,
 		notificationService: notificationService,
 	}
 }
@@ -142,6 +145,38 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 				notifPayload,
 			)
 		}
+
+		// Notify all followers of the post about new comment
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Panic] Recovered in CommentService.CreateComment followers notification: %v", r)
+				}
+			}()
+
+			followerIDs, err := s.userSavedPostRepo.GetFollowersByPostID(post.ID)
+			if err != nil {
+				log.Printf("[Err] Error getting followers in CommentService.CreateComment: %v", err)
+				return
+			}
+
+			notifPayload := payload.PostCommentNotificationPayload{
+				PostID:   post.ID,
+				UserName: commenter.Username,
+			}
+
+			for _, followerID := range followerIDs {
+				if followerID != post.AuthorID && followerID != userID {
+					if err := s.notificationService.CreateNotification(
+						followerID,
+						constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
+						notifPayload,
+					); err != nil {
+						log.Printf("[Err] Failed to send notification to follower %d: %v", followerID, err)
+					}
+				}
+			}
+		}()
 	}(userID, post, parentComment)
 
 	return nil
