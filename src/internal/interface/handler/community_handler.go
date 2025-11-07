@@ -263,12 +263,7 @@ func (h *CommunityHandler) JoinCommunity(c *gin.Context) {
 
 func (h *CommunityHandler) GetCommunities(c *gin.Context) {
 	// Get userID from context (if exists)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
@@ -319,12 +314,7 @@ func (h *CommunityHandler) SearchCommunities(c *gin.Context) {
 	}
 
 	// Get userID from context (set by OptionalAuthMiddleware)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, page, limit, userID)
 	if err != nil {
@@ -364,12 +354,7 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 	}
 
 	// Get userID from context (set by OptionalAuthMiddleware)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, page, limit, userID)
 	if err != nil {

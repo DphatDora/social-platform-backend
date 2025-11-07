@@ -168,8 +168,10 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID 
 	var posts []*model.Post
 	var total int64
 
-	// Count total posts
-	if err := r.db.Model(&model.Post{}).Count(&total).Error; err != nil {
+	// Count total APPROVED posts
+	if err := r.db.Model(&model.Post{}).
+		Where("status = ?", constant.POST_STATUS_APPROVED).
+		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -217,8 +219,10 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	var posts []*model.Post
 	var total int64
 
-	// Count total posts in community
-	if err := r.db.Model(&model.Post{}).Where("community_id = ?", communityID).Count(&total).Error; err != nil {
+	// Count total APPROVED posts in community
+	if err := r.db.Model(&model.Post{}).
+		Where("community_id = ? AND status = ?", communityID, constant.POST_STATUS_APPROVED).
+		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -270,7 +274,8 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	patterns := util.BuildSearchPattern(title)
 
-	countQuery := r.db.Model(&model.Post{})
+	countQuery := r.db.Model(&model.Post{}).
+		Where("status = ?", constant.POST_STATUS_APPROVED)
 	for _, p := range patterns {
 		countQuery = countQuery.Where("unaccent(lower(title)) LIKE unaccent(lower(?))", p)
 	}
