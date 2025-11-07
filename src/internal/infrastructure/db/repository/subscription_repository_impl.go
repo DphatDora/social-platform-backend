@@ -42,9 +42,10 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&model.Subscription{}).
-		Preload("User").
-		Where("community_id = ?", communityID)
+	query := r.db.Table("subscriptions").
+		Select("subscriptions.*, community_moderators.role as moderator_role").
+		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
+		Where("subscriptions.community_id = ?", communityID)
 
 	// Apply search
 	if searchName != "" {
@@ -60,9 +61,11 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 	}
 
 	// Reset query for actual data fetch with sorting
-	query = r.db.Model(&model.Subscription{}).
-		Preload("User").
-		Where("community_id = ?", communityID)
+	query = r.db.Table("subscriptions").
+		Select("subscriptions.*, community_moderators.role as moderator_role").
+		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
+		Where("subscriptions.community_id = ?", communityID).
+		Preload("User")
 
 	// Re-apply search filter for data fetch
 	if searchName != "" {

@@ -58,3 +58,18 @@ func (r *CommunityModeratorRepositoryImpl) GetCommunityModerators(communityID ui
 	}
 	return moderators, nil
 }
+
+func (r *CommunityModeratorRepositoryImpl) UpsertModerator(moderator *model.CommunityModerator) error {
+	return r.db.Save(moderator).Error
+}
+
+func (r *CommunityModeratorRepositoryImpl) GetSuperAdminCommunitiesByUserID(userID uint64) ([]*model.CommunityModerator, error) {
+	var moderators []*model.CommunityModerator
+	err := r.db.Preload("Community").
+		Where("user_id = ? AND role = ?", userID, "super_admin").
+		Find(&moderators).Error
+	if err != nil {
+		return nil, err
+	}
+	return moderators, nil
+}

@@ -225,6 +225,14 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 }
 
 func (h *PostHandler) GetAllPosts(c *gin.Context) {
+	// Get userID from context (if exists)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
@@ -236,7 +244,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit)
+	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting all posts in PostHandler.GetAllPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -255,6 +263,14 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 }
 
 func (h *PostHandler) GetPostDetail(c *gin.Context) {
+	// Get userID from context (if exists)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
@@ -266,7 +282,7 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 		return
 	}
 
-	post, err := h.postService.GetPostDetailByID(postID)
+	post, err := h.postService.GetPostDetailByID(postID, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting post detail in PostHandler.GetPostDetail: %v", err)
 
@@ -293,6 +309,14 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 }
 
 func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
+	// Get userID from context (if exists)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
 	idParam := c.Param("id")
 	communityID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
@@ -315,7 +339,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit)
+	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting posts by community in PostHandler.GetPostsByCommunity: %v", err)
 
@@ -363,7 +387,15 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit)
+	// Get userID from context (set by OptionalAuthMiddleware)
+	var userID *uint64
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(uint64); ok {
+			userID = &uid
+		}
+	}
+
+	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -480,6 +512,71 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post unvoted successfully",
+	})
+}
+
+func (h *PostHandler) VotePoll(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in PostHandler.VotePoll", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.VotePoll: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	var req request.VotePollRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Invalid request in PostHandler.VotePoll: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request",
+		})
+		return
+	}
+
+	if err := h.postService.VotePoll(userID, postID, &req); err != nil {
+		log.Printf("[Err] Error voting poll in PostHandler.VotePoll: %v", err)
+
+		if err.Error() == "post not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		if err.Error() == "post is not a poll" || err.Error() == "option not found" ||
+			err.Error() == "poll has expired" || err.Error() == "already voted for this option" {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to vote poll",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Poll voted successfully",
 	})
 }
 

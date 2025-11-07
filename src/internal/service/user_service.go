@@ -12,13 +12,15 @@ import (
 
 type UserService struct {
 	userRepo               repository.UserRepository
+	communityRepo          repository.CommunityRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
 	userSavedPostRepo      repository.UserSavedPostRepository
 }
 
-func NewUserService(userRepo repository.UserRepository, communityModeratorRepo repository.CommunityModeratorRepository, userSavedPostRepo repository.UserSavedPostRepository) *UserService {
+func NewUserService(userRepo repository.UserRepository, communityRepo repository.CommunityRepository, communityModeratorRepo repository.CommunityModeratorRepository, userSavedPostRepo repository.UserSavedPostRepository) *UserService {
 	return &UserService{
 		userRepo:               userRepo,
+		communityRepo:          communityRepo,
 		communityModeratorRepo: communityModeratorRepo,
 		userSavedPostRepo:      userSavedPostRepo,
 	}
@@ -266,4 +268,21 @@ func (s *UserService) SearchUsers(searchTerm string, page, limit int) ([]*respon
 	}
 
 	return userResponses, pagination, nil
+}
+
+func (s *UserService) GetUserSuperAdminCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+	communities, err := s.communityRepo.GetCommunitiesByCreatorID(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting communities by creator in UserService.GetUserSuperAdminCommunities: %v", err)
+		return nil, fmt.Errorf("failed to get super admin communities")
+	}
+
+	communityResponses := make([]*response.CommunityListResponse, len(communities))
+	for i, community := range communities {
+		resp := response.NewCommunityListResponse(community)
+		resp.TotalMembers = community.MemberCount
+		communityResponses[i] = resp
+	}
+
+	return communityResponses, nil
 }

@@ -178,8 +178,8 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	return nil
 }
 
-func (s *CommunityService) GetCommunities(page, limit int) ([]*response.CommunityListResponse, *response.Pagination, error) {
-	communities, total, err := s.communityRepo.GetCommunities(page, limit)
+func (s *CommunityService) GetCommunities(page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+	communities, total, err := s.communityRepo.GetCommunities(page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting communities in CommunityService.GetCommunities: %v", err)
 		return nil, nil, fmt.Errorf("failed to get communities")
@@ -189,6 +189,11 @@ func (s *CommunityService) GetCommunities(page, limit int) ([]*response.Communit
 	for i, community := range communities {
 		resp := response.NewCommunityListResponse(community)
 		resp.TotalMembers = community.MemberCount
+
+		if community.IsSubscribed != nil {
+			resp.IsFollow = community.IsSubscribed
+		}
+
 		communityResponses[i] = resp
 	}
 
@@ -206,8 +211,8 @@ func (s *CommunityService) GetCommunities(page, limit int) ([]*response.Communit
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int) ([]*response.CommunityListResponse, *response.Pagination, error) {
-	communities, total, err := s.communityRepo.SearchCommunitiesByName(name, page, limit)
+func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+	communities, total, err := s.communityRepo.SearchCommunitiesByName(name, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching communities in CommunityService.SearchCommunitiesByName: %v", err)
 		return nil, nil, fmt.Errorf("failed to search communities")
@@ -234,13 +239,13 @@ func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int)
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, page, limit int) ([]*response.CommunityListResponse, *response.Pagination, error) {
+func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	// Validate sortBy
 	if sortBy != constant.SORT_NEWEST && sortBy != constant.SORT_MEMBER_COUNT {
 		sortBy = constant.SORT_NEWEST
 	}
 
-	communities, total, err := s.communityRepo.FilterCommunities(sortBy, isPrivate, page, limit)
+	communities, total, err := s.communityRepo.FilterCommunities(sortBy, isPrivate, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error filtering communities in CommunityService.FilterCommunities: %v", err)
 		return nil, nil, fmt.Errorf("failed to filter communities")
@@ -299,7 +304,12 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 
 	memberResponses := make([]*response.MemberListResponse, len(subscriptions))
 	for i, subscription := range subscriptions {
-		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt)
+		// Default role is "user"
+		role := constant.ROLE_USER
+		if subscription.ModeratorRole != nil && *subscription.ModeratorRole != "" {
+			role = *subscription.ModeratorRole
+		}
+		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt, role)
 	}
 
 	// Set pagination
@@ -352,6 +362,58 @@ func (s *CommunityService) RemoveMember(userID, communityID, memberID uint64) er
 	}
 
 	return nil
+}
+
+func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUserID uint64, role string) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdateMemberRole: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if admin has permission (must be SUPER_ADMIN)
+	adminRole, err := s.communityModeratorRepo.GetModeratorRole(communityID, adminUserID)
+	if err != nil || adminRole != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateMemberRole: userID=%d, communityID=%d", adminUserID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Check if target user is a member
+	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(targetUserID, communityID)
+	if err != nil {
+		log.Printf("[Err] Error checking subscription in CommunityService.UpdateMemberRole: %v", err)
+		return fmt.Errorf("failed to check subscription")
+	}
+	if !isSubscribed {
+		return fmt.Errorf("user is not a member of this community")
+	}
+
+	// If role is "user", remove from moderators
+	if role == constant.ROLE_USER {
+		if err := s.communityModeratorRepo.DeleteModerator(communityID, targetUserID); err != nil {
+			log.Printf("[Err] Error removing moderator in CommunityService.UpdateMemberRole: %v", err)
+			return fmt.Errorf("failed to remove moderator role")
+		}
+		return nil
+	}
+
+	// If role is "admin", upsert moderator
+	if role == constant.ROLE_ADMIN {
+		moderator := &model.CommunityModerator{
+			CommunityID: communityID,
+			UserID:      targetUserID,
+			Role:        constant.ROLE_ADMIN,
+			JoinedAt:    time.Now(),
+		}
+		if err := s.communityModeratorRepo.UpsertModerator(moderator); err != nil {
+			log.Printf("[Err] Error upserting moderator in CommunityService.UpdateMemberRole: %v", err)
+			return fmt.Errorf("failed to update moderator role")
+		}
+		return nil
+	}
+
+	return fmt.Errorf("invalid role")
 }
 
 func (s *CommunityService) GetUserRoleInCommunity(userID, communityID uint64) (string, error) {
@@ -555,27 +617,16 @@ func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, p
 	reportMap := make(map[uint64]*response.PostReportResponse)
 	for _, report := range reports {
 		if reportMap[report.PostID] == nil {
-			reportMap[report.PostID] = &response.PostReportResponse{
-				PostID:    report.Post.ID,
-				PostTitle: report.Post.Title,
-				Author: response.AuthorInfo{
-					ID:       report.Post.Author.ID,
-					Username: report.Post.Author.Username,
-					Avatar:   report.Post.Author.Avatar,
-				},
-				Reporters:    []response.ReporterInfo{},
-				TotalReports: 0,
-			}
+			reportMap[report.PostID] = response.NewPostReportResponse(
+				report.Post.ID,
+				report.Post.Title,
+				report.Post.Author,
+			)
+			// Set the first report ID as the response ID
+			reportMap[report.PostID].ID = report.ID
 		}
 
-		reporterInfo := response.ReporterInfo{
-			ID:       report.Reporter.ID,
-			Username: report.Reporter.Username,
-			Avatar:   report.Reporter.Avatar,
-			Reasons:  report.Reasons,
-			Note:     report.Note,
-		}
-
+		reporterInfo := response.NewReporterInfo(report.Reporter, report.Reasons, report.Note)
 		reportMap[report.PostID].Reporters = append(reportMap[report.PostID].Reporters, reporterInfo)
 		reportMap[report.PostID].TotalReports++
 	}

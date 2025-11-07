@@ -45,6 +45,7 @@ type CommunityListResponse struct {
 	CommunityAvatar  *string        `json:"communityAvatar,omitempty"`
 	IsPrivate        bool           `json:"isPrivate"`
 	TotalMembers     int64          `json:"totalMembers"`
+	IsFollow         *bool          `json:"isFollow,omitempty"`
 }
 
 func NewCommunityListResponse(community *model.Community) *CommunityListResponse {
@@ -63,15 +64,17 @@ type MemberListResponse struct {
 	Username     string    `json:"username"`
 	Avatar       *string   `json:"avatar,omitempty"`
 	Karma        uint64    `json:"karma"`
+	Role         string    `json:"role"`
 	SubscribedAt time.Time `json:"subscribedAt"`
 }
 
-func NewMemberListResponse(user *model.User, subscribedAt time.Time) *MemberListResponse {
+func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string) *MemberListResponse {
 	return &MemberListResponse{
 		UserID:       user.ID,
 		Username:     user.Username,
 		Avatar:       user.Avatar,
 		Karma:        user.Karma,
+		Role:         role,
 		SubscribedAt: subscribedAt,
 	}
 }
