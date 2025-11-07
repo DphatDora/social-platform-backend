@@ -226,12 +226,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 
 func (h *PostHandler) GetAllPosts(c *gin.Context) {
 	// Get userID from context (if exists)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
@@ -264,12 +259,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 
 func (h *PostHandler) GetPostDetail(c *gin.Context) {
 	// Get userID from context (if exists)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
@@ -310,12 +300,7 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 
 func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 	// Get userID from context (if exists)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	idParam := c.Param("id")
 	communityID, err := strconv.ParseUint(idParam, 10, 64)
@@ -388,12 +373,7 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 	}
 
 	// Get userID from context (set by OptionalAuthMiddleware)
-	var userID *uint64
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(uint64); ok {
-			userID = &uid
-		}
-	}
+	userID := util.GetOptionalUserIDFromContext(c)
 
 	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, userID)
 	if err != nil {
@@ -577,6 +557,60 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Poll voted successfully",
+	})
+}
+
+func (h *PostHandler) UnvotePoll(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in PostHandler.UnvotePoll", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	postID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid post ID in PostHandler.UnvotePoll: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid post ID",
+		})
+		return
+	}
+
+	if err := h.postService.UnvotePoll(userID, postID); err != nil {
+		log.Printf("[Err] Error unvoting poll in PostHandler.UnvotePoll: %v", err)
+
+		if err.Error() == "post not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Post not found",
+			})
+			return
+		}
+
+		if err.Error() == "post is not a poll" || err.Error() == "you have not voted on this poll" {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to unvote poll",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Poll vote removed successfully",
 	})
 }
 
