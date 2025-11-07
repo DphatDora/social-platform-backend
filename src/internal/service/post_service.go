@@ -523,7 +523,7 @@ func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollReque
 	return nil
 }
 
-func (s *PostService) UnvotePoll(userID, postID uint64) error {
+func (s *PostService) UnvotePoll(userID, postID uint64, req *request.UnvotePollRequest) error {
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
 		log.Printf("[Err] Post not found in PostService.UnvotePoll: %v", err)
@@ -545,34 +545,41 @@ func (s *PostService) UnvotePoll(userID, postID uint64) error {
 		return fmt.Errorf("invalid poll data")
 	}
 
-	// Check if user has voted
-	hasVoted := false
-	votedOptions := []int{}
-
+	// Find the option
+	optionIndex := -1
 	for i, option := range pollData.Options {
-		for _, voterID := range option.Voters {
-			if voterID == userID {
-				hasVoted = true
-				votedOptions = append(votedOptions, i)
-			}
+		if option.ID == req.OptionID {
+			optionIndex = i
+			break
+		}
+	}
+
+	if optionIndex == -1 {
+		return fmt.Errorf("option not found")
+	}
+
+	// Check if user has voted for this specific option
+	hasVoted := false
+	for _, voterID := range pollData.Options[optionIndex].Voters {
+		if voterID == userID {
+			hasVoted = true
+			break
 		}
 	}
 
 	if !hasVoted {
-		return fmt.Errorf("you have not voted on this poll")
+		return fmt.Errorf("you have not voted for this option")
 	}
 
-	// Remove user's votes from all options
-	for _, optionIndex := range votedOptions {
-		newVoters := []uint64{}
-		for _, voterID := range pollData.Options[optionIndex].Voters {
-			if voterID != userID {
-				newVoters = append(newVoters, voterID)
-			}
+	// Remove user's vote from this specific option
+	newVoters := []uint64{}
+	for _, voterID := range pollData.Options[optionIndex].Voters {
+		if voterID != userID {
+			newVoters = append(newVoters, voterID)
 		}
-		pollData.Options[optionIndex].Voters = newVoters
-		pollData.Options[optionIndex].Votes = len(newVoters)
 	}
+	pollData.Options[optionIndex].Voters = newVoters
+	pollData.Options[optionIndex].Votes = len(newVoters)
 
 	// Recalculate total votes (count unique voters)
 	uniqueVoters := make(map[uint64]bool)

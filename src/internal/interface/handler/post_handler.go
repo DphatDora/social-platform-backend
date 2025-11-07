@@ -582,7 +582,17 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.UnvotePoll(userID, postID); err != nil {
+	var req request.UnvotePollRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Invalid request in PostHandler.UnvotePoll: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request",
+		})
+		return
+	}
+
+	if err := h.postService.UnvotePoll(userID, postID, &req); err != nil {
 		log.Printf("[Err] Error unvoting poll in PostHandler.UnvotePoll: %v", err)
 
 		if err.Error() == "post not found" {
@@ -593,7 +603,8 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 			return
 		}
 
-		if err.Error() == "post is not a poll" || err.Error() == "you have not voted on this poll" {
+		if err.Error() == "post is not a poll" || err.Error() == "option not found" ||
+			err.Error() == "you have not voted for this option" {
 			c.JSON(http.StatusBadRequest, response.APIResponse{
 				Success: false,
 				Message: err.Error(),
