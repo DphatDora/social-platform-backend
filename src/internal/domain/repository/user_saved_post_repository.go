@@ -11,4 +11,5 @@ type UserSavedPostRepository interface {
 	UpdateFollowedStatus(userID, postID uint64, isFollowed bool) error
 	DeleteUserSavedPost(userID, postID uint64) error
 	CheckUserSavedPostExists(userID, postID uint64) (bool, error)
+	GetFollowersByPostID(postID uint64) ([]uint64, error)
 }

@@ -94,3 +94,11 @@ func (r *UserSavedPostRepositoryImpl) CheckUserSavedPostExists(userID, postID ui
 		Count(&count).Error
 	return count > 0, err
 }
+
+func (r *UserSavedPostRepositoryImpl) GetFollowersByPostID(postID uint64) ([]uint64, error) {
+	var userIDs []uint64
+	err := r.db.Model(&model.UserSavedPost{}).
+		Where("post_id = ? AND is_followed = ?", postID, true).
+		Pluck("user_id", &userIDs).Error
+	return userIDs, err
+}

@@ -46,15 +46,13 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	userSavedPostRepo := repository.NewUserSavedPostRepository(db)
 
 	// Initialize services
+	sseService := service.NewSSEService()
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
 	userService := service.NewUserService(userRepo, communityModeratorRepo, userSavedPostRepo)
-
-	sseService := service.NewSSEService()
-
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, notificationService)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, notificationService)
 
 	// Initialize handlers
@@ -89,9 +87,6 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 }
 
 func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config) {
-	// Apply optional auth middleware to all public routes
-	rg.Use(middleware.OptionalAuthMiddleware(conf))
-
 	// Health check
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
@@ -111,6 +106,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 
 	communities := rg.Group("/communities")
+	communities.Use(middleware.OptionalAuthMiddleware(conf))
 	{
 		communities.GET("", appHandler.communityHandler.GetCommunities)
 		communities.GET("/search", appHandler.communityHandler.SearchCommunities)
@@ -121,6 +117,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 
 	posts := rg.Group("/posts")
+	posts.Use(middleware.OptionalAuthMiddleware(conf))
 	{
 		posts.GET("", appHandler.postHandler.GetAllPosts)
 		posts.GET("/search", appHandler.postHandler.SearchPosts)

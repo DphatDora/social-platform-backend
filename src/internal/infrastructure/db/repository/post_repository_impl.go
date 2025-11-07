@@ -283,9 +283,9 @@ func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page
 
 	switch sortBy {
 	case constant.SORT_TOP:
-		query = query.Order("vote DESC, posts.created_at DESC")
+		query = query.Order(`"vote" DESC, posts.created_at DESC`)
 	case constant.SORT_HOT:
-		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
+		query = query.Order(`comment_count DESC, "vote" DESC, posts.created_at DESC`)
 	case constant.SORT_NEW:
 		fallthrough
 	default:
