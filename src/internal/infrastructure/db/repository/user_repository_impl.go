@@ -135,3 +135,31 @@ func (r *UserRepositoryImpl) GetUserBadgeHistory(userID uint64) ([]*model.UserBa
 	}
 	return userBadges, nil
 }
+
+func (r *UserRepositoryImpl) SearchUsers(searchTerm string, page, limit int) ([]*model.User, int64, error) {
+	var users []*model.User
+	var total int64
+
+	// Build query with username search
+	query := r.db.Model(&model.User{}).Where("is_active = ?", true)
+	countQuery := r.db.Model(&model.User{}).Where("is_active = ?", true)
+
+	if searchTerm != "" {
+		searchPattern := "%" + searchTerm + "%"
+		query = query.Where("LOWER(username) LIKE LOWER(?)", searchPattern)
+		countQuery = countQuery.Where("LOWER(username) LIKE LOWER(?)", searchPattern)
+	}
+
+	// Count total
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get users with pagination
+	offset := (page - 1) * limit
+	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}

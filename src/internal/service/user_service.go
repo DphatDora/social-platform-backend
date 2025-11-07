@@ -8,7 +8,6 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/util"
-	"strings"
 )
 
 type UserService struct {
@@ -190,11 +189,27 @@ func (s *UserService) GetUserSavedPosts(userID uint64, searchTitle string, isFol
 }
 
 func (s *UserService) CreateUserSavedPost(userID uint64, savedPostReq *request.UserSavedPostRequest) error {
-	if err := s.userSavedPostRepo.CreateUserSavedPost(userID, savedPostReq); err != nil {
-		if strings.Contains(err.Error(), "duplicate key value") {
-			return fmt.Errorf("post already saved")
-		}
+	// Check if post is already saved
+	exists, err := s.userSavedPostRepo.CheckUserSavedPostExists(userID, savedPostReq.PostID)
+	if err != nil {
+		log.Printf("[Err] Error checking if post is saved in UserService.CreateUserSavedPost: %v", err)
+		return fmt.Errorf("failed to check saved post status")
+	}
 
+	// If already saved and trying to follow, just update the follow status
+	if exists {
+		if savedPostReq.IsFollowed {
+			if err := s.userSavedPostRepo.UpdateFollowedStatus(userID, savedPostReq.PostID, savedPostReq.IsFollowed); err != nil {
+				log.Printf("[Err] Error updating follow status in UserService.CreateUserSavedPost: %v", err)
+				return fmt.Errorf("failed to update follow status")
+			}
+			return nil
+		}
+		return fmt.Errorf("post already saved")
+	}
+
+	// Create new saved post
+	if err := s.userSavedPostRepo.CreateUserSavedPost(userID, savedPostReq); err != nil {
 		log.Printf("[Err] Error creating user saved post in UserService.CreateUserSavedPost: %v", err)
 		return fmt.Errorf("failed to save post")
 	}
@@ -215,4 +230,40 @@ func (s *UserService) DeleteUserSavedPost(userID, postID uint64) error {
 		return fmt.Errorf("failed to delete saved post")
 	}
 	return nil
+}
+
+func (s *UserService) SearchUsers(searchTerm string, page, limit int) ([]*response.UserSearchResponse, *response.Pagination, error) {
+	users, total, err := s.userRepo.SearchUsers(searchTerm, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error searching users in UserService.SearchUsers: %v", err)
+		return nil, nil, fmt.Errorf("failed to search users")
+	}
+
+	userResponses := make([]*response.UserSearchResponse, len(users))
+	for i, user := range users {
+		// Get latest badge/karma for each user
+		karma := uint64(0)
+		userBadge, err := s.userRepo.GetLatestUserBadge(user.ID)
+		if err == nil && userBadge != nil {
+			karma = userBadge.Karma
+		}
+
+		userResponses[i] = response.NewUserSearchResponse(user, karma)
+	}
+
+	pagination := &response.Pagination{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+	totalPages := (total + int64(limit) - 1) / int64(limit)
+	if int64(page) < totalPages {
+		nextURL := fmt.Sprintf("/api/v1/users/search?page=%d&limit=%d", page+1, limit)
+		if searchTerm != "" {
+			nextURL += fmt.Sprintf("&search=%s", searchTerm)
+		}
+		pagination.NextURL = nextURL
+	}
+
+	return userResponses, pagination, nil
 }

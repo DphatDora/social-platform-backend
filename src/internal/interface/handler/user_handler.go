@@ -403,3 +403,34 @@ func (h *UserHandler) DeleteUserSavedPost(c *gin.Context) {
 		Message: "Saved post deleted successfully",
 	})
 }
+
+func (h *UserHandler) SearchUsers(c *gin.Context) {
+	searchTerm := c.Query("search")
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+
+	if page < 1 {
+		page = constant.DEFAULT_PAGE
+	}
+	if limit < 1 || limit > 100 {
+		limit = constant.DEFAULT_LIMIT
+	}
+
+	users, pagination, err := h.userService.SearchUsers(searchTerm, page, limit)
+	if err != nil {
+		log.Printf("[Err] Error searching users in UserHandler.SearchUsers: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to search users",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success:    true,
+		Message:    "Users retrieved successfully",
+		Data:       users,
+		Pagination: pagination,
+	})
+}

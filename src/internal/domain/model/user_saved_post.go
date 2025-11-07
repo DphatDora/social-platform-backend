@@ -10,8 +10,12 @@ type UserSavedPost struct {
 	AuthorID      uint64    `gorm:"column:author_id"`
 	AuthorName    string    `gorm:"column:author_name"`
 	AuthorAvatar  *string   `gorm:"column:author_avatar"`
+	CommunityID   uint64    `gorm:"column:community_id"`
 	IsFollowed    bool      `gorm:"column:is_followed"`
 	CreatedAt     time.Time `gorm:"column:created_at"`
+
+	// Relation
+	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`
 }
 
 func (UserSavedPost) TableName() string {
