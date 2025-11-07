@@ -27,6 +27,9 @@ type Post struct {
 	// Total vote
 	Vote int64 `gorm:"column:vote;<-:false"`
 
+	// User's vote status (1=upvote, 0=downvote, NULL=no vote)
+	UserVote *int `gorm:"column:user_vote;<-:false"`
+
 	// relation
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`
 	Author    *User      `gorm:"foreignKey:AuthorID;references:ID"`

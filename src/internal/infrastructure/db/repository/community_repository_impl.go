@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
@@ -77,7 +78,7 @@ func (r *CommunityRepositoryImpl) DeleteCommunity(id uint64) error {
 	return r.db.Model(&model.Community{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
 }
 
-func (r *CommunityRepositoryImpl) GetCommunities(page, limit int) ([]*model.Community, int64, error) {
+func (r *CommunityRepositoryImpl) GetCommunities(page, limit int, userID *uint64) ([]*model.Community, int64, error) {
 	var communities []*model.Community
 	var total int64
 
@@ -87,10 +88,24 @@ func (r *CommunityRepositoryImpl) GetCommunities(page, limit int) ([]*model.Comm
 		return nil, 0, err
 	}
 
-	err := r.db.Select("communities.*, COUNT(subscriptions.user_id) as member_count").
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id").
-		Group("communities.id").
-		Order("created_at DESC").
+	selectFields := "communities.*, COUNT(DISTINCT subscriptions.user_id) as member_count"
+
+	// Add is_subscribed field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d THEN 1 ELSE 0 END) as is_subscribed", *userID)
+	}
+
+	query := r.db.Table("communities").
+		Select(selectFields).
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+
+	// Join with user's subscriptions if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+	}
+
+	err := query.Group("communities.id").
+		Order("communities.created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&communities).Error
@@ -98,7 +113,7 @@ func (r *CommunityRepositoryImpl) GetCommunities(page, limit int) ([]*model.Comm
 	return communities, total, err
 }
 
-func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, limit int) ([]*model.Community, int64, error) {
+func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
 	var communities []*model.Community
 	var total int64
 
@@ -115,16 +130,27 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 		return nil, 0, err
 	}
 
-	// Reset query for actual data fetch with JOIN
-	query = r.db.Model(&model.Community{})
-	for _, p := range patterns {
-		query = query.Where("unaccent(lower(name)) LIKE unaccent(lower(?))", p)
+	selectFields := "communities.*, COUNT(subscriptions.user_id) as member_count"
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d THEN 1 ELSE 0 END) as is_subscribed", *userID)
 	}
 
-	err := query.Select("communities.*, COUNT(subscriptions.user_id) as member_count").
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id").
-		Group("communities.id").
-		Order("created_at DESC").
+	// Reset query for actual data fetch with JOIN
+	query = r.db.Table("communities").
+		Select(selectFields).
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+
+	// Join with user's subscriptions if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+	}
+
+	for _, p := range patterns {
+		query = query.Where("unaccent(lower(communities.name)) LIKE unaccent(lower(?))", p)
+	}
+
+	err := query.Group("communities.id").
+		Order("communities.created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&communities).Error
@@ -135,22 +161,39 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 	return communities, total, nil
 }
 
-func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bool, page, limit int) ([]*model.Community, int64, error) {
+func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bool, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
 	var communities []*model.Community
 	var total int64
 
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&model.Community{}).
-		Select("communities.*, COUNT(subscriptions.user_id) as member_count").
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id").
-		Group("communities.id")
-
-	if isPrivate != nil {
-		query = query.Where("is_private = ?", *isPrivate)
+	// Build select fields
+	selectFields := "communities.*, COUNT(subscriptions.user_id) as member_count"
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d THEN 1 ELSE 0 END) as is_subscribed", *userID)
 	}
 
-	if err := query.Count(&total).Error; err != nil {
+	query := r.db.Table("communities").
+		Select(selectFields).
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+
+	// Join with user's subscriptions if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+	}
+
+	query = query.Group("communities.id")
+
+	if isPrivate != nil {
+		query = query.Where("communities.is_private = ?", *isPrivate)
+	}
+
+	// Count total with same filters
+	var countQuery = r.db.Model(&model.Community{})
+	if isPrivate != nil {
+		countQuery = countQuery.Where("is_private = ?", *isPrivate)
+	}
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -158,12 +201,30 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 	case constant.SORT_MEMBER_COUNT:
 		query = query.Order("member_count DESC")
 	default:
-		query = query.Order("created_at DESC")
+		query = query.Order("communities.created_at DESC")
 	}
 
 	err := query.Limit(limit).Offset(offset).Find(&communities).Error
 
 	return communities, total, err
+}
+
+func (r *CommunityRepositoryImpl) GetCommunitiesByCreatorID(creatorID uint64) ([]*model.Community, error) {
+	var communities []*model.Community
+
+	err := r.db.Table("communities").
+		Select("communities.*, COUNT(subscriptions.user_id) as member_count").
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id").
+		Where("communities.created_by = ?", creatorID).
+		Group("communities.id").
+		Order("communities.created_at DESC").
+		Find(&communities).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return communities, nil
 }
 
 func (r *CommunityRepositoryImpl) IsCommunityNameExists(name string) (bool, error) {

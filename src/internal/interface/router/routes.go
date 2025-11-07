@@ -48,7 +48,7 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	// Initialize services
 	sseService := service.NewSSEService()
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
-	userService := service.NewUserService(userRepo, communityModeratorRepo, userSavedPostRepo)
+	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService)
@@ -132,6 +132,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 		users.GET("/:id/posts", appHandler.postHandler.GetPostsByUser)
 		users.GET("/:id/comments", appHandler.commentHandler.GetCommentsByUser)
 		users.GET("/:id/badge-history", appHandler.userHandler.GetUserBadgeHistory)
+		users.GET("/:id/communities/super-admin", appHandler.userHandler.GetUserSuperAdminCommunities)
 	}
 }
 
@@ -160,6 +161,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.PUT("/:id", appHandler.communityHandler.UpdateCommunity)
 			communities.DELETE("/:id", appHandler.communityHandler.DeleteCommunity)
 			communities.GET("/:id/members", appHandler.communityHandler.GetCommunityMembers)
+			communities.PUT("/:id/moderators/:userId", appHandler.communityHandler.UpdateMemberRole)
 			communities.DELETE("/:id/members/:memberId", appHandler.communityHandler.RemoveMember)
 			communities.GET("/:id/role", appHandler.communityHandler.GetUserRoleInCommunity)
 			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
@@ -176,6 +178,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			posts.DELETE("/:id", appHandler.postHandler.DeletePost)
 			posts.POST("/:id/vote", appHandler.postHandler.VotePost)
 			posts.DELETE("/:id/vote", appHandler.postHandler.UnvotePost)
+			posts.POST("/:id/poll/vote", appHandler.postHandler.VotePoll)
 			posts.POST("/:id/report", appHandler.postHandler.ReportPost)
 		}
 

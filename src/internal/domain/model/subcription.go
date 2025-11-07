@@ -7,6 +7,9 @@ type Subscription struct {
 	CommunityID  uint64    `gorm:"column:community_id;primaryKey"`
 	SubscribedAt time.Time `gorm:"column:subscribed_at"`
 
+	// Role in community
+	ModeratorRole *string `gorm:"column:moderator_role;<-:false"`
+
 	// relation
 	User      *User      `gorm:"foreignKey:UserID;references:ID"`
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`
