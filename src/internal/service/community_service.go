@@ -18,6 +18,7 @@ type CommunityService struct {
 	postRepo               repository.PostRepository
 	postReportRepo         repository.PostReportRepository
 	notificationService    *NotificationService
+	botTaskService         *BotTaskService
 }
 
 func NewCommunityService(
@@ -27,6 +28,7 @@ func NewCommunityService(
 	postRepo repository.PostRepository,
 	postReportRepo repository.PostReportRepository,
 	notificationService *NotificationService,
+	botTaskService *BotTaskService,
 ) *CommunityService {
 	return &CommunityService{
 		communityRepo:          communityRepo,
@@ -35,6 +37,7 @@ func NewCommunityService(
 		postRepo:               postRepo,
 		postReportRepo:         postReportRepo,
 		notificationService:    notificationService,
+		botTaskService:         botTaskService,
 	}
 }
 
@@ -174,6 +177,13 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 		log.Printf("[Err] Error creating subscription in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("failed to join community")
 	}
+
+	// Create bot task for interest score
+	go func(userID, communityID uint64) {
+		if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+			log.Printf("[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
+		}
+	}(userID, communityID)
 
 	return nil
 }

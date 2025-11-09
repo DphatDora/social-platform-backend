@@ -26,6 +26,7 @@ type NotificationService struct {
 	botTaskRepo             repository.BotTaskRepository
 	userRepo                repository.UserRepository
 	sseService              *SSEService
+	botTaskService          *BotTaskService
 }
 
 func NewNotificationService(
@@ -34,6 +35,7 @@ func NewNotificationService(
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
 	sseService *SSEService,
+	botTaskService *BotTaskService,
 ) *NotificationService {
 	return &NotificationService{
 		notificationRepo:        notificationRepo,
@@ -41,6 +43,7 @@ func NewNotificationService(
 		botTaskRepo:             botTaskRepo,
 		userRepo:                userRepo,
 		sseService:              sseService,
+		botTaskService:          botTaskService,
 	}
 }
 
@@ -225,29 +228,11 @@ func (s *NotificationService) broadcastNewNotification(userID uint64, notificati
 }
 
 func (s *NotificationService) sendEmailNotification(email, subject, body string) {
-	emailPayload := payload.EmailPayload{
-		To:      email,
-		Subject: fmt.Sprintf("Notification: %s", subject),
-		Body:    body,
-	}
-
-	payloadBytes, err := json.Marshal(emailPayload)
-	if err != nil {
-		log.Printf("[Err] Failed to marshal email payload: %v", err)
-		return
-	}
-
-	rawPayload := json.RawMessage(payloadBytes)
-	now := time.Now()
-	botTask := &model.BotTask{
-		Action:     constant.BOT_TASK_ACTION_SEND_EMAIL,
-		Payload:    &rawPayload,
-		CreatedAt:  now,
-		ExecutedAt: &now,
-	}
-
-	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Failed to create email bot task: %v", err)
+	if s.botTaskService != nil {
+		fullSubject := fmt.Sprintf("Notification: %s", subject)
+		if err := s.botTaskService.CreateEmailTask(email, fullSubject, body); err != nil {
+			log.Printf("[Err] Failed to create email bot task: %v", err)
+		}
 	}
 }
 

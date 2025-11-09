@@ -44,16 +44,20 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	notificationRepo := repository.NewNotificationRepository(db)
 	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
 	userSavedPostRepo := repository.NewUserSavedPostRepository(db)
+	userInterestScoreRepo := repository.NewUserInterestScoreRepository(db)
+	userTagPrefRepo := repository.NewUserTagPreferenceRepository(db)
 
 	// Initialize services
 	sseService := service.NewSSEService()
-	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
-	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo)
+	botTaskService := service.NewBotTaskService(botTaskRepo)
+	recommendService := service.NewRecommendationService(userInterestScoreRepo, userTagPrefRepo, postRepo, communityRepo)
+	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService, botTaskService)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService)
+	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
-	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
-	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService)
-	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, notificationService)
+	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService, botTaskService, recommendService)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, notificationService, botTaskService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
