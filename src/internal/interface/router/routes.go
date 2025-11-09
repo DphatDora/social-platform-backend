@@ -44,16 +44,22 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	notificationRepo := repository.NewNotificationRepository(db)
 	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
 	userSavedPostRepo := repository.NewUserSavedPostRepository(db)
+	userInterestScoreRepo := repository.NewUserInterestScoreRepository(db)
+	userTagPrefRepo := repository.NewUserTagPreferenceRepository(db)
+	tagRepo := repository.NewTagRepository(db)
+	topicRepo := repository.NewTopicRepository(db)
 
 	// Initialize services
 	sseService := service.NewSSEService()
-	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo)
-	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo)
+	botTaskService := service.NewBotTaskService(botTaskRepo)
+	recommendService := service.NewRecommendationService(userInterestScoreRepo, userTagPrefRepo, postRepo, communityRepo)
+	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService, botTaskService)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService)
+	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
-	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService)
-	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, notificationService)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService)
-	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, notificationService)
+	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, topicRepo, notificationService, botTaskService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -114,6 +120,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 		communities.GET("/:id", appHandler.communityHandler.GetCommunityByID)
 		communities.GET("/:id/posts", appHandler.postHandler.GetPostsByCommunity)
 		communities.POST("/verify-name", appHandler.communityHandler.VerifyCommunityName)
+		communities.GET("/topics", appHandler.communityHandler.GetAllTopics)
 	}
 
 	posts := rg.Group("/posts")
@@ -123,6 +130,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 		posts.GET("/search", appHandler.postHandler.SearchPosts)
 		posts.GET("/:id", appHandler.postHandler.GetPostDetail)
 		posts.GET("/:id/comments", appHandler.commentHandler.GetCommentsOnPost)
+		posts.GET("/tags", appHandler.postHandler.GetAllTags)
 	}
 
 	users := rg.Group("/users")
@@ -164,6 +172,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.PUT("/:id/moderators/:userId", appHandler.communityHandler.UpdateMemberRole)
 			communities.DELETE("/:id/members/:memberId", appHandler.communityHandler.RemoveMember)
 			communities.GET("/:id/role", appHandler.communityHandler.GetUserRoleInCommunity)
+			communities.PATCH("/:id/requires-approval", appHandler.communityHandler.UpdateRequiresApproval)
 			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
 			communities.PATCH("/:id/manage/posts/:postId/status", appHandler.communityHandler.UpdatePostStatusByModerator)
 			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)

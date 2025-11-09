@@ -17,7 +17,9 @@ type CommunityService struct {
 	communityModeratorRepo repository.CommunityModeratorRepository
 	postRepo               repository.PostRepository
 	postReportRepo         repository.PostReportRepository
+	topicRepo              repository.TopicRepository
 	notificationService    *NotificationService
+	botTaskService         *BotTaskService
 }
 
 func NewCommunityService(
@@ -26,7 +28,9 @@ func NewCommunityService(
 	communityModeratorRepo repository.CommunityModeratorRepository,
 	postRepo repository.PostRepository,
 	postReportRepo repository.PostReportRepository,
+	topicRepo repository.TopicRepository,
 	notificationService *NotificationService,
+	botTaskService *BotTaskService,
 ) *CommunityService {
 	return &CommunityService{
 		communityRepo:          communityRepo,
@@ -34,7 +38,9 @@ func NewCommunityService(
 		communityModeratorRepo: communityModeratorRepo,
 		postRepo:               postRepo,
 		postReportRepo:         postReportRepo,
+		topicRepo:              topicRepo,
 		notificationService:    notificationService,
+		botTaskService:         botTaskService,
 	}
 }
 
@@ -174,6 +180,13 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 		log.Printf("[Err] Error creating subscription in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("failed to join community")
 	}
+
+	// Create bot task for interest score
+	go func(userID, communityID uint64) {
+		if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+			log.Printf("[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
+		}
+	}(userID, communityID)
 
 	return nil
 }
@@ -677,6 +690,47 @@ func (s *CommunityService) DeletePostReport(userID, communityID, reportID uint64
 	if err := s.postReportRepo.DeletePostReport(reportID); err != nil {
 		log.Printf("[Err] Error deleting post report in CommunityService.DeletePostReport: %v", err)
 		return fmt.Errorf("failed to delete post report")
+	}
+
+	return nil
+}
+
+func (s *CommunityService) GetAllTopics(search *string) ([]*response.TopicResponse, error) {
+	topics, err := s.topicRepo.GetAllTopics(search)
+	if err != nil {
+		log.Printf("[Err] Error getting topics in CommunityService.GetAllTopics: %v", err)
+		return nil, err
+	}
+
+	topicResponses := make([]*response.TopicResponse, len(topics))
+	for i, topic := range topics {
+		topicResponses[i] = &response.TopicResponse{
+			ID:   topic.ID,
+			Name: topic.Name,
+		}
+	}
+
+	return topicResponses, nil
+}
+
+func (s *CommunityService) UpdateRequiresApproval(userID, communityID uint64, req *request.UpdateRequiresApprovalRequest) error {
+	// Check if community exists
+	community, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresApproval: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission
+	if community.CreatedBy != userID {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresApproval: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Update requires approval
+	if err := s.communityRepo.UpdateRequiresApproval(communityID, req.RequiresApproval); err != nil {
+		log.Printf("[Err] Error updating requires approval in CommunityService.UpdateRequiresApproval: %v", err)
+		return fmt.Errorf("failed to update requires approval")
 	}
 
 	return nil

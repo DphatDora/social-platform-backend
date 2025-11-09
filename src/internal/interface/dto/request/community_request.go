@@ -30,3 +30,7 @@ type VerifyCommunityNameRequest struct {
 type UpdateMemberRoleRequest struct {
 	Role string `json:"role" binding:"required,oneof=admin user"`
 }
+
+type UpdateRequiresApprovalRequest struct {
+	RequiresApproval bool `json:"requiresApproval"`
+}

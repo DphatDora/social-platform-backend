@@ -16,4 +16,5 @@ type CommunityRepository interface {
 	FilterCommunities(sortBy string, isPrivate *bool, page, limit int, userID *uint64) ([]*model.Community, int64, error)
 	GetCommunitiesByCreatorID(creatorID uint64) ([]*model.Community, error)
 	IsCommunityNameExists(name string) (bool, error)
+	UpdateRequiresApproval(id uint64, requiresApproval bool) error
 }

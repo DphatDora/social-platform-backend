@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"social-platform-backend/internal/domain/model"
@@ -10,7 +9,6 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
-	"time"
 )
 
 type CommentService struct {
@@ -21,6 +19,7 @@ type CommentService struct {
 	userRepo            repository.UserRepository
 	userSavedPostRepo   repository.UserSavedPostRepository
 	notificationService *NotificationService
+	botTaskService      *BotTaskService
 }
 
 func NewCommentService(
@@ -31,6 +30,7 @@ func NewCommentService(
 	userRepo repository.UserRepository,
 	userSavedPostRepo repository.UserSavedPostRepository,
 	notificationService *NotificationService,
+	botTaskService *BotTaskService,
 ) *CommentService {
 	return &CommentService{
 		commentRepo:         commentRepo,
@@ -40,6 +40,7 @@ func NewCommentService(
 		userRepo:            userRepo,
 		userSavedPostRepo:   userSavedPostRepo,
 		notificationService: notificationService,
+		botTaskService:      botTaskService,
 	}
 }
 
@@ -87,30 +88,10 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		}()
 
 		// Update karma
-		karmaPayload := payload.UpdateUserKarmaPayload{
-			UserId:    userID,
-			TargetId:  nil,
-			Action:    constant.KARMA_ACTION_CREATE_COMMENT,
-			UpdatedAt: time.Now(),
-		}
-
-		payloadBytes, err := json.Marshal(karmaPayload)
-		if err != nil {
-			log.Printf("[Err] Error marshaling karma payload in CommentService.CreateComment: %v", err)
-			return
-		}
-
-		rawPayload := json.RawMessage(payloadBytes)
-		now := time.Now()
-		botTask := &model.BotTask{
-			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-			Payload:    &rawPayload,
-			CreatedAt:  now,
-			ExecutedAt: &now,
-		}
-
-		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-			log.Printf("[Err] Error creating bot task in CommentService.CreateComment: %v", err)
+		if s.botTaskService != nil {
+			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
+				log.Printf("[Err] Error creating karma task in CommentService.CreateComment: %v", err)
+			}
 		}
 
 		// Send notifications
@@ -324,7 +305,7 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 			}
 		}()
 
-		// Create bot task for updating karma
+		// Create bot task for updating karma u
 		var action string
 		if vote {
 			action = constant.KARMA_ACTION_UPVOTE_COMMENT
@@ -332,30 +313,10 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 			action = constant.KARMA_ACTION_DOWNVOTE_COMMENT
 		}
 
-		karmaPayload := payload.UpdateUserKarmaPayload{
-			UserId:    userID,
-			TargetId:  &comment.AuthorID,
-			Action:    action,
-			UpdatedAt: time.Now(),
-		}
-
-		payloadBytes, err := json.Marshal(karmaPayload)
-		if err != nil {
-			log.Printf("[Err] Error marshaling karma payload in CommentService.VoteComment: %v", err)
-			return
-		}
-
-		rawPayload := json.RawMessage(payloadBytes)
-		now := time.Now()
-		botTask := &model.BotTask{
-			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-			Payload:    &rawPayload,
-			CreatedAt:  now,
-			ExecutedAt: &now,
-		}
-
-		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-			log.Printf("[Err] Error creating bot task in CommentService.VoteComment: %v", err)
+		if s.botTaskService != nil {
+			if err := s.botTaskService.CreateKarmaTask(userID, &comment.AuthorID, action); err != nil {
+				log.Printf("[Err] Error creating karma task in CommentService.VoteComment: %v", err)
+			}
 		}
 
 		// Send notification to comment author (if not voting own comment)
