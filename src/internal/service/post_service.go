@@ -20,6 +20,7 @@ type PostService struct {
 	postReportRepo      repository.PostReportRepository
 	botTaskRepo         repository.BotTaskRepository
 	userRepo            repository.UserRepository
+	tagRepo             repository.TagRepository
 	notificationService *NotificationService
 	botTaskService      *BotTaskService
 	recommendService    *RecommendationService
@@ -32,6 +33,7 @@ func NewPostService(
 	postReportRepo repository.PostReportRepository,
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
+	tagRepo repository.TagRepository,
 	notificationService *NotificationService,
 	botTaskService *BotTaskService,
 	recommendService *RecommendationService,
@@ -43,6 +45,7 @@ func NewPostService(
 		postReportRepo:      postReportRepo,
 		botTaskRepo:         botTaskRepo,
 		userRepo:            userRepo,
+		tagRepo:             tagRepo,
 		notificationService: notificationService,
 		botTaskService:      botTaskService,
 		recommendService:    recommendService,
@@ -51,7 +54,7 @@ func NewPostService(
 
 func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) error {
 	// Check if community exists
-	_, err := s.communityRepo.GetCommunityByID(req.CommunityID)
+	community, err := s.communityRepo.GetCommunityByID(req.CommunityID)
 	if err != nil {
 		log.Printf("[Err] Community not found in PostService.CreatePost: %v", err)
 		return fmt.Errorf("community not found")
@@ -81,6 +84,12 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		return fmt.Errorf("invalid post type")
 	}
 
+	// Determine post status based on community settings
+	postStatus := constant.POST_STATUS_PENDING
+	if !community.RequiresApproval {
+		postStatus = constant.POST_STATUS_APPROVED
+	}
+
 	post := &model.Post{
 		CommunityID: req.CommunityID,
 		AuthorID:    userID,
@@ -91,6 +100,7 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		MediaURLs:   req.MediaURLs,
 		PollData:    req.PollData,
 		Tags:        req.Tags,
+		Status:      postStatus,
 	}
 
 	if err := s.postRepo.CreatePost(post); err != nil {
@@ -682,4 +692,22 @@ func (s *PostService) ReportPost(userID, postID uint64, req *request.ReportPostR
 	}(post.AuthorID, postID, userID)
 
 	return nil
+}
+
+func (s *PostService) GetAllTags(search *string) ([]*response.TagResponse, error) {
+	tags, err := s.tagRepo.GetAllTags(search)
+	if err != nil {
+		log.Printf("[Err] Error getting tags in PostService.GetAllTags: %v", err)
+		return nil, err
+	}
+
+	tagResponses := make([]*response.TagResponse, len(tags))
+	for i, tag := range tags {
+		tagResponses[i] = &response.TagResponse{
+			ID:   tag.ID,
+			Name: tag.Name,
+		}
+	}
+
+	return tagResponses, nil
 }

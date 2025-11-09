@@ -737,3 +737,27 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 		Message: "Post reported successfully",
 	})
 }
+
+func (h *PostHandler) GetAllTags(c *gin.Context) {
+	searchQuery := c.Query("search")
+	var search *string
+	if searchQuery != "" {
+		search = &searchQuery
+	}
+
+	tags, err := h.postService.GetAllTags(search)
+	if err != nil {
+		log.Printf("[Err] Error getting tags in PostHandler.GetAllTags: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get tags",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Tags retrieved successfully",
+		Data:    tags,
+	})
+}

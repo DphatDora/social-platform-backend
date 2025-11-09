@@ -1006,3 +1006,91 @@ func (h *CommunityHandler) DeletePostReport(c *gin.Context) {
 		Message: "Post report deleted successfully",
 	})
 }
+
+func (h *CommunityHandler) GetAllTopics(c *gin.Context) {
+	searchQuery := c.Query("search")
+	var search *string
+	if searchQuery != "" {
+		search = &searchQuery
+	}
+
+	topics, err := h.communityService.GetAllTopics(search)
+	if err != nil {
+		log.Printf("[Err] Error getting topics in CommunityHandler.GetAllTopics: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get topics",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Topics retrieved successfully",
+		Data:    topics,
+	})
+}
+
+func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UpdateRequiresApproval", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateRequiresApproval: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	var req request.UpdateRequiresApprovalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in CommunityHandler.UpdateRequiresApproval: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.communityService.UpdateRequiresApproval(userID, id, &req); err != nil {
+		log.Printf("[Err] Error updating requires approval in CommunityHandler.UpdateRequiresApproval: %v", err)
+
+		if err.Error() == "community not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		if err.Error() == "permission denied" {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Permission denied",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to update requires approval",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Requires approval updated successfully",
+	})
+}
