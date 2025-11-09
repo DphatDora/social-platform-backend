@@ -21,6 +21,8 @@ type PostService struct {
 	botTaskRepo         repository.BotTaskRepository
 	userRepo            repository.UserRepository
 	notificationService *NotificationService
+	botTaskService      *BotTaskService
+	recommendService    *RecommendationService
 }
 
 func NewPostService(
@@ -31,6 +33,8 @@ func NewPostService(
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
 	notificationService *NotificationService,
+	botTaskService *BotTaskService,
+	recommendService *RecommendationService,
 ) *PostService {
 	return &PostService{
 		postRepo:            postRepo,
@@ -40,6 +44,8 @@ func NewPostService(
 		botTaskRepo:         botTaskRepo,
 		userRepo:            userRepo,
 		notificationService: notificationService,
+		botTaskService:      botTaskService,
+		recommendService:    recommendService,
 	}
 }
 
@@ -99,30 +105,11 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 			}
 		}()
 
-		karmaPayload := payload.UpdateUserKarmaPayload{
-			UserId:    userID,
-			TargetId:  nil,
-			Action:    constant.KARMA_ACTION_CREATE_POST,
-			UpdatedAt: time.Now(),
-		}
-
-		payloadBytes, err := json.Marshal(karmaPayload)
-		if err != nil {
-			log.Printf("[Err] Error marshaling karma payload in PostService.CreatePost: %v", err)
-			return
-		}
-
-		rawPayload := json.RawMessage(payloadBytes)
-		now := time.Now()
-		botTask := &model.BotTask{
-			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-			Payload:    &rawPayload,
-			CreatedAt:  now,
-			ExecutedAt: &now,
-		}
-
-		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-			log.Printf("[Err] Error creating bot task in PostService.CreatePost: %v", err)
+		// Create bottask for updating karma
+		if s.botTaskService != nil {
+			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_POST); err != nil {
+				log.Printf("[Err] Error creating karma task in PostService.CreatePost: %v", err)
+			}
 		}
 	}(userID)
 
@@ -215,6 +202,11 @@ func (s *PostService) DeletePost(userID, postID uint64) error {
 }
 
 func (s *PostService) GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+	// If sortBy is "best", use recommendation service
+	if sortBy == "best" && userID != nil && s.recommendService != nil {
+		return s.recommendService.GetRecommendedPosts(*userID, page, limit)
+	}
+
 	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
@@ -246,6 +238,11 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 	if err != nil {
 		log.Printf("[Err] Community not found in PostService.GetPostsByCommunityID: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
+	}
+
+	// If sortBy is "best", use recommendation service
+	if sortBy == "best" && userID != nil && s.recommendService != nil {
+		return s.recommendService.GetRecommendedPostsByCommunity(*userID, communityID, page, limit)
 	}
 
 	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit, userID)
@@ -335,37 +332,32 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 		}()
 
 		// Create bot task for updating karma
-		var action string
+		var karmaAction string
 		if vote {
-			action = constant.KARMA_ACTION_UPVOTE_POST
+			karmaAction = constant.KARMA_ACTION_UPVOTE_POST
 		} else {
-			action = constant.KARMA_ACTION_DOWNVOTE_POST
+			karmaAction = constant.KARMA_ACTION_DOWNVOTE_POST
 		}
 
-		karmaPayload := payload.UpdateUserKarmaPayload{
-			UserId:    userID,
-			TargetId:  &post.AuthorID,
-			Action:    action,
-			UpdatedAt: time.Now(),
+		if s.botTaskService != nil {
+			if err := s.botTaskService.CreateKarmaTask(userID, &post.AuthorID, karmaAction); err != nil {
+				log.Printf("[Err] Error creating karma task in PostService.VotePost: %v", err)
+			}
 		}
 
-		payloadBytes, err := json.Marshal(karmaPayload)
-		if err != nil {
-			log.Printf("[Err] Error marshaling karma payload in PostService.VotePost: %v", err)
-			return
-		}
+		// Create bot task for updating interest score
+		if s.botTaskService != nil {
+			var interestAction string
+			if vote {
+				interestAction = constant.INTEREST_ACTION_UPVOTE_POST
+			} else {
+				interestAction = constant.INTEREST_ACTION_DOWNVOTE_POST
+			}
 
-		rawPayload := json.RawMessage(payloadBytes)
-		now := time.Now()
-		botTask := &model.BotTask{
-			Action:     constant.BOT_TASK_ACTION_UPDATE_KARMA,
-			Payload:    &rawPayload,
-			CreatedAt:  now,
-			ExecutedAt: &now,
-		}
-
-		if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-			log.Printf("[Err] Error creating bot task in PostService.VotePost: %v", err)
+			postIDPtr := &post.ID
+			if err := s.botTaskService.CreateInterestScoreTask(userID, post.CommunityID, interestAction, postIDPtr); err != nil {
+				log.Printf("[Err] Error creating interest score task in PostService.VotePost: %v", err)
+			}
 		}
 
 		// Send notification to post author (if not voting own post)

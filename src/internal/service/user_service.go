@@ -15,14 +15,25 @@ type UserService struct {
 	communityRepo          repository.CommunityRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
 	userSavedPostRepo      repository.UserSavedPostRepository
+	postRepo               repository.PostRepository
+	botTaskService         *BotTaskService
 }
 
-func NewUserService(userRepo repository.UserRepository, communityRepo repository.CommunityRepository, communityModeratorRepo repository.CommunityModeratorRepository, userSavedPostRepo repository.UserSavedPostRepository) *UserService {
+func NewUserService(
+	userRepo repository.UserRepository,
+	communityRepo repository.CommunityRepository,
+	communityModeratorRepo repository.CommunityModeratorRepository,
+	userSavedPostRepo repository.UserSavedPostRepository,
+	postRepo repository.PostRepository,
+	botTaskService *BotTaskService,
+) *UserService {
 	return &UserService{
 		userRepo:               userRepo,
 		communityRepo:          communityRepo,
 		communityModeratorRepo: communityModeratorRepo,
 		userSavedPostRepo:      userSavedPostRepo,
+		postRepo:               postRepo,
+		botTaskService:         botTaskService,
 	}
 }
 
@@ -223,6 +234,35 @@ func (s *UserService) UpdateUserSavedPostFollowStatus(userID, postID uint64, upd
 		log.Printf("[Err] Error updating user saved post follow status in UserService.UpdateUserSavedPostFollowStatus: %v", err)
 		return fmt.Errorf("failed to update follow status")
 	}
+
+	// Create bot task for interest score if user is following the post
+	if updateReq.IsFollowed {
+		go func(userID, postID uint64) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[PanicRecovered] in goroutine UserService.UpdateUserSavedPostFollowStatus: %v", r)
+				}
+			}()
+
+			// Get post to find community ID
+			post, err := s.postRepo.GetPostByID(postID)
+			if err != nil {
+				log.Printf("[Warn] Error getting post for interest score in UserService.UpdateUserSavedPostFollowStatus: %v", err)
+				return
+			}
+
+			postIDPtr := &postID
+			if err := s.botTaskService.CreateInterestScoreTask(
+				userID,
+				post.CommunityID,
+				"follow_post",
+				postIDPtr,
+			); err != nil {
+				log.Printf("[Err] Error creating interest score task in goroutine (UserService.UpdateUserSavedPostFollowStatus): %v", err)
+			}
+		}(userID, postID)
+	}
+
 	return nil
 }
 
