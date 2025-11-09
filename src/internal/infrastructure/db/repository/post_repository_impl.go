@@ -176,7 +176,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID 
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -200,8 +200,8 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID 
 	// Sort method
 	switch sortBy {
 	case "hot", "top":
-		query = query.Order("vote DESC")
-	case "new", "best":
+		query = query.Order("vote_post DESC")
+	case "new":
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
@@ -227,7 +227,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -251,8 +251,8 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	// Sort method
 	switch sortBy {
 	case "hot", "top":
-		query = query.Order("vote DESC")
-	case "new", "best":
+		query = query.Order("vote_post DESC")
+	case "new":
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
@@ -274,6 +274,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	patterns := util.BuildSearchPattern(title)
 
+	// Count total APPROVED posts matching title
 	countQuery := r.db.Model(&model.Post{}).
 		Where("status = ?", constant.POST_STATUS_APPROVED)
 	for _, p := range patterns {
@@ -284,7 +285,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -311,8 +312,8 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 	// Sort method
 	switch sortBy {
 	case "hot", "top":
-		query = query.Order("vote DESC")
-	case "new", "best":
+		query = query.Order("vote_post DESC")
+	case "new":
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
