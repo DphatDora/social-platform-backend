@@ -18,6 +18,7 @@ type Community struct {
 	CreatedAt        time.Time      `gorm:"column:created_at"`
 	CreatedBy        uint64         `gorm:"column:created_by"`
 	IsPrivate        bool           `gorm:"column:is_private"`
+	RequiresApproval bool           `gorm:"column:requires_approval"`
 	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at"`
 
 	// computed column
