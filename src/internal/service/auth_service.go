@@ -113,6 +113,8 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 			constant.NOTIFICATION_ACTION_POST_REJECTED,
 			constant.NOTIFICATION_ACTION_POST_DELETED,
 			constant.NOTIFICATION_ACTION_POST_REPORTED,
+			constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED,
+			constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED,
 		}
 
 		now := time.Now()
@@ -588,6 +590,8 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 			constant.NOTIFICATION_ACTION_POST_REJECTED,
 			constant.NOTIFICATION_ACTION_POST_DELETED,
 			constant.NOTIFICATION_ACTION_POST_REPORTED,
+			constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED,
+			constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED,
 		}
 
 		now := time.Now()

@@ -34,3 +34,7 @@ type UpdateMemberRoleRequest struct {
 type UpdateRequiresApprovalRequest struct {
 	RequiresApproval bool `json:"requiresApproval"`
 }
+
+type UpdateSubscriptionStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=approved rejected"`
+}

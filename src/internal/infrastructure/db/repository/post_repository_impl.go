@@ -10,6 +10,7 @@ import (
 	"social-platform-backend/package/util"
 	"time"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -164,14 +165,19 @@ func (r *PostRepositoryImpl) UpdatePollData(postID uint64, pollData *json.RawMes
 	return r.db.Model(&model.Post{}).Where("id = ?", postID).Updates(updates).Error
 }
 
-func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
-	// Count total APPROVED posts
-	if err := r.db.Model(&model.Post{}).
-		Where("status = ?", constant.POST_STATUS_APPROVED).
-		Count(&total).Error; err != nil {
+	// Count total APPROVED posts with tag filter
+	countQuery := r.db.Model(&model.Post{}).
+		Where("status = ?", constant.POST_STATUS_APPROVED)
+
+	if len(tags) > 0 {
+		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -192,8 +198,14 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID 
 		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
 	}
 
-	query = query.Where("posts.status = ?", constant.POST_STATUS_APPROVED).
-		Group("posts.id").
+	query = query.Where("posts.status = ?", constant.POST_STATUS_APPROVED)
+
+	// Filter by tags if provided
+	if len(tags) > 0 {
+		query = query.Where("posts.tags && ?", pq.StringArray(tags))
+	}
+
+	query = query.Group("posts.id").
 		Preload("Community").
 		Preload("Author")
 
@@ -215,14 +227,19 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, userID 
 	return posts, total, nil
 }
 
-func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
-	// Count total APPROVED posts in community
-	if err := r.db.Model(&model.Post{}).
-		Where("community_id = ? AND status = ?", communityID, constant.POST_STATUS_APPROVED).
-		Count(&total).Error; err != nil {
+	// Count total APPROVED posts in community with tag filter
+	countQuery := r.db.Model(&model.Post{}).
+		Where("community_id = ? AND status = ?", communityID, constant.POST_STATUS_APPROVED)
+
+	if len(tags) > 0 {
+		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -243,8 +260,14 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
 	}
 
-	query = query.Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED).
-		Group("posts.id").
+	query = query.Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED)
+
+	// Filter by tags
+	if len(tags) > 0 {
+		query = query.Where("posts.tags && ?", pq.StringArray(tags))
+	}
+
+	query = query.Group("posts.id").
 		Preload("Community").
 		Preload("Author")
 
@@ -266,7 +289,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	return posts, total, nil
 }
 
-func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error) {
+func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error) {
 	var posts []*model.Post
 	var total int64
 
@@ -274,11 +297,14 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	patterns := util.BuildSearchPattern(title)
 
-	// Count total APPROVED posts matching title
+	// Count total APPROVED posts matching title with tag filter
 	countQuery := r.db.Model(&model.Post{}).
 		Where("status = ?", constant.POST_STATUS_APPROVED)
 	for _, p := range patterns {
 		countQuery = countQuery.Where("unaccent(lower(title)) LIKE unaccent(lower(?))", p)
+	}
+	if len(tags) > 0 {
+		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
 	}
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -303,6 +329,11 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	for _, p := range patterns {
 		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?)) AND posts.status = ?", p, constant.POST_STATUS_APPROVED)
+	}
+
+	// Filter by tags
+	if len(tags) > 0 {
+		query = query.Where("posts.tags && ?", pq.StringArray(tags))
 	}
 
 	query = query.Group("posts.id").

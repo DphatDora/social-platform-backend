@@ -178,6 +178,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)
 			communities.GET("/:id/manage/reports", appHandler.communityHandler.GetCommunityPostReports)
 			communities.DELETE("/:id/manage/reports/:reportId", appHandler.communityHandler.DeletePostReport)
+			communities.PATCH("/:id/manage/subscriptions/:userId/status", appHandler.communityHandler.UpdateSubscriptionStatus)
 		}
 
 		posts := protected.Group("/posts")

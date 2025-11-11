@@ -66,9 +66,10 @@ type MemberListResponse struct {
 	Karma        uint64    `json:"karma"`
 	Role         string    `json:"role"`
 	SubscribedAt time.Time `json:"subscribedAt"`
+	Status       string    `json:"status"`
 }
 
-func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string) *MemberListResponse {
+func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string, status string) *MemberListResponse {
 	return &MemberListResponse{
 		UserID:       user.ID,
 		Username:     user.Username,
@@ -76,6 +77,7 @@ func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string
 		Karma:        user.Karma,
 		Role:         role,
 		SubscribedAt: subscribedAt,
+		Status:       status,
 	}
 }
 
