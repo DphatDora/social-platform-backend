@@ -38,7 +38,10 @@ func (r *PostRepositoryImpl) GetPostByID(id uint64) (*model.Post, error) {
 func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*model.Post, error) {
 	var post model.Post
 
-	selectFields := `posts.*,
+	// Select explicit columns to avoid ambiguity
+	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
@@ -183,7 +186,10 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 		return nil, 0, err
 	}
 
-	selectFields := `posts.*,
+	// Select explicit columns to avoid ambiguity with posts.vote field
+	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
@@ -213,7 +219,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 		Preload("Community").
 		Preload("Author")
 
-	// Sort method
+	// Sort method - use aggregate column aliases directly to avoid ambiguity
 	switch sortBy {
 	case constant.SORT_HOT:
 		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
@@ -249,7 +255,10 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 		return nil, 0, err
 	}
 
-	selectFields := `posts.*,
+	// Select explicit columns to avoid ambiguity
+	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
@@ -279,7 +288,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 		Preload("Community").
 		Preload("Author")
 
-	// Sort method
+	// Sort method - use aggregate column aliases directly
 	switch sortBy {
 	case constant.SORT_HOT:
 		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
@@ -320,7 +329,10 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		return nil, 0, err
 	}
 
-	selectFields := `posts.*,
+	// Select explicit columns to avoid ambiguity
+	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
@@ -352,7 +364,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		Preload("Community").
 		Preload("Author")
 
-	// Sort method
+	// Sort method - use aggregate column aliases directly
 	switch sortBy {
 	case constant.SORT_HOT:
 		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
@@ -383,7 +395,9 @@ func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page
 	}
 
 	query := r.db.Table("posts").
-		Select(`posts.*,
+		Select(`posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+			posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+			posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 			COUNT(DISTINCT comments.id) as comment_count`).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
@@ -395,7 +409,7 @@ func (r *PostRepositoryImpl) GetPostsByUserID(userID uint64, sortBy string, page
 
 	switch sortBy {
 	case constant.SORT_TOP:
-		query = query.Order(`"vote" DESC, posts.created_at DESC`)
+		query = query.Order("vote DESC, posts.created_at DESC")
 	case constant.SORT_HOT:
 		query = query.Order(`comment_count DESC, "vote" DESC, posts.created_at DESC`)
 	case constant.SORT_NEW:
@@ -419,7 +433,9 @@ func (r *PostRepositoryImpl) GetCommunityPostsForModerator(communityID uint64, s
 	countQuery := r.db.Model(&model.Post{}).Where("community_id = ? AND deleted_at IS NULL", communityID)
 
 	query := r.db.Table("posts").
-		Select(`posts.*,
+		Select(`posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
+			posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
+			posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
 			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
 			COUNT(DISTINCT comments.id) as comment_count`).
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
