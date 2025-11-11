@@ -14,10 +14,12 @@ import (
 )
 
 type NotificationTemplateData struct {
-	UserName  string
-	PostID    uint64
-	VoteType  string
-	CommentID uint64
+	UserName      string
+	PostID        uint64
+	VoteType      string
+	CommentID     uint64
+	CommunityID   uint64
+	CommunityName string
 }
 
 type NotificationService struct {
@@ -133,6 +135,10 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "post_deleted.txt"
 	case constant.NOTIFICATION_ACTION_POST_REPORTED:
 		return basePath + "post_reported.txt"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
+		return basePath + "subscription_approved.txt"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
+		return basePath + "subscription_rejected.txt"
 	default:
 		return ""
 	}
@@ -157,6 +163,10 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 		return basePath + "post_deleted_email.html"
 	case constant.NOTIFICATION_ACTION_POST_REPORTED:
 		return basePath + "post_reported_email.html"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
+		return basePath + "subscription_approved_email.html"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
+		return basePath + "subscription_rejected_email.html"
 	default:
 		return ""
 	}
@@ -208,6 +218,12 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 			if postID, ok := p["postId"].(uint64); ok {
 				data.PostID = postID
 			}
+		}
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED,
+		constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
+		if p, ok := notifPayload.(payload.SubscriptionNotificationPayload); ok {
+			data.CommunityID = p.CommunityID
+			data.CommunityName = p.CommunityName
 		}
 	}
 

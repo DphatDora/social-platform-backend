@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/package/util"
 	"time"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -97,7 +98,7 @@ func (r *CommunityRepositoryImpl) GetCommunities(page, limit int, userID *uint64
 
 	query := r.db.Table("communities").
 		Select(selectFields).
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'")
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
@@ -138,7 +139,7 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 	// Reset query for actual data fetch with JOIN
 	query = r.db.Table("communities").
 		Select(selectFields).
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'")
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
@@ -161,7 +162,7 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 	return communities, total, nil
 }
 
-func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bool, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
+func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bool, topics []string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
 	var communities []*model.Community
 	var total int64
 
@@ -175,7 +176,7 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 
 	query := r.db.Table("communities").
 		Select(selectFields).
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id")
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'")
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
@@ -188,10 +189,18 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 		query = query.Where("communities.is_private = ?", *isPrivate)
 	}
 
+	// Filter by topics
+	if len(topics) > 0 {
+		query = query.Where("communities.topic && ?", pq.StringArray(topics))
+	}
+
 	// Count total with same filters
 	var countQuery = r.db.Model(&model.Community{})
 	if isPrivate != nil {
 		countQuery = countQuery.Where("is_private = ?", *isPrivate)
+	}
+	if len(topics) > 0 {
+		countQuery = countQuery.Where("topic && ?", pq.StringArray(topics))
 	}
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -214,7 +223,7 @@ func (r *CommunityRepositoryImpl) GetCommunitiesByCreatorID(creatorID uint64) ([
 
 	err := r.db.Table("communities").
 		Select("communities.*, COUNT(subscriptions.user_id) as member_count").
-		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id").
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'").
 		Where("communities.created_by = ?", creatorID).
 		Group("communities.id").
 		Order("communities.created_at DESC").
@@ -238,8 +247,14 @@ func (r *CommunityRepositoryImpl) IsCommunityNameExists(name string) (bool, erro
 	return count > 0, nil
 }
 
-func (r *CommunityRepositoryImpl) UpdateRequiresApproval(id uint64, requiresApproval bool) error {
+func (r *CommunityRepositoryImpl) UpdateRequiresPostApproval(id uint64, requiresPostApproval bool) error {
 	return r.db.Model(&model.Community{}).
 		Where("id = ?", id).
-		Update("requires_approval", requiresApproval).Error
+		Update("requires_post_approval", requiresPostApproval).Error
+}
+
+func (r *CommunityRepositoryImpl) UpdateRequiresMemberApproval(id uint64, requiresMemberApproval bool) error {
+	return r.db.Model(&model.Community{}).
+		Where("id = ?", id).
+		Update("requires_member_approval", requiresMemberApproval).Error
 }

@@ -172,12 +172,14 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.PUT("/:id/moderators/:userId", appHandler.communityHandler.UpdateMemberRole)
 			communities.DELETE("/:id/members/:memberId", appHandler.communityHandler.RemoveMember)
 			communities.GET("/:id/role", appHandler.communityHandler.GetUserRoleInCommunity)
-			communities.PATCH("/:id/requires-approval", appHandler.communityHandler.UpdateRequiresApproval)
+			communities.PATCH("/:id/requires-post-approval", appHandler.communityHandler.UpdateRequiresPostApproval)
+			communities.PATCH("/:id/requires-member-approval", appHandler.communityHandler.UpdateRequiresMemberApproval)
 			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
 			communities.PATCH("/:id/manage/posts/:postId/status", appHandler.communityHandler.UpdatePostStatusByModerator)
 			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)
 			communities.GET("/:id/manage/reports", appHandler.communityHandler.GetCommunityPostReports)
 			communities.DELETE("/:id/manage/reports/:reportId", appHandler.communityHandler.DeletePostReport)
+			communities.PATCH("/:id/manage/subscriptions/:userId/status", appHandler.communityHandler.UpdateSubscriptionStatus)
 		}
 
 		posts := protected.Group("/posts")
