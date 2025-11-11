@@ -86,7 +86,7 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 
 	// Determine post status based on community settings
 	postStatus := constant.POST_STATUS_PENDING
-	if !community.RequiresApproval {
+	if !community.RequiresPostApproval {
 		postStatus = constant.POST_STATUS_APPROVED
 	}
 

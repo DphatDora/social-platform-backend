@@ -66,39 +66,41 @@ func convertPollDataToResponse(pollDataRaw *json.RawMessage) *PollDataResponse {
 }
 
 type PostListResponse struct {
-	ID          uint64            `json:"id"`
-	CommunityID uint64            `json:"communityId"`
-	Community   *CommunityInfo    `json:"community,omitempty"`
-	AuthorID    uint64            `json:"authorId"`
-	Author      *AuthorInfo       `json:"author,omitempty"`
-	Title       string            `json:"title"`
-	Type        string            `json:"type"`
-	Content     string            `json:"content"`
-	URL         *string           `json:"url,omitempty"`
-	MediaURLs   *pq.StringArray   `json:"mediaUrls,omitempty"`
-	PollData    *PollDataResponse `json:"pollData,omitempty"`
-	Tags        *pq.StringArray   `json:"tags,omitempty"`
-	Vote        int64             `json:"vote"`
-	IsVoted     *bool             `json:"isVoted,omitempty"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   *time.Time        `json:"updatedAt,omitempty"`
+	ID           uint64            `json:"id"`
+	CommunityID  uint64            `json:"communityId"`
+	Community    *CommunityInfo    `json:"community,omitempty"`
+	AuthorID     uint64            `json:"authorId"`
+	Author       *AuthorInfo       `json:"author,omitempty"`
+	Title        string            `json:"title"`
+	Type         string            `json:"type"`
+	Content      string            `json:"content"`
+	URL          *string           `json:"url,omitempty"`
+	MediaURLs    *pq.StringArray   `json:"mediaUrls,omitempty"`
+	PollData     *PollDataResponse `json:"pollData,omitempty"`
+	Tags         *pq.StringArray   `json:"tags,omitempty"`
+	Vote         int64             `json:"vote"`
+	IsVoted      *bool             `json:"isVoted,omitempty"`
+	CommentCount int64             `json:"commentCount"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	UpdatedAt    *time.Time        `json:"updatedAt,omitempty"`
 }
 
 func NewPostListResponse(post *model.Post) *PostListResponse {
 	response := &PostListResponse{
-		ID:          post.ID,
-		CommunityID: post.CommunityID,
-		AuthorID:    post.AuthorID,
-		Title:       post.Title,
-		Type:        post.Type,
-		Content:     post.Content,
-		URL:         post.URL,
-		MediaURLs:   post.MediaURLs,
-		PollData:    convertPollDataToResponse(post.PollData),
-		Tags:        post.Tags,
-		Vote:        post.Vote,
-		CreatedAt:   post.CreatedAt,
-		UpdatedAt:   post.UpdatedAt,
+		ID:           post.ID,
+		CommunityID:  post.CommunityID,
+		AuthorID:     post.AuthorID,
+		Title:        post.Title,
+		Type:         post.Type,
+		Content:      post.Content,
+		URL:          post.URL,
+		MediaURLs:    post.MediaURLs,
+		PollData:     convertPollDataToResponse(post.PollData),
+		Tags:         post.Tags,
+		Vote:         post.Vote,
+		CommentCount: post.CommentCount,
+		CreatedAt:    post.CreatedAt,
+		UpdatedAt:    post.UpdatedAt,
 	}
 
 	if post.UserVote != nil {
@@ -125,35 +127,37 @@ func NewPostListResponse(post *model.Post) *PostListResponse {
 }
 
 type PostDetailResponse struct {
-	ID        uint64            `json:"id"`
-	Community *CommunityInfo    `json:"community,omitempty"`
-	Author    *AuthorInfo       `json:"author,omitempty"`
-	Title     string            `json:"title"`
-	Type      string            `json:"type"`
-	Content   string            `json:"content"`
-	URL       *string           `json:"url,omitempty"`
-	MediaURLs *pq.StringArray   `json:"mediaUrls,omitempty"`
-	PollData  *PollDataResponse `json:"pollData,omitempty"`
-	Tags      *pq.StringArray   `json:"tags,omitempty"`
-	Vote      int64             `json:"vote"`
-	IsVoted   *bool             `json:"isVoted,omitempty"`
-	CreatedAt time.Time         `json:"createdAt"`
-	UpdatedAt *time.Time        `json:"updatedAt,omitempty"`
+	ID           uint64            `json:"id"`
+	Community    *CommunityInfo    `json:"community,omitempty"`
+	Author       *AuthorInfo       `json:"author,omitempty"`
+	Title        string            `json:"title"`
+	Type         string            `json:"type"`
+	Content      string            `json:"content"`
+	URL          *string           `json:"url,omitempty"`
+	MediaURLs    *pq.StringArray   `json:"mediaUrls,omitempty"`
+	PollData     *PollDataResponse `json:"pollData,omitempty"`
+	Tags         *pq.StringArray   `json:"tags,omitempty"`
+	Vote         int64             `json:"vote"`
+	IsVoted      *bool             `json:"isVoted,omitempty"`
+	CommentCount int64             `json:"commentCount"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	UpdatedAt    *time.Time        `json:"updatedAt,omitempty"`
 }
 
 func NewPostDetailResponse(post *model.Post) *PostDetailResponse {
 	response := &PostDetailResponse{
-		ID:        post.ID,
-		Title:     post.Title,
-		Type:      post.Type,
-		Content:   post.Content,
-		URL:       post.URL,
-		MediaURLs: post.MediaURLs,
-		PollData:  convertPollDataToResponse(post.PollData),
-		Tags:      post.Tags,
-		Vote:      post.Vote,
-		CreatedAt: post.CreatedAt,
-		UpdatedAt: post.UpdatedAt,
+		ID:           post.ID,
+		Title:        post.Title,
+		Type:         post.Type,
+		Content:      post.Content,
+		URL:          post.URL,
+		MediaURLs:    post.MediaURLs,
+		PollData:     convertPollDataToResponse(post.PollData),
+		Tags:         post.Tags,
+		Vote:         post.Vote,
+		CommentCount: post.CommentCount,
+		CreatedAt:    post.CreatedAt,
+		UpdatedAt:    post.UpdatedAt,
 	}
 
 	if post.UserVote != nil {
@@ -178,39 +182,41 @@ func NewPostDetailResponse(post *model.Post) *PostDetailResponse {
 }
 
 type CommunityPostListResponse struct {
-	ID          uint64            `json:"id"`
-	CommunityID uint64            `json:"communityId"`
-	AuthorID    uint64            `json:"authorId"`
-	Author      *AuthorInfo       `json:"author,omitempty"`
-	Title       string            `json:"title"`
-	Type        string            `json:"type"`
-	Content     string            `json:"content"`
-	URL         *string           `json:"url,omitempty"`
-	MediaURLs   *pq.StringArray   `json:"mediaUrls,omitempty"`
-	PollData    *PollDataResponse `json:"pollData,omitempty"`
-	Tags        *pq.StringArray   `json:"tags,omitempty"`
-	Status      string            `json:"status"`
-	Vote        int64             `json:"vote"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   *time.Time        `json:"updatedAt,omitempty"`
+	ID           uint64            `json:"id"`
+	CommunityID  uint64            `json:"communityId"`
+	AuthorID     uint64            `json:"authorId"`
+	Author       *AuthorInfo       `json:"author,omitempty"`
+	Title        string            `json:"title"`
+	Type         string            `json:"type"`
+	Content      string            `json:"content"`
+	URL          *string           `json:"url,omitempty"`
+	MediaURLs    *pq.StringArray   `json:"mediaUrls,omitempty"`
+	PollData     *PollDataResponse `json:"pollData,omitempty"`
+	Tags         *pq.StringArray   `json:"tags,omitempty"`
+	Status       string            `json:"status"`
+	Vote         int64             `json:"vote"`
+	CommentCount int64             `json:"commentCount"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	UpdatedAt    *time.Time        `json:"updatedAt,omitempty"`
 }
 
 func NewCommunityPostListResponse(post *model.Post) *CommunityPostListResponse {
 	response := &CommunityPostListResponse{
-		ID:          post.ID,
-		CommunityID: post.CommunityID,
-		AuthorID:    post.AuthorID,
-		Title:       post.Title,
-		Type:        post.Type,
-		Content:     post.Content,
-		URL:         post.URL,
-		MediaURLs:   post.MediaURLs,
-		PollData:    convertPollDataToResponse(post.PollData),
-		Tags:        post.Tags,
-		Status:      post.Status,
-		Vote:        post.Vote,
-		CreatedAt:   post.CreatedAt,
-		UpdatedAt:   post.UpdatedAt,
+		ID:           post.ID,
+		CommunityID:  post.CommunityID,
+		AuthorID:     post.AuthorID,
+		Title:        post.Title,
+		Type:         post.Type,
+		Content:      post.Content,
+		URL:          post.URL,
+		MediaURLs:    post.MediaURLs,
+		PollData:     convertPollDataToResponse(post.PollData),
+		Tags:         post.Tags,
+		Status:       post.Status,
+		Vote:         post.Vote,
+		CommentCount: post.CommentCount,
+		CreatedAt:    post.CreatedAt,
+		UpdatedAt:    post.UpdatedAt,
 	}
 	if post.Author != nil {
 		response.Author = &AuthorInfo{

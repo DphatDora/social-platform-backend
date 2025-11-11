@@ -39,7 +39,8 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 	var post model.Post
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -48,7 +49,8 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	// Join with user's votes if userID exists
 	if userID != nil {
@@ -182,7 +184,8 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -191,7 +194,8 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	// Join with user's votes if userID exists
 	if userID != nil {
@@ -211,9 +215,11 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 
 	// Sort method
 	switch sortBy {
-	case "hot", "top":
-		query = query.Order("vote_post DESC")
-	case "new":
+	case constant.SORT_HOT:
+		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
+	case constant.SORT_TOP:
+		query = query.Order("vote DESC, posts.created_at DESC")
+	case constant.SORT_NEW:
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
@@ -244,7 +250,8 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -253,7 +260,8 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	// Join with user's votes if userID exists
 	if userID != nil {
@@ -273,9 +281,11 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 
 	// Sort method
 	switch sortBy {
-	case "hot", "top":
-		query = query.Order("vote_post DESC")
-	case "new":
+	case constant.SORT_HOT:
+		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
+	case constant.SORT_TOP:
+		query = query.Order("vote DESC, posts.created_at DESC")
+	case constant.SORT_NEW:
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
@@ -311,7 +321,8 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 	}
 
 	selectFields := `posts.*,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote_post`
+		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
@@ -320,7 +331,8 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id")
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	// Join with user's votes if userID exists
 	if userID != nil {
@@ -342,9 +354,11 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	// Sort method
 	switch sortBy {
-	case "hot", "top":
-		query = query.Order("vote_post DESC")
-	case "new":
+	case constant.SORT_HOT:
+		query = query.Order("comment_count DESC, vote DESC, posts.created_at DESC")
+	case constant.SORT_TOP:
+		query = query.Order("vote DESC, posts.created_at DESC")
+	case constant.SORT_NEW:
 		fallthrough
 	default:
 		query = query.Order("posts.created_at DESC")
@@ -405,7 +419,11 @@ func (r *PostRepositoryImpl) GetCommunityPostsForModerator(communityID uint64, s
 	countQuery := r.db.Model(&model.Post{}).Where("community_id = ? AND deleted_at IS NULL", communityID)
 
 	query := r.db.Table("posts").
-		Select("posts.*").
+		Select(`posts.*,
+			COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+			COUNT(DISTINCT comments.id) as comment_count`).
+		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
+		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL").
 		Where("posts.community_id = ? AND posts.deleted_at IS NULL", communityID)
 
 	if status != "" {
@@ -426,7 +444,7 @@ func (r *PostRepositoryImpl) GetCommunityPostsForModerator(communityID uint64, s
 		return nil, 0, err
 	}
 
-	query = query.Preload("Author").Order("posts.created_at DESC")
+	query = query.Group("posts.id").Preload("Author").Order("posts.created_at DESC")
 
 	offset := (page - 1) * limit
 	if err := query.Offset(offset).Limit(limit).Find(&posts).Error; err != nil {

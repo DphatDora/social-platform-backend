@@ -247,8 +247,14 @@ func (r *CommunityRepositoryImpl) IsCommunityNameExists(name string) (bool, erro
 	return count > 0, nil
 }
 
-func (r *CommunityRepositoryImpl) UpdateRequiresApproval(id uint64, requiresApproval bool) error {
+func (r *CommunityRepositoryImpl) UpdateRequiresPostApproval(id uint64, requiresPostApproval bool) error {
 	return r.db.Model(&model.Community{}).
 		Where("id = ?", id).
-		Update("requires_approval", requiresApproval).Error
+		Update("requires_post_approval", requiresPostApproval).Error
+}
+
+func (r *CommunityRepositoryImpl) UpdateRequiresMemberApproval(id uint64, requiresMemberApproval bool) error {
+	return r.db.Model(&model.Community{}).
+		Where("id = ?", id).
+		Update("requires_member_approval", requiresMemberApproval).Error
 }

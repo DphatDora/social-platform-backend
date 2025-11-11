@@ -167,11 +167,11 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	}
 
 	if isSubscribed {
-		return fmt.Errorf("already joined this community")
+		return fmt.Errorf("already subscribed to this community")
 	}
 
 	subscriptionStatus := constant.SUBSCRIPTION_STATUS_APPROVED
-	if community.RequiresApproval {
+	if community.RequiresMemberApproval {
 		subscriptionStatus = constant.SUBSCRIPTION_STATUS_PENDING
 	}
 
@@ -727,24 +727,49 @@ func (s *CommunityService) GetAllTopics(search *string) ([]*response.TopicRespon
 	return topicResponses, nil
 }
 
-func (s *CommunityService) UpdateRequiresApproval(userID, communityID uint64, req *request.UpdateRequiresApprovalRequest) error {
+func (s *CommunityService) UpdateRequiresPostApproval(userID, communityID uint64, req *request.UpdateRequiresPostApprovalRequest) error {
 	// Check if community exists
-	community, err := s.communityRepo.GetCommunityByID(communityID)
+	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresApproval: %v", err)
+		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresPostApproval: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
-	// Check if user has permission
-	if community.CreatedBy != userID {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresApproval: userID=%d, communityID=%d", userID, communityID)
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresPostApproval: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
-	// Update requires approval
-	if err := s.communityRepo.UpdateRequiresApproval(communityID, req.RequiresApproval); err != nil {
-		log.Printf("[Err] Error updating requires approval in CommunityService.UpdateRequiresApproval: %v", err)
-		return fmt.Errorf("failed to update requires approval")
+	// Update requires post approval
+	if err := s.communityRepo.UpdateRequiresPostApproval(communityID, req.RequiresPostApproval); err != nil {
+		log.Printf("[Err] Error updating requires post approval in CommunityService.UpdateRequiresPostApproval: %v", err)
+		return fmt.Errorf("failed to update requires post approval")
+	}
+
+	return nil
+}
+
+func (s *CommunityService) UpdateRequiresMemberApproval(userID, communityID uint64, req *request.UpdateRequiresMemberApprovalRequest) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresMemberApproval: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Update requires member approval
+	if err := s.communityRepo.UpdateRequiresMemberApproval(communityID, req.RequiresMemberApproval); err != nil {
+		log.Printf("[Err] Error updating requires member approval in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		return fmt.Errorf("failed to update requires member approval")
 	}
 
 	return nil
