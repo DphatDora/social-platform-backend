@@ -8,6 +8,7 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/template/payload"
 	"time"
 )
 
@@ -152,7 +153,7 @@ func (s *CommunityService) DeleteCommunity(userID, id uint64) error {
 
 func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	// Check if community exists
-	_, err := s.communityRepo.GetCommunityByID(communityID)
+	community, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
 		log.Printf("[Err] Community not found in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("community not found")
@@ -166,7 +167,12 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	}
 
 	if isSubscribed {
-		return fmt.Errorf("already joined this community")
+		return fmt.Errorf("already subscribed to this community")
+	}
+
+	subscriptionStatus := constant.SUBSCRIPTION_STATUS_APPROVED
+	if community.RequiresMemberApproval {
+		subscriptionStatus = constant.SUBSCRIPTION_STATUS_PENDING
 	}
 
 	// Create subscription
@@ -174,6 +180,7 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 		UserID:       userID,
 		CommunityID:  communityID,
 		SubscribedAt: time.Now(),
+		Status:       subscriptionStatus,
 	}
 
 	if err := s.subscriptionRepo.CreateSubscription(subscription); err != nil {
@@ -182,11 +189,13 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	}
 
 	// Create bot task for interest score
-	go func(userID, communityID uint64) {
-		if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
-			log.Printf("[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
-		}
-	}(userID, communityID)
+	if subscriptionStatus == constant.SUBSCRIPTION_STATUS_APPROVED {
+		go func(userID, communityID uint64) {
+			if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+				log.Printf("[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
+			}
+		}(userID, communityID)
+	}
 
 	return nil
 }
@@ -252,13 +261,13 @@ func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int,
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, topics []string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	// Validate sortBy
 	if sortBy != constant.SORT_NEWEST && sortBy != constant.SORT_MEMBER_COUNT {
 		sortBy = constant.SORT_NEWEST
 	}
 
-	communities, total, err := s.communityRepo.FilterCommunities(sortBy, isPrivate, page, limit, userID)
+	communities, total, err := s.communityRepo.FilterCommunities(sortBy, isPrivate, topics, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error filtering communities in CommunityService.FilterCommunities: %v", err)
 		return nil, nil, fmt.Errorf("failed to filter communities")
@@ -289,7 +298,7 @@ func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, pag
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortBy, searchName string, page, limit int) ([]*response.MemberListResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortBy, searchName, status string, page, limit int) ([]*response.MemberListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
@@ -309,7 +318,12 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 		sortBy = constant.SORT_NEWEST
 	}
 
-	subscriptions, total, err := s.subscriptionRepo.GetCommunityMembers(communityID, sortBy, searchName, page, limit)
+	// Default status is 'approved' if not specified
+	if status == "" {
+		status = constant.SUBSCRIPTION_STATUS_APPROVED
+	}
+
+	subscriptions, total, err := s.subscriptionRepo.GetCommunityMembers(communityID, sortBy, searchName, status, page, limit)
 	if err != nil {
 		log.Printf("[Err] Error getting community members in CommunityService.GetCommunityMembers: %v", err)
 		return nil, nil, fmt.Errorf("failed to get community members")
@@ -322,7 +336,7 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 		if subscription.ModeratorRole != nil && *subscription.ModeratorRole != "" {
 			role = *subscription.ModeratorRole
 		}
-		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt, role)
+		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt, role, subscription.Status)
 	}
 
 	// Set pagination
@@ -333,7 +347,7 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		nextURL := fmt.Sprintf("/api/v1/communities/%d/members?sortBy=%s&page=%d&limit=%d", communityID, sortBy, page+1, limit)
+		nextURL := fmt.Sprintf("/api/v1/communities/%d/members?sortBy=%s&status=%s&page=%d&limit=%d", communityID, sortBy, status, page+1, limit)
 		if searchName != "" {
 			nextURL += fmt.Sprintf("&search=%s", searchName)
 		}
@@ -713,25 +727,126 @@ func (s *CommunityService) GetAllTopics(search *string) ([]*response.TopicRespon
 	return topicResponses, nil
 }
 
-func (s *CommunityService) UpdateRequiresApproval(userID, communityID uint64, req *request.UpdateRequiresApprovalRequest) error {
+func (s *CommunityService) UpdateRequiresPostApproval(userID, communityID uint64, req *request.UpdateRequiresPostApprovalRequest) error {
 	// Check if community exists
-	community, err := s.communityRepo.GetCommunityByID(communityID)
+	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresApproval: %v", err)
+		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresPostApproval: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
-	// Check if user has permission
-	if community.CreatedBy != userID {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresApproval: userID=%d, communityID=%d", userID, communityID)
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresPostApproval: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
-	// Update requires approval
-	if err := s.communityRepo.UpdateRequiresApproval(communityID, req.RequiresApproval); err != nil {
-		log.Printf("[Err] Error updating requires approval in CommunityService.UpdateRequiresApproval: %v", err)
-		return fmt.Errorf("failed to update requires approval")
+	// Update requires post approval
+	if err := s.communityRepo.UpdateRequiresPostApproval(communityID, req.RequiresPostApproval); err != nil {
+		log.Printf("[Err] Error updating requires post approval in CommunityService.UpdateRequiresPostApproval: %v", err)
+		return fmt.Errorf("failed to update requires post approval")
 	}
 
 	return nil
+}
+
+func (s *CommunityService) UpdateRequiresMemberApproval(userID, communityID uint64, req *request.UpdateRequiresMemberApprovalRequest) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user has permission (must be SUPER_ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err != nil || role != constant.ROLE_SUPER_ADMIN {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresMemberApproval: userID=%d, communityID=%d", userID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Update requires member approval
+	if err := s.communityRepo.UpdateRequiresMemberApproval(communityID, req.RequiresMemberApproval); err != nil {
+		log.Printf("[Err] Error updating requires member approval in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		return fmt.Errorf("failed to update requires member approval")
+	}
+
+	return nil
+}
+
+func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID, targetUserID uint64, status string) error {
+	// Check if community exists
+	community, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UpdateSubscriptionStatus: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if moderator has permission (SUPER_ADMIN or ADMIN)
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, moderatorUserID)
+	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
+		log.Printf("[Err] User does not have permission in CommunityService.UpdateSubscriptionStatus: userID=%d, communityID=%d", moderatorUserID, communityID)
+		return fmt.Errorf("permission denied")
+	}
+
+	// Check if subscription exists
+	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(targetUserID, communityID)
+	if err != nil || !isSubscribed {
+		log.Printf("[Err] Subscription not found in CommunityService.UpdateSubscriptionStatus: %v", err)
+		return fmt.Errorf("subscription not found")
+	}
+
+	switch status {
+	case constant.SUBSCRIPTION_STATUS_APPROVED:
+		// Update status to approved
+		if err := s.subscriptionRepo.UpdateSubscriptionStatus(targetUserID, communityID, status); err != nil {
+			log.Printf("[Err] Error updating subscription status in CommunityService.UpdateSubscriptionStatus: %v", err)
+			return fmt.Errorf("failed to approve subscription")
+		}
+
+		// Create bot task for interest score
+		go func(userID, communityID uint64) {
+			if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+				log.Printf("[Err] Error creating interest score task in goroutine (UpdateSubscriptionStatus): %v", err)
+			}
+		}(targetUserID, communityID)
+
+		// Send notification to user
+		go func(targetUserID, communityID uint64, communityName string) {
+			notificationPayload := payload.SubscriptionNotificationPayload{
+				CommunityID:   communityID,
+				CommunityName: communityName,
+			}
+
+			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED, notificationPayload); err != nil {
+				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Approved): %v", err)
+			}
+		}(targetUserID, communityID, community.Name)
+
+	case constant.SUBSCRIPTION_STATUS_REJECTED:
+		// Delete subscription
+		if err := s.subscriptionRepo.DeleteSubscription(targetUserID, communityID); err != nil {
+			log.Printf("[Err] Error deleting subscription in CommunityService.UpdateSubscriptionStatus: %v", err)
+			return fmt.Errorf("failed to reject subscription")
+		}
+
+		// Send notification to user
+		go func(targetUserID, communityID uint64, communityName string) {
+			notificationPayload := payload.SubscriptionNotificationPayload{
+				CommunityID:   communityID,
+				CommunityName: communityName,
+			}
+
+			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED, notificationPayload); err != nil {
+				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Rejected): %v", err)
+			}
+		}(targetUserID, communityID, community.Name)
+
+	default:
+		return fmt.Errorf("invalid status")
+	}
+
+	return nil
+
 }

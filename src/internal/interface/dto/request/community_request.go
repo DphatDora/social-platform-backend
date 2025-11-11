@@ -31,6 +31,14 @@ type UpdateMemberRoleRequest struct {
 	Role string `json:"role" binding:"required,oneof=admin user"`
 }
 
-type UpdateRequiresApprovalRequest struct {
-	RequiresApproval bool `json:"requiresApproval"`
+type UpdateRequiresPostApprovalRequest struct {
+	RequiresPostApproval bool `json:"requiresPostApproval"`
+}
+
+type UpdateRequiresMemberApprovalRequest struct {
+	RequiresMemberApproval bool `json:"requiresMemberApproval"`
+}
+
+type UpdateSubscriptionStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=approved rejected"`
 }

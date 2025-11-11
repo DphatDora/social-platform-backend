@@ -17,9 +17,9 @@ type PostRepository interface {
 	UpdatePostStatus(id uint64, status string) error
 	UpdatePollData(postID uint64, pollData *json.RawMessage) error
 	DeletePost(id uint64) error
-	GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error)
-	GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error)
+	GetAllPosts(sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error)
+	GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error)
 	GetCommunityPostsForModerator(communityID uint64, status, searchTitle string, page, limit int) ([]*model.Post, int64, error)
-	SearchPostsByTitle(title, sortBy string, page, limit int, userID *uint64) ([]*model.Post, int64, error)
+	SearchPostsByTitle(title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error)
 	GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error)
 }

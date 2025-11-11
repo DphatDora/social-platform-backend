@@ -229,6 +229,17 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 	userID := util.GetOptionalUserIDFromContext(c)
 
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+
+	// Parse tags from query params
+	var tags []string
+	if tagsStr := c.Query("tags"); tagsStr != "" {
+		tags = strings.Split(tagsStr, ",")
+		// Trim spaces from each tag
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -239,7 +250,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit, userID)
+	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting all posts in PostHandler.GetAllPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -314,6 +325,17 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 	}
 
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+
+	// Parse tags from query params
+	var tags []string
+	if tagsStr := c.Query("tags"); tagsStr != "" {
+		tags = strings.Split(tagsStr, ",")
+		// Trim spaces from each tag
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -324,7 +346,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit, userID)
+	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting posts by community in PostHandler.GetPostsByCommunity: %v", err)
 
@@ -362,6 +384,17 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 	}
 
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEW)
+
+	// Parse tags from query params
+	var tags []string
+	if tagsStr := c.Query("tags"); tagsStr != "" {
+		tags = strings.Split(tagsStr, ",")
+		// Trim spaces from each tag
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -375,7 +408,7 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, userID)
+	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{

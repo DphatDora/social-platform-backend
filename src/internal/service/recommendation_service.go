@@ -63,7 +63,7 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 	allPosts := []*model.Post{}
 	for _, communityID := range topCommunityIDs {
 		// Get recent posts from this community (last 7 days)
-		posts, _, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 20, &userID)
+		posts, _, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 20, []string{}, &userID)
 		if err != nil {
 			log.Printf("[Warn] Error getting posts for community %d: %v", communityID, err)
 			continue
@@ -115,7 +115,7 @@ func (s *RecommendationService) GetRecommendedPostsByCommunity(userID, community
 	}
 
 	// Get all recent posts from the community (last 30 days)
-	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 100, &userID)
+	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 100, []string{}, &userID)
 	if err != nil {
 		log.Printf("[Err] Error getting posts by community in RecommendationService.GetRecommendedPostsByCommunity: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")

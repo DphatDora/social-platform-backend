@@ -343,6 +343,16 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 		isPrivate = &isPrivateVal
 	}
 
+	// Parse topics from query params (comma-separated)
+	var topics []string
+	if topicsStr := c.Query("topics"); topicsStr != "" {
+		topics = strings.Split(topicsStr, ",")
+		// Trim spaces from each topic
+		for i := range topics {
+			topics[i] = strings.TrimSpace(topics[i])
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -356,7 +366,7 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, page, limit, userID)
+	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, topics, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error filtering communities in CommunityHandler.FilterCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -398,6 +408,7 @@ func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
 
 	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEWEST)
 	searchName := c.Query("search")
+	status := c.DefaultQuery("status", constant.SUBSCRIPTION_STATUS_APPROVED)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -408,7 +419,7 @@ func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	members, pagination, err := h.communityService.GetCommunityMembers(userID, communityID, sortBy, searchName, page, limit)
+	members, pagination, err := h.communityService.GetCommunityMembers(userID, communityID, sortBy, searchName, status, page, limit)
 	if err != nil {
 		log.Printf("[Err] Error getting community members in CommunityHandler.GetCommunityMembers: %v", err)
 
@@ -1031,10 +1042,10 @@ func (h *CommunityHandler) GetAllTopics(c *gin.Context) {
 	})
 }
 
-func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
+func (h *CommunityHandler) UpdateRequiresPostApproval(c *gin.Context) {
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommunityHandler.UpdateRequiresApproval", err.Error())
+		log.Printf("[Err] %s in CommunityHandler.UpdateRequiresPostApproval", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -1045,7 +1056,7 @@ func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateRequiresApproval: %v", err)
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateRequiresPostApproval: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid community ID",
@@ -1053,9 +1064,9 @@ func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
 		return
 	}
 
-	var req request.UpdateRequiresApprovalRequest
+	var req request.UpdateRequiresPostApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in CommunityHandler.UpdateRequiresApproval: %v", err)
+		log.Printf("[Err] Error binding JSON in CommunityHandler.UpdateRequiresPostApproval: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -1063,8 +1074,8 @@ func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateRequiresApproval(userID, id, &req); err != nil {
-		log.Printf("[Err] Error updating requires approval in CommunityHandler.UpdateRequiresApproval: %v", err)
+	if err := h.communityService.UpdateRequiresPostApproval(userID, id, &req); err != nil {
+		log.Printf("[Err] Error updating requires post approval in CommunityHandler.UpdateRequiresPostApproval: %v", err)
 
 		if err.Error() == "community not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -1084,13 +1095,168 @@ func (h *CommunityHandler) UpdateRequiresApproval(c *gin.Context) {
 
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
-			Message: "Failed to update requires approval",
+			Message: "Failed to update requires post approval",
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
-		Message: "Requires approval updated successfully",
+		Message: "Requires post approval updated successfully",
+	})
+}
+
+func (h *CommunityHandler) UpdateRequiresMemberApproval(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UpdateRequiresMemberApproval", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateRequiresMemberApproval: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	var req request.UpdateRequiresMemberApprovalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in CommunityHandler.UpdateRequiresMemberApproval: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.communityService.UpdateRequiresMemberApproval(userID, id, &req); err != nil {
+		log.Printf("[Err] Error updating requires member approval in CommunityHandler.UpdateRequiresMemberApproval: %v", err)
+
+		if err.Error() == "community not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		if err.Error() == "permission denied" {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Permission denied",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to update requires member approval",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Requires member approval updated successfully",
+	})
+}
+
+func (h *CommunityHandler) UpdateSubscriptionStatus(c *gin.Context) {
+	moderatorUserID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UpdateSubscriptionStatus", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UpdateSubscriptionStatus: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	userIDParam := c.Param("userId")
+	targetUserID, err := strconv.ParseUint(userIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in CommunityHandler.UpdateSubscriptionStatus: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	var req request.UpdateSubscriptionStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Invalid request body in CommunityHandler.UpdateSubscriptionStatus: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request body",
+		})
+		return
+	}
+
+	if err := h.communityService.UpdateSubscriptionStatus(moderatorUserID, communityID, targetUserID, req.Status); err != nil {
+		log.Printf("[Err] Error updating subscription status in CommunityHandler.UpdateSubscriptionStatus: %v", err)
+
+		if err.Error() == "community not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		if err.Error() == "permission denied" {
+			c.JSON(http.StatusForbidden, response.APIResponse{
+				Success: false,
+				Message: "Permission denied",
+			})
+			return
+		}
+
+		if err.Error() == "subscription not found" {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Subscription not found",
+			})
+			return
+		}
+
+		if err.Error() == "invalid status" {
+			c.JSON(http.StatusBadRequest, response.APIResponse{
+				Success: false,
+				Message: "Invalid status",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to update subscription status",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Subscription status updated successfully",
 	})
 }

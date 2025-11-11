@@ -86,7 +86,7 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 
 	// Determine post status based on community settings
 	postStatus := constant.POST_STATUS_PENDING
-	if !community.RequiresApproval {
+	if !community.RequiresPostApproval {
 		postStatus = constant.POST_STATUS_APPROVED
 	}
 
@@ -211,13 +211,13 @@ func (s *PostService) DeletePost(userID, postID uint64) error {
 	return nil
 }
 
-func (s *PostService) GetAllPosts(sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetAllPosts(sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	// If sortBy is "best", use recommendation service
 	if sortBy == "best" && userID != nil && s.recommendService != nil {
 		return s.recommendService.GetRecommendedPosts(*userID, page, limit)
 	}
 
-	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit, userID)
+	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
@@ -242,7 +242,7 @@ func (s *PostService) GetAllPosts(sortBy string, page, limit int, userID *uint64
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
@@ -255,7 +255,7 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 		return s.recommendService.GetRecommendedPostsByCommunity(*userID, communityID, page, limit)
 	}
 
-	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit, userID)
+	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting posts by community ID in PostService.GetPostsByCommunityID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
@@ -279,8 +279,8 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
-	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit, userID)
+func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit, tags, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching posts by title in PostService.SearchPostsByTitle: %v", err)
 		return nil, nil, fmt.Errorf("failed to search posts")

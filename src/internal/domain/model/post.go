@@ -26,9 +26,10 @@ type Post struct {
 
 	// Total vote
 	Vote int64 `gorm:"column:vote;<-:false"`
-
 	// User's vote status (1=upvote, 0=downvote, NULL=no vote)
 	UserVote *int `gorm:"column:user_vote;<-:false"`
+	// Total comments count
+	CommentCount int64 `gorm:"column:comment_count;<-:false"`
 
 	// relation
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`
