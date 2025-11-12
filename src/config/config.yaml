@@ -41,3 +41,11 @@ auth:
   googleClientId:
   googleClientSecret:
   googleRedirectUrl:
+
+redis:
+  host:
+  port:
+  password:
+  db:
+  poolSize:
+  required: false

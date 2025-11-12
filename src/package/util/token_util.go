@@ -10,8 +10,9 @@ import (
 )
 
 type JWTClaims struct {
-	UserID uint64 `json:"user_id"`
-	Role   string `json:"role"`
+	UserID            uint64 `json:"user_id"`
+	Role              string `json:"role"`
+	PasswordChangedAt *int64 `json:"password_changed_at,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -25,10 +26,16 @@ func GenerateToken(length int) (string, error) {
 }
 
 // GenerateJWT generates a JWT token with the given claims
-func GenerateJWT(userID uint64, role string, expirationMinutes int, secret string) (string, error) {
+func GenerateJWT(userID uint64, expirationMinutes int, secret string, passwordChangedAt *time.Time) (string, error) {
+	var pwdChangedAtUnix *int64
+	if passwordChangedAt != nil {
+		unix := passwordChangedAt.Unix()
+		pwdChangedAtUnix = &unix
+	}
+
 	claims := JWTClaims{
-		UserID: userID,
-		Role:   role,
+		UserID:            userID,
+		PasswordChangedAt: pwdChangedAtUnix,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expirationMinutes) * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

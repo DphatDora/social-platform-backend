@@ -2,12 +2,14 @@ package router
 
 import (
 	"social-platform-backend/config"
+	domainRepository "social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/infrastructure/db/repository"
 	"social-platform-backend/internal/interface/handler"
 	"social-platform-backend/internal/interface/middleware"
 	"social-platform-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +24,7 @@ type AppHandler struct {
 	sseHandler          *handler.SSEHandler
 }
 
-func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
+func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware(conf.App.Whitelist))
 
@@ -54,8 +56,8 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	botTaskService := service.NewBotTaskService(botTaskRepo)
 	recommendService := service.NewRecommendationService(userInterestScoreRepo, userTagPrefRepo, postRepo, communityRepo)
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService, botTaskService)
-	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService)
-	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService)
+	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService, redisClient)
+	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService, redisClient)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
@@ -85,14 +87,14 @@ func SetupRoutes(db *gorm.DB, conf *config.Config) *gin.Engine {
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
-		setupPublicRoutes(api, appHandler, conf)
-		setupProtectedRoutes(api, appHandler, conf)
+		setupPublicRoutes(api, appHandler, conf, redisClient)
+		setupProtectedRoutes(api, appHandler, conf, redisClient, userRepo)
 	}
 
 	return router
 }
 
-func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config) {
+func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client) {
 	// Health check
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
@@ -102,8 +104,8 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	{
 		auth.POST("/register", appHandler.authHandler.Register)
 		auth.GET("/verify", appHandler.authHandler.VerifyEmail)
-		auth.POST("/login", appHandler.authHandler.Login)
-		auth.POST("/google-login", appHandler.authHandler.GoogleLogin)
+		auth.POST("/login", middleware.LoginRateLimitMiddleware(redisClient), appHandler.authHandler.Login)
+		auth.POST("/google-login", middleware.LoginRateLimitMiddleware(redisClient), appHandler.authHandler.GoogleLogin)
 		auth.POST("/forgot-password", appHandler.authHandler.ForgotPassword)
 		auth.GET("/verify-reset", appHandler.authHandler.VerifyResetToken)
 		auth.POST("/reset-password", appHandler.authHandler.ResetPassword)
@@ -144,9 +146,9 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config) {
+func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client, userRepo domainRepository.UserRepository) {
 	protected := rg.Group("")
-	protected.Use(middleware.AuthMiddleware(conf))
+	protected.Use(middleware.AuthMiddleware(conf, redisClient, userRepo))
 	{
 		users := protected.Group("/users")
 		{
@@ -163,6 +165,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		}
 
 		communities := protected.Group("/communities")
+		communities.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			communities.POST("", appHandler.communityHandler.CreateCommunity)
 			communities.POST("/:id/join", appHandler.communityHandler.JoinCommunity)
@@ -183,6 +186,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		}
 
 		posts := protected.Group("/posts")
+		posts.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			posts.POST("", appHandler.postHandler.CreatePost)
 			posts.PUT("/:id", appHandler.postHandler.UpdatePost)
@@ -195,6 +199,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		}
 
 		comments := protected.Group("/comments")
+		comments.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			comments.POST("", appHandler.commentHandler.CreateComment)
 			comments.PUT("/:id", appHandler.commentHandler.UpdateComment)
