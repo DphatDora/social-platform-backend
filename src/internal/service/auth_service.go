@@ -12,6 +12,8 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type AuthService struct {
@@ -22,6 +24,7 @@ type AuthService struct {
 	communityModeratorRepo  repository.CommunityModeratorRepository
 	notificationSettingRepo repository.NotificationSettingRepository
 	botTaskService          *BotTaskService
+	redisClient             *redis.Client
 }
 
 func NewAuthService(
@@ -32,6 +35,7 @@ func NewAuthService(
 	communityModeratorRepo repository.CommunityModeratorRepository,
 	notificationSettingRepo repository.NotificationSettingRepository,
 	botTaskService *BotTaskService,
+	redisClient *redis.Client,
 ) *AuthService {
 	return &AuthService{
 		userRepo:                userRepo,
@@ -41,6 +45,7 @@ func NewAuthService(
 		communityModeratorRepo:  communityModeratorRepo,
 		notificationSettingRepo: notificationSettingRepo,
 		botTaskService:          botTaskService,
+		redisClient:             redisClient,
 	}
 }
 
@@ -212,9 +217,9 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 	conf := config.GetConfig()
 	accessToken, err := util.GenerateJWT(
 		user.ID,
-		user.Role,
 		conf.Auth.AccessTokenExpirationMinutes,
 		conf.Auth.JWTSecret,
+		user.PasswordChangedAt,
 	)
 	if err != nil {
 		log.Printf("[Err] Error generating JWT token in AuthService.Login: %v", err)
@@ -332,6 +337,13 @@ func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
 	if err := s.userRepo.UpdatePasswordAndSetChangedAt(passwordReset.UserID, hashedPassword); err != nil {
 		log.Printf("[Err] Error updating password in AuthService.ResetPassword: %v", err)
 		return fmt.Errorf("failed to update password")
+	}
+
+	// Invalidate password cache after successful password reset
+	if s.redisClient != nil {
+		if err := util.InvalidatePasswordCache(s.redisClient, passwordReset.UserID); err != nil {
+			log.Printf("[Warn] Error invalidating password cache for user %d: %v", passwordReset.UserID, err)
+		}
 	}
 
 	if err := s.passwordResetRepo.DeletePasswordReset(passwordReset.ID); err != nil {
@@ -492,9 +504,9 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		// Generate JWT token
 		accessToken, err := util.GenerateJWT(
 			existingUser.ID,
-			existingUser.Role,
 			conf.Auth.AccessTokenExpirationMinutes,
 			conf.Auth.JWTSecret,
+			existingUser.PasswordChangedAt,
 		)
 		if err != nil {
 			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
@@ -532,9 +544,9 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 
 		accessToken, err := util.GenerateJWT(
 			existingUser.ID,
-			existingUser.Role,
 			conf.Auth.AccessTokenExpirationMinutes,
 			conf.Auth.JWTSecret,
+			existingUser.PasswordChangedAt,
 		)
 		if err != nil {
 			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
@@ -614,9 +626,9 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 
 	accessToken, err := util.GenerateJWT(
 		newUser.ID,
-		newUser.Role,
 		conf.Auth.AccessTokenExpirationMinutes,
 		conf.Auth.JWTSecret,
+		newUser.PasswordChangedAt,
 	)
 	if err != nil {
 		log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)

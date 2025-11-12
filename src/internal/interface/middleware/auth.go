@@ -4,14 +4,16 @@ import (
 	"log"
 	"net/http"
 	"social-platform-backend/config"
+	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/util"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func AuthMiddleware(conf *config.Config) gin.HandlerFunc {
+func AuthMiddleware(conf *config.Config, redisClient *redis.Client, userRepo repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get Authorization header
 		authHeader := c.GetHeader("Authorization")
@@ -51,9 +53,32 @@ func AuthMiddleware(conf *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// Validate password_changed_at from token against current value
+		if redisClient != nil && userRepo != nil {
+			isValid, err := util.ValidatePasswordChangedAt(redisClient, userRepo, claims.UserID, claims.PasswordChangedAt)
+			if err != nil {
+				log.Printf("[Err] Error validating password_changed_at for user %d: %v", claims.UserID, err)
+				c.JSON(http.StatusInternalServerError, response.APIResponse{
+					Success: false,
+					Message: "Failed to validate token",
+				})
+				c.Abort()
+				return
+			}
+
+			if !isValid {
+				log.Printf("[Warn] Token invalidated due to password change for user %d", claims.UserID)
+				c.JSON(http.StatusUnauthorized, response.APIResponse{
+					Success: false,
+					Message: "Token is no longer valid. Please login again",
+				})
+				c.Abort()
+				return
+			}
+		}
+
 		// Set user information in context
 		c.Set("userID", claims.UserID)
-		c.Set("userRole", claims.Role)
 
 		c.Next()
 	}
@@ -84,7 +109,6 @@ func OptionalAuthMiddleware(conf *config.Config) gin.HandlerFunc {
 		}
 
 		c.Set("userID", claims.UserID)
-		c.Set("userRole", claims.Role)
 
 		c.Next()
 	}

@@ -21,6 +21,7 @@ type Config struct {
 	Auth     Auth
 	Client   Client
 	Server   Server
+	Redis    Redis
 }
 
 func LoadConfig() {
@@ -81,4 +82,12 @@ func bindEnvs() {
 	_ = viper.BindEnv("auth.googleClientID", "GOOGLE_CLIENT_ID")
 	_ = viper.BindEnv("auth.googleClientSecret", "GOOGLE_CLIENT_SECRET")
 	_ = viper.BindEnv("auth.googleRedirectURL", "GOOGLE_REDIRECT_URL")
+
+	// Redis
+	_ = viper.BindEnv("redis.host", "REDIS_HOST")
+	_ = viper.BindEnv("redis.port", "REDIS_PORT")
+	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
+	_ = viper.BindEnv("redis.db", "REDIS_DB")
+	_ = viper.BindEnv("redis.poolSize", "REDIS_POOL_SIZE")
+	_ = viper.BindEnv("redis.required", "REDIS_REQUIRED")
 }
