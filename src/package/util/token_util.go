@@ -11,7 +11,6 @@ import (
 
 type JWTClaims struct {
 	UserID            uint64 `json:"user_id"`
-	Role              string `json:"role"`
 	PasswordChangedAt *int64 `json:"password_changed_at,omitempty"`
 	jwt.RegisteredClaims
 }
