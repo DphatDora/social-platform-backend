@@ -26,11 +26,7 @@ func LoginRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
 		allowed, err := util.CheckRateLimit(redisClient, key, 5, time.Minute)
 		if err != nil {
 			log.Printf("[Err] Error checking login rate limit for IP %s: %v", clientIP, err)
-			c.JSON(http.StatusInternalServerError, response.APIResponse{
-				Success: false,
-				Message: "Failed to process request",
-			})
-			c.Abort()
+			c.Next()
 			return
 		}
 
@@ -67,11 +63,8 @@ func APIRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
 			allowed, err := util.CheckRateLimit(redisClient, key, 30, time.Minute)
 			if err != nil {
 				log.Printf("[Err] Error checking API rate limit for IP %s: %v", clientIP, err)
-				c.JSON(http.StatusInternalServerError, response.APIResponse{
-					Success: false,
-					Message: "Failed to process request",
-				})
-				c.Abort()
+				// Gracefully fallback: allow request to proceed when Redis is unavailable
+				c.Next()
 				return
 			}
 
@@ -98,11 +91,8 @@ func APIRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
 		allowed, err := util.CheckRateLimit(redisClient, key, 30, time.Minute)
 		if err != nil {
 			log.Printf("[Err] Error checking API rate limit for user %d: %v", userID, err)
-			c.JSON(http.StatusInternalServerError, response.APIResponse{
-				Success: false,
-				Message: "Failed to process request",
-			})
-			c.Abort()
+			// Gracefully fallback: allow request to proceed when Redis is unavailable
+			c.Next()
 			return
 		}
 
