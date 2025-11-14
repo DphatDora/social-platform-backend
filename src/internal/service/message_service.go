@@ -11,23 +11,26 @@ import (
 )
 
 type MessageService struct {
-	conversationRepo repository.ConversationRepository
-	messageRepo      repository.MessageRepository
-	userRepo         repository.UserRepository
-	sseService       *SSEService
+	conversationRepo      repository.ConversationRepository
+	messageRepo           repository.MessageRepository
+	messageAttachmentRepo repository.MessageAttachmentRepository
+	userRepo              repository.UserRepository
+	sseService            *SSEService
 }
 
 func NewMessageService(
 	conversationRepo repository.ConversationRepository,
 	messageRepo repository.MessageRepository,
+	messageAttachmentRepo repository.MessageAttachmentRepository,
 	userRepo repository.UserRepository,
 	sseService *SSEService,
 ) *MessageService {
 	return &MessageService{
-		conversationRepo: conversationRepo,
-		messageRepo:      messageRepo,
-		userRepo:         userRepo,
-		sseService:       sseService,
+		conversationRepo:      conversationRepo,
+		messageRepo:           messageRepo,
+		messageAttachmentRepo: messageAttachmentRepo,
+		userRepo:              userRepo,
+		sseService:            sseService,
 	}
 }
 
@@ -44,11 +47,9 @@ func (s *MessageService) SendMessage(senderID uint64, req *request.SendMessageRe
 		return nil, fmt.Errorf("failed to create conversation")
 	}
 
-	messageType := req.Type
 	message := &model.Message{
 		ConversationID: conversation.ID,
 		SenderID:       senderID,
-		Type:           messageType,
 		Content:        req.Content,
 		IsRead:         false,
 	}
@@ -58,15 +59,19 @@ func (s *MessageService) SendMessage(senderID uint64, req *request.SendMessageRe
 		return nil, fmt.Errorf("failed to send message")
 	}
 
+	// Save attachments if provided
 	if len(req.Attachments) > 0 {
-		message.Attachments = make([]model.MessageAttachment, len(req.Attachments))
-		for i, fileURL := range req.Attachments {
-			message.Attachments[i] = model.MessageAttachment{
+		attachments := make([]model.MessageAttachment, len(req.Attachments))
+		for i, attachment := range req.Attachments {
+			attachments[i] = model.MessageAttachment{
 				MessageID: message.ID,
-				FileURL:   fileURL,
-				FileType:  messageType, // Use message type as file type, will be improved later
+				FileURL:   attachment.FileURL,
+				FileType:  attachment.FileType,
 				CreatedAt: time.Now(),
 			}
+		}
+		if err := s.messageAttachmentRepo.CreateMessageAttachments(attachments); err != nil {
+			log.Printf("[Warn] Failed to save message attachments: %v", err)
 		}
 	}
 
@@ -223,6 +228,48 @@ func (s *MessageService) MarkConversationAsRead(userID, conversationID uint64) e
 	if conversation != nil {
 		go s.broadcastConversationUpdate(conversation.User1ID, conversationID)
 		go s.broadcastConversationUpdate(conversation.User2ID, conversationID)
+	}
+
+	return nil
+}
+
+func (s *MessageService) DeleteMessage(userID, messageID uint64) error {
+	message, err := s.messageRepo.GetMessageByID(messageID)
+	if err != nil {
+		log.Printf("[Err] Message not found: %v", err)
+		return fmt.Errorf("message not found")
+	}
+
+	// Check if user is the sender
+	if message.SenderID != userID {
+		log.Printf("[Err] User is not the sender of this message")
+		return fmt.Errorf("unauthorized: only sender can delete message")
+	}
+
+	// Check if message is within 10 minutes
+	timeSinceCreation := time.Since(message.CreatedAt)
+	if timeSinceCreation > 10*time.Minute {
+		log.Printf("[Err] Message is older than 10 minutes, cannot delete")
+		return fmt.Errorf("message can only be deleted within 10 minutes after sending")
+	}
+
+	// Soft delete the message
+	if err := s.messageRepo.DeleteMessage(messageID); err != nil {
+		log.Printf("[Err] Error deleting message: %v", err)
+		return fmt.Errorf("failed to delete message")
+	}
+
+	// Broadcast message deletion to both users
+	go s.broadcastConversationUpdate(message.SenderID, message.ConversationID)
+
+	// Get the other user in conversation
+	conversation, _ := s.conversationRepo.GetConversationByID(message.ConversationID)
+	if conversation != nil {
+		otherUserID := conversation.User1ID
+		if conversation.User1ID == userID {
+			otherUserID = conversation.User2ID
+		}
+		go s.broadcastConversationUpdate(otherUserID, message.ConversationID)
 	}
 
 	return nil

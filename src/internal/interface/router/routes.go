@@ -43,6 +43,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	commentVoteRepo := repository.NewCommentVoteRepository(db)
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
+	messageAttachmentRepo := repository.NewMessageAttachmentRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
 	notificationSettingRepo := repository.NewNotificationSettingRepository(db)
 	userSavedPostRepo := repository.NewUserSavedPostRepository(db)
@@ -58,7 +59,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService, botTaskService)
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService, redisClient)
 	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService, redisClient)
-	messageService := service.NewMessageService(conversationRepo, messageRepo, userRepo, sseService)
+	messageService := service.NewMessageService(conversationRepo, messageRepo, messageAttachmentRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, topicRepo, notificationService, botTaskService)
@@ -215,6 +216,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			messages.GET("/conversations/:conversationId/messages", appHandler.messageHandler.GetMessages)
 			messages.PATCH("/conversations/:conversationId/read", appHandler.messageHandler.MarkConversationAsRead)
 			messages.PATCH("/:messageId/read", appHandler.messageHandler.MarkAsRead)
+			messages.DELETE("/:messageId", appHandler.messageHandler.DeleteMessage)
 		}
 
 		notifications := protected.Group("/notifications")
