@@ -9,4 +9,5 @@ type MessageRepository interface {
 	MarkMessageAsRead(messageID, userID uint64) error
 	MarkConversationMessagesAsRead(conversationID, userID uint64) error
 	GetUnreadCount(conversationID, userID uint64) (int64, error)
+	DeleteMessage(messageID uint64) error
 }
