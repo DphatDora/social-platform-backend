@@ -79,8 +79,8 @@ func (s *CommunityService) CreateCommunity(userID uint64, req *request.CreateCom
 	return nil
 }
 
-func (s *CommunityService) GetCommunityByID(id uint64) (*response.CommunityDetailResponse, error) {
-	community, memberCount, err := s.communityRepo.GetCommunityWithMemberCount(id)
+func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*response.CommunityDetailResponse, error) {
+	community, memberCount, err := s.communityRepo.GetCommunityByIDWithUserSubscription(id, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting community by ID in CommunityService.GetCommunityByID: %v", err)
 		return nil, fmt.Errorf("community not found")
@@ -101,6 +101,10 @@ func (s *CommunityService) GetCommunityByID(id uint64) (*response.CommunityDetai
 	communityResponse := response.NewCommunityDetailResponse(community)
 	communityResponse.TotalMembers = memberCount
 	communityResponse.Moderators = moderatorResponses
+
+	if community.IsSubscribed != nil {
+		communityResponse.IsFollow = community.IsSubscribed
+	}
 
 	return communityResponse, nil
 }
@@ -200,6 +204,41 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	return nil
 }
 
+func (s *CommunityService) UnjoinCommunity(userID, communityID uint64) error {
+	// Check if community exists
+	_, err := s.communityRepo.GetCommunityByID(communityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in CommunityService.UnjoinCommunity: %v", err)
+		return fmt.Errorf("community not found")
+	}
+
+	// Check if user is subscribed
+	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(userID, communityID)
+	if err != nil {
+		log.Printf("[Err] Error checking subscription in CommunityService.UnjoinCommunity: %v", err)
+		return fmt.Errorf("failed to check subscription")
+	}
+
+	if !isSubscribed {
+		return fmt.Errorf("not subscribed to this community")
+	}
+
+	// Delete subscription
+	if err := s.subscriptionRepo.DeleteSubscription(userID, communityID); err != nil {
+		log.Printf("[Err] Error deleting subscription in CommunityService.UnjoinCommunity: %v", err)
+		return fmt.Errorf("failed to leave community")
+	}
+
+	// Create bot task for interest score
+	go func(userID, communityID uint64) {
+		if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_LEAVE_COMMUNITY, nil); err != nil {
+			log.Printf("[Err] Error creating interest score task in goroutine (UnjoinCommunity): %v", err)
+		}
+	}(userID, communityID)
+
+	return nil
+}
+
 func (s *CommunityService) GetCommunities(page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	communities, total, err := s.communityRepo.GetCommunities(page, limit, userID)
 	if err != nil {
@@ -244,6 +283,11 @@ func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int,
 	for i, community := range communities {
 		resp := response.NewCommunityListResponse(community)
 		resp.TotalMembers = community.MemberCount
+
+		if community.IsSubscribed != nil {
+			resp.IsFollow = community.IsSubscribed
+		}
+
 		communityResponses[i] = resp
 	}
 
@@ -277,6 +321,11 @@ func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, top
 	for i, community := range communities {
 		resp := response.NewCommunityListResponse(community)
 		resp.TotalMembers = community.MemberCount
+
+		if community.IsSubscribed != nil {
+			resp.IsFollow = community.IsSubscribed
+		}
+
 		communityResponses[i] = resp
 	}
 
