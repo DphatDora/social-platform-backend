@@ -62,12 +62,6 @@ func NewConversationListResponse(conversation *model.Conversation, currentUserID
 	return resp
 }
 
-type MessageAttachmentResponse struct {
-	ID       uint64 `json:"id"`
-	FileURL  string `json:"fileUrl"`
-	FileType string `json:"fileType"`
-}
-
 type SenderInfo struct {
 	ID       uint64  `json:"id"`
 	Username string  `json:"username"`
@@ -75,15 +69,15 @@ type SenderInfo struct {
 }
 
 type MessageResponse struct {
-	ID             uint64                      `json:"id"`
-	ConversationID uint64                      `json:"conversationId"`
-	Sender         SenderInfo                  `json:"sender"`
-	Content        string                      `json:"content"`
-	IsRead         bool                        `json:"isRead"`
-	ReadAt         *time.Time                  `json:"readAt,omitempty"`
-	Attachments    []MessageAttachmentResponse `json:"attachments,omitempty"`
-	CreatedAt      time.Time                   `json:"createdAt"`
-	IsDeleted      bool                        `json:"isDeleted"`
+	ID             uint64     `json:"id"`
+	ConversationID uint64     `json:"conversationId"`
+	Sender         SenderInfo `json:"sender"`
+	Content        string     `json:"content"`
+	IsRead         bool       `json:"isRead"`
+	ReadAt         *time.Time `json:"readAt,omitempty"`
+	Attachments    []string   `json:"attachments,omitempty"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	IsDeleted      bool       `json:"isDeleted"`
 }
 
 func NewMessageResponse(message *model.Message) *MessageResponse {
@@ -103,13 +97,9 @@ func NewMessageResponse(message *model.Message) *MessageResponse {
 		resp.Content = message.Content
 
 		if len(message.Attachments) > 0 {
-			resp.Attachments = make([]MessageAttachmentResponse, len(message.Attachments))
+			resp.Attachments = make([]string, len(message.Attachments))
 			for i, att := range message.Attachments {
-				resp.Attachments[i] = MessageAttachmentResponse{
-					ID:       att.ID,
-					FileURL:  att.FileURL,
-					FileType: att.FileType,
-				}
+				resp.Attachments[i] = att.FileURL
 			}
 		}
 	}
