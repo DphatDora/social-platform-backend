@@ -20,6 +20,7 @@ type CommunityDetailResponse struct {
 	TotalMembers             int64          `json:"totalMembers"`
 	IsRequiresMemberApproval bool           `json:"isRequiresMemberApproval"`
 	IsRequiresPostApproval   bool           `json:"isRequiresPostApproval"`
+	IsFollow                 *bool          `json:"isFollow,omitempty"`
 
 	// List of moderators
 	Moderators []ModeratorResponse `json:"moderators,omitempty"`

@@ -170,6 +170,7 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		{
 			communities.POST("", appHandler.communityHandler.CreateCommunity)
 			communities.POST("/:id/join", appHandler.communityHandler.JoinCommunity)
+			communities.DELETE("/:id/join", appHandler.communityHandler.UnjoinCommunity)
 			communities.PUT("/:id", appHandler.communityHandler.UpdateCommunity)
 			communities.DELETE("/:id", appHandler.communityHandler.DeleteCommunity)
 			communities.GET("/:id/members", appHandler.communityHandler.GetCommunityMembers)
