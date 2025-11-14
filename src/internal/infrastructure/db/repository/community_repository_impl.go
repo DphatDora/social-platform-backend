@@ -49,6 +49,34 @@ func (r *CommunityRepositoryImpl) GetCommunityWithMemberCount(id uint64) (*model
 	return &community, memberCount, nil
 }
 
+func (r *CommunityRepositoryImpl) GetCommunityByIDWithUserSubscription(communityID uint64, userID *uint64) (*model.Community, int64, error) {
+	var community model.Community
+
+	selectFields := "communities.*, COUNT(DISTINCT subscriptions.user_id) as member_count"
+
+	// Add is_subscribed field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d THEN 1 ELSE 0 END) as is_subscribed", *userID)
+	}
+
+	query := r.db.Table("communities").
+		Select(selectFields).
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'").
+		Where("communities.id = ?", communityID)
+
+	// Join with user's subscriptions if userID exists
+	if userID != nil {
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+	}
+
+	err := query.Group("communities.id").First(&community).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &community, community.MemberCount, nil
+}
+
 func (r *CommunityRepositoryImpl) UpdateCommunity(id uint64, updateCommunity *request.UpdateCommunityRequest) error {
 	updates := make(map[string]interface{})
 	if updateCommunity.Name != nil {

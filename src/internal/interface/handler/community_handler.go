@@ -72,7 +72,10 @@ func (h *CommunityHandler) GetCommunityByID(c *gin.Context) {
 		return
 	}
 
-	community, err := h.communityService.GetCommunityByID(id)
+	// Get userID from context (if exists)
+	userID := util.GetOptionalUserIDFromContext(c)
+
+	community, err := h.communityService.GetCommunityByID(id, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting community in CommunityHandler.GetCommunityByID: %v", err)
 		c.JSON(http.StatusNotFound, response.APIResponse{
@@ -258,6 +261,60 @@ func (h *CommunityHandler) JoinCommunity(c *gin.Context) {
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Successfully joined community",
+	})
+}
+
+func (h *CommunityHandler) UnjoinCommunity(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommunityHandler.UnjoinCommunity", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	idParam := c.Param("id")
+	communityID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid community ID in CommunityHandler.UnjoinCommunity: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid community ID",
+		})
+		return
+	}
+
+	if err := h.communityService.UnjoinCommunity(userID, communityID); err != nil {
+		log.Printf("[Err] Error leaving community in CommunityHandler.UnjoinCommunity: %v", err)
+
+		if strings.Contains(err.Error(), "not subscribed") {
+			c.JSON(http.StatusConflict, response.APIResponse{
+				Success: false,
+				Message: "Not subscribed to this community",
+			})
+			return
+		}
+
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, response.APIResponse{
+				Success: false,
+				Message: "Community not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to leave community",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Successfully left community",
 	})
 }
 
