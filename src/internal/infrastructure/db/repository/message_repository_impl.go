@@ -22,7 +22,8 @@ func (r *MessageRepositoryImpl) CreateMessage(message *model.Message) error {
 
 func (r *MessageRepositoryImpl) GetMessageByID(id uint64) (*model.Message, error) {
 	var message model.Message
-	err := r.db.Preload("Sender").
+	err := r.db.Unscoped().
+		Preload("Sender").
 		Preload("Attachments").
 		Where("id = ?", id).
 		First(&message).Error
@@ -38,8 +39,8 @@ func (r *MessageRepositoryImpl) GetConversationMessages(conversationID uint64, p
 
 	offset := (page - 1) * limit
 
-	// Count total messages
-	query := r.db.Model(&model.Message{}).
+	// Count total messages (including soft deleted)
+	query := r.db.Unscoped().Model(&model.Message{}).
 		Where("conversation_id = ?", conversationID)
 
 	if err := query.Count(&total).Error; err != nil {
@@ -47,7 +48,9 @@ func (r *MessageRepositoryImpl) GetConversationMessages(conversationID uint64, p
 	}
 
 	// Get messages with preloads, sorted by created_at DESC (newest first)
-	err := r.db.Preload("Sender").
+	// Use Unscoped() to include soft deleted messages
+	err := r.db.Unscoped().
+		Preload("Sender").
 		Preload("Attachments").
 		Where("conversation_id = ?", conversationID).
 		Order("created_at DESC").
@@ -91,4 +94,8 @@ func (r *MessageRepositoryImpl) GetUnreadCount(conversationID, userID uint64) (i
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *MessageRepositoryImpl) DeleteMessage(messageID uint64) error {
+	return r.db.Delete(&model.Message{}, messageID).Error
 }

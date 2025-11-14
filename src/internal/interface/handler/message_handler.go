@@ -232,3 +232,51 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 		Pagination: pagination,
 	})
 }
+
+func (h *MessageHandler) DeleteMessage(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in MessageHandler.DeleteMessage", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	messageIDParam := c.Param("messageId")
+	messageID, err := strconv.ParseUint(messageIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid message ID in MessageHandler.DeleteMessage: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid message ID",
+		})
+		return
+	}
+
+	if err := h.messageService.DeleteMessage(userID, messageID); err != nil {
+		log.Printf("[Err] Error deleting message in MessageHandler.DeleteMessage: %v", err)
+
+		// Check if it's a specific error type
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "unauthorized: only sender can delete message" {
+			statusCode = http.StatusForbidden
+		} else if err.Error() == "message can only be deleted within 10 minutes after sending" {
+			statusCode = http.StatusBadRequest
+		} else if err.Error() == "message not found" {
+			statusCode = http.StatusNotFound
+		}
+
+		c.JSON(statusCode, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Message deleted successfully",
+	})
+}

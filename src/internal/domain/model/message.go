@@ -10,7 +10,6 @@ type Message struct {
 	ID             uint64         `gorm:"column:id;primaryKey"`
 	ConversationID uint64         `gorm:"column:conversation_id"`
 	SenderID       uint64         `gorm:"column:sender_id"`
-	Type           string         `gorm:"column:type"`
 	Content        string         `gorm:"column:content"`
 	CreatedAt      time.Time      `gorm:"column:created_at"`
 	IsRead         bool           `gorm:"column:is_read"`

@@ -78,23 +78,40 @@ type MessageResponse struct {
 	ID             uint64                      `json:"id"`
 	ConversationID uint64                      `json:"conversationId"`
 	Sender         SenderInfo                  `json:"sender"`
-	Type           string                      `json:"type"`
 	Content        string                      `json:"content"`
 	IsRead         bool                        `json:"isRead"`
 	ReadAt         *time.Time                  `json:"readAt,omitempty"`
 	Attachments    []MessageAttachmentResponse `json:"attachments,omitempty"`
 	CreatedAt      time.Time                   `json:"createdAt"`
+	IsDeleted      bool                        `json:"isDeleted"`
 }
 
 func NewMessageResponse(message *model.Message) *MessageResponse {
 	resp := &MessageResponse{
 		ID:             message.ID,
 		ConversationID: message.ConversationID,
-		Type:           message.Type,
-		Content:        message.Content,
 		IsRead:         message.IsRead,
 		ReadAt:         message.ReadAt,
 		CreatedAt:      message.CreatedAt,
+		IsDeleted:      message.DeletedAt.Valid,
+	}
+
+	if message.DeletedAt.Valid {
+		resp.Content = "This message has been deleted"
+		resp.Attachments = nil
+	} else {
+		resp.Content = message.Content
+
+		if len(message.Attachments) > 0 {
+			resp.Attachments = make([]MessageAttachmentResponse, len(message.Attachments))
+			for i, att := range message.Attachments {
+				resp.Attachments[i] = MessageAttachmentResponse{
+					ID:       att.ID,
+					FileURL:  att.FileURL,
+					FileType: att.FileType,
+				}
+			}
+		}
 	}
 
 	if message.Sender != nil {
@@ -102,17 +119,6 @@ func NewMessageResponse(message *model.Message) *MessageResponse {
 			ID:       message.Sender.ID,
 			Username: message.Sender.Username,
 			Avatar:   message.Sender.Avatar,
-		}
-	}
-
-	if len(message.Attachments) > 0 {
-		resp.Attachments = make([]MessageAttachmentResponse, len(message.Attachments))
-		for i, att := range message.Attachments {
-			resp.Attachments[i] = MessageAttachmentResponse{
-				ID:       att.ID,
-				FileURL:  att.FileURL,
-				FileType: att.FileType,
-			}
 		}
 	}
 
