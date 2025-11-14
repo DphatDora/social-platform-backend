@@ -8,16 +8,18 @@ import (
 )
 
 type CommunityDetailResponse struct {
-	ID               uint64         `json:"id"`
-	Name             string         `json:"name"`
-	ShortDescription string         `json:"shortDescription"`
-	Description      *string        `json:"description,omitempty"`
-	Topic            pq.StringArray `json:"topic,omitempty"`
-	CommunityAvatar  *string        `json:"communityAvatar,omitempty"`
-	CoverImage       *string        `json:"coverImage,omitempty"`
-	IsPrivate        bool           `json:"isPrivate"`
-	CreatedAt        time.Time      `json:"createdAt"`
-	TotalMembers     int64          `json:"totalMembers"`
+	ID                       uint64         `json:"id"`
+	Name                     string         `json:"name"`
+	ShortDescription         string         `json:"shortDescription"`
+	Description              *string        `json:"description,omitempty"`
+	Topic                    pq.StringArray `json:"topic,omitempty"`
+	CommunityAvatar          *string        `json:"communityAvatar,omitempty"`
+	CoverImage               *string        `json:"coverImage,omitempty"`
+	IsPrivate                bool           `json:"isPrivate"`
+	CreatedAt                time.Time      `json:"createdAt"`
+	TotalMembers             int64          `json:"totalMembers"`
+	IsRequiresMemberApproval bool           `json:"isRequiresMemberApproval"`
+	IsRequiresPostApproval   bool           `json:"isRequiresPostApproval"`
 
 	// List of moderators
 	Moderators []ModeratorResponse `json:"moderators,omitempty"`
@@ -25,15 +27,17 @@ type CommunityDetailResponse struct {
 
 func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResponse {
 	return &CommunityDetailResponse{
-		ID:               community.ID,
-		Name:             community.Name,
-		ShortDescription: community.ShortDescription,
-		Description:      community.Description,
-		Topic:            community.Topic,
-		CommunityAvatar:  community.CommunityAvatar,
-		CoverImage:       community.CoverImage,
-		IsPrivate:        community.IsPrivate,
-		CreatedAt:        community.CreatedAt,
+		ID:                       community.ID,
+		Name:                     community.Name,
+		ShortDescription:         community.ShortDescription,
+		Description:              community.Description,
+		Topic:                    community.Topic,
+		CommunityAvatar:          community.CommunityAvatar,
+		CoverImage:               community.CoverImage,
+		IsPrivate:                community.IsPrivate,
+		CreatedAt:                community.CreatedAt,
+		IsRequiresMemberApproval: community.RequiresMemberApproval,
+		IsRequiresPostApproval:   community.RequiresPostApproval,
 	}
 }
 
