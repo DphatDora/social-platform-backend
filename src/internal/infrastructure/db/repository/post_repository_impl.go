@@ -52,6 +52,7 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 
 	query := r.db.Table("posts").
 		Select(selectFields).
+		Joins("INNER JOIN communities ON posts.community_id = communities.id").
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
@@ -60,8 +61,16 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
 	}
 
-	err := query.Where("posts.id = ?", id).
-		Group("posts.id").
+	if userID == nil {
+		// only show posts from public communities
+		query = query.Where("posts.id = ? AND communities.is_private = ?", id, false)
+	} else {
+		// show posts from public communities OR private communities user has joined
+		query = query.Joins("LEFT JOIN subscriptions ON posts.community_id = subscriptions.community_id AND subscriptions.user_id = ? AND subscriptions.status = ?", *userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("posts.id = ? AND (communities.is_private = ? OR (communities.is_private = ? AND subscriptions.user_id IS NOT NULL))", id, false, true)
+	}
+
+	err := query.Group("posts.id").
 		Preload("Community").
 		Preload("Author").
 		First(&post).Error
@@ -174,12 +183,22 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 	var posts []*model.Post
 	var total int64
 
-	// Count total APPROVED posts with tag filter
-	countQuery := r.db.Model(&model.Post{}).
-		Where("status = ?", constant.POST_STATUS_APPROVED)
+	// Count total APPROVED posts with tag filter and private community access check
+	countQuery := r.db.Table("posts").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Where("posts.status = ?", constant.POST_STATUS_APPROVED)
+
+	if userID == nil {
+		// only show posts from public communities
+		countQuery = countQuery.Where("communities.is_private = ?", false)
+	} else {
+		// show posts from public communities OR private communities user has joined
+		countQuery = countQuery.Joins("LEFT JOIN subscriptions ON posts.community_id = subscriptions.community_id AND subscriptions.user_id = ? AND subscriptions.status = ?", *userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("communities.is_private = ? OR (communities.is_private = ? AND subscriptions.user_id IS NOT NULL)", false, true)
+	}
 
 	if len(tags) > 0 {
-		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
+		countQuery = countQuery.Where("posts.tags && ?", pq.StringArray(tags))
 	}
 
 	if err := countQuery.Count(&total).Error; err != nil {
@@ -200,6 +219,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 
 	query := r.db.Table("posts").
 		Select(selectFields).
+		Joins("INNER JOIN communities ON posts.community_id = communities.id").
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
@@ -208,7 +228,14 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
 	}
 
-	query = query.Where("posts.status = ?", constant.POST_STATUS_APPROVED)
+	if userID == nil {
+		// only show posts from public communities
+		query = query.Where("posts.status = ? AND communities.is_private = ?", constant.POST_STATUS_APPROVED, false)
+	} else {
+		// show posts from public communities OR private communities user has joined
+		query = query.Joins("LEFT JOIN subscriptions ON posts.community_id = subscriptions.community_id AND subscriptions.user_id = ? AND subscriptions.status = ?", *userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("posts.status = ? AND (communities.is_private = ? OR (communities.is_private = ? AND subscriptions.user_id IS NOT NULL))", constant.POST_STATUS_APPROVED, false, true)
+	}
 
 	// Filter by tags if provided
 	if len(tags) > 0 {
@@ -316,14 +343,25 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	patterns := util.BuildSearchPattern(title)
 
-	// Count total APPROVED posts matching title with tag filter
-	countQuery := r.db.Model(&model.Post{}).
-		Where("status = ?", constant.POST_STATUS_APPROVED)
+	// Count total APPROVED posts matching title with tag filter and private community access check
+	countQuery := r.db.Table("posts").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Where("posts.status = ?", constant.POST_STATUS_APPROVED)
+
+	if userID == nil {
+		// only show posts from public communities
+		countQuery = countQuery.Where("communities.is_private = ?", false)
+	} else {
+		// show posts from public communities OR private communities user has joined
+		countQuery = countQuery.Joins("LEFT JOIN subscriptions ON posts.community_id = subscriptions.community_id AND subscriptions.user_id = ? AND subscriptions.status = ?", *userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("communities.is_private = ? OR (communities.is_private = ? AND subscriptions.user_id IS NOT NULL)", false, true)
+	}
+
 	for _, p := range patterns {
-		countQuery = countQuery.Where("unaccent(lower(title)) LIKE unaccent(lower(?))", p)
+		countQuery = countQuery.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?))", p)
 	}
 	if len(tags) > 0 {
-		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
+		countQuery = countQuery.Where("posts.tags && ?", pq.StringArray(tags))
 	}
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -343,6 +381,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	query := r.db.Table("posts").
 		Select(selectFields).
+		Joins("INNER JOIN communities ON posts.community_id = communities.id").
 		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
@@ -351,8 +390,17 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
 	}
 
+	if userID == nil {
+		// only show posts from public communities
+		query = query.Where("posts.status = ? AND communities.is_private = ?", constant.POST_STATUS_APPROVED, false)
+	} else {
+		// show posts from public communities OR private communities user has joined
+		query = query.Joins("LEFT JOIN subscriptions ON posts.community_id = subscriptions.community_id AND subscriptions.user_id = ? AND subscriptions.status = ?", *userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("posts.status = ? AND (communities.is_private = ? OR (communities.is_private = ? AND subscriptions.user_id IS NOT NULL))", constant.POST_STATUS_APPROVED, false, true)
+	}
+
 	for _, p := range patterns {
-		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?)) AND posts.status = ?", p, constant.POST_STATUS_APPROVED)
+		query = query.Where("unaccent(lower(posts.title)) LIKE unaccent(lower(?))", p)
 	}
 
 	// Filter by tags
