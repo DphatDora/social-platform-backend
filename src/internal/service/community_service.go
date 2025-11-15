@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
+	"strings"
 	"time"
 )
 
@@ -340,6 +341,9 @@ func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, top
 		nextURL := fmt.Sprintf("/api/v1/communities/filter?sortBy=%s&page=%d&limit=%d", sortBy, page+1, limit)
 		if isPrivate != nil {
 			nextURL += fmt.Sprintf("&isPrivate=%t", *isPrivate)
+		}
+		if len(topics) > 0 {
+			nextURL += fmt.Sprintf("&topics=%s", strings.Join(topics, ","))
 		}
 		pagination.NextURL = nextURL
 	}

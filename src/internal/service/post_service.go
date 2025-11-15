@@ -10,12 +10,14 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
+	"strings"
 	"time"
 )
 
 type PostService struct {
 	postRepo            repository.PostRepository
 	communityRepo       repository.CommunityRepository
+	subscriptionRepo    repository.SubscriptionRepository
 	postVoteRepo        repository.PostVoteRepository
 	postReportRepo      repository.PostReportRepository
 	botTaskRepo         repository.BotTaskRepository
@@ -29,6 +31,7 @@ type PostService struct {
 func NewPostService(
 	postRepo repository.PostRepository,
 	communityRepo repository.CommunityRepository,
+	subscriptionRepo repository.SubscriptionRepository,
 	postVoteRepo repository.PostVoteRepository,
 	postReportRepo repository.PostReportRepository,
 	botTaskRepo repository.BotTaskRepository,
@@ -41,6 +44,7 @@ func NewPostService(
 	return &PostService{
 		postRepo:            postRepo,
 		communityRepo:       communityRepo,
+		subscriptionRepo:    subscriptionRepo,
 		postVoteRepo:        postVoteRepo,
 		postReportRepo:      postReportRepo,
 		botTaskRepo:         botTaskRepo,
@@ -236,7 +240,11 @@ func (s *PostService) GetAllPosts(sortBy string, page, limit int, tags []string,
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		pagination.NextURL = fmt.Sprintf("/api/v1/posts?sortBy=%s&page=%d&limit=%d", sortBy, page+1, limit)
+		nextURL := fmt.Sprintf("/api/v1/posts?sortBy=%s&page=%d&limit=%d", sortBy, page+1, limit)
+		if len(tags) > 0 {
+			nextURL += fmt.Sprintf("&tags=%s", strings.Join(tags, ","))
+		}
+		pagination.NextURL = nextURL
 	}
 
 	return postResponses, pagination, nil
@@ -273,7 +281,11 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		pagination.NextURL = fmt.Sprintf("/api/v1/communities/%d/posts?sortBy=%s&page=%d&limit=%d", communityID, sortBy, page+1, limit)
+		nextURL := fmt.Sprintf("/api/v1/communities/%d/posts?sortBy=%s&page=%d&limit=%d", communityID, sortBy, page+1, limit)
+		if len(tags) > 0 {
+			nextURL += fmt.Sprintf("&tags=%s", strings.Join(tags, ","))
+		}
+		pagination.NextURL = nextURL
 	}
 
 	return postResponses, pagination, nil
@@ -299,17 +311,51 @@ func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, 
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		pagination.NextURL = fmt.Sprintf("/api/v1/posts/search?search=%s&sortBy=%s&page=%d&limit=%d", title, sortBy, page+1, limit)
+		nextURL := fmt.Sprintf("/api/v1/posts/search?search=%s&sortBy=%s&page=%d&limit=%d", title, sortBy, page+1, limit)
+		if len(tags) > 0 {
+			nextURL += fmt.Sprintf("&tags=%s", strings.Join(tags, ","))
+		}
+		pagination.NextURL = nextURL
 	}
 
 	return postResponses, pagination, nil
 }
 
 func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*response.PostDetailResponse, error) {
+	// First, check if post exists at all
+	postExists, err := s.postRepo.GetPostByID(postID)
+	if err != nil {
+		log.Printf("[Err] Post not found in PostService.GetPostDetailByID: %v", err)
+		return nil, fmt.Errorf("post not found")
+	}
+
+	// Get community to check if it's private
+	community, err := s.communityRepo.GetCommunityByID(postExists.CommunityID)
+	if err != nil {
+		log.Printf("[Err] Community not found in PostService.GetPostDetailByID: %v", err)
+		return nil, fmt.Errorf("failed to get post details")
+	}
+
+	// If private community, check if user has access
+	if community.IsPrivate {
+		if userID == nil {
+			// Not authenticated
+			log.Printf("[Err] User not authenticated to view post from private community in PostService.GetPostDetailByID: postID=%d", postID)
+			return nil, fmt.Errorf("you do not have permission to view this post")
+		}
+		// Check if user is member of the private community
+		isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(*userID, postExists.CommunityID)
+		if err != nil || !isSubscribed {
+			log.Printf("[Err] User does not have permission to view post from private community in PostService.GetPostDetailByID: userID=%d, postID=%d", *userID, postID)
+			return nil, fmt.Errorf("you do not have permission to view this post")
+		}
+	}
+
+	// If we reach here, user has permission, get full post details
 	post, err := s.postRepo.GetPostDetailByID(postID, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting post detail in PostService.GetPostDetailByID: %v", err)
-		return nil, fmt.Errorf("post not found")
+		return nil, fmt.Errorf("failed to get post details")
 	}
 
 	return response.NewPostDetailResponse(post), nil
