@@ -69,7 +69,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	conf := config.GetConfig()
 	if token == "" {
 		log.Printf("[Err] Missing token in AuthHandler.VerifyEmail")
-		redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Missing+verification+token", conf.Client.Url)
+		redirectURL := fmt.Sprintf("%s/auth/verify-result?success=false&message=Missing+verification+token", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
@@ -79,17 +79,17 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 		log.Printf("[Err] Error verifying email in AuthHandler.VerifyEmail: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
-			redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Token+has+expired.+Please+request+a+new+verification+email", conf.Client.Url)
+			redirectURL := fmt.Sprintf("%s/auth/verify-result?success=false&message=Token+has+expired.+Please+request+a+new+verification+email", conf.Client.Url)
 			c.Redirect(http.StatusFound, redirectURL)
 			return
 		}
 
-		redirectURL := fmt.Sprintf("%s/verify-result?success=false&message=Invalid+token.+Please+try+again", conf.Client.Url)
+		redirectURL := fmt.Sprintf("%s/auth/verify-result?success=false&message=Invalid+token.+Please+try+again", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/verify-result?success=true&message=Email+verified+successfully", conf.Client.Url)
+	redirectURL := fmt.Sprintf("%s/auth/verify-result?success=true&message=Email+verified+successfully", conf.Client.Url)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
@@ -176,7 +176,7 @@ func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
 
 	if token == "" {
 		log.Printf("[Err] Missing token in AuthHandler.VerifyResetToken")
-		redirectURL := fmt.Sprintf("%s/reset-password?success=false&message=Missing+reset+token", conf.Client.Url)
+		redirectURL := fmt.Sprintf("%s/auth/reset-password?success=false&message=Missing+reset+token", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
@@ -187,17 +187,17 @@ func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
 		log.Printf("[Err] Error verifying reset token in AuthHandler.VerifyResetToken: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
-			redirectURL := fmt.Sprintf("%s/reset-password?success=false&message=Token+has+expired", conf.Client.Url)
+			redirectURL := fmt.Sprintf("%s/auth/reset-password?success=false&message=Token+has+expired", conf.Client.Url)
 			c.Redirect(http.StatusFound, redirectURL)
 			return
 		}
 
-		redirectURL := fmt.Sprintf("%s/reset-password?success=false&message=Invalid+token", conf.Client.Url)
+		redirectURL := fmt.Sprintf("%s/auth/reset-password?success=false&message=Invalid+token", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/reset-password?token=%s", conf.Client.Url, validToken)
+	redirectURL := fmt.Sprintf("%s/auth/reset-password?token=%s", conf.Client.Url, validToken)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
