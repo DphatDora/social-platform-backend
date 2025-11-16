@@ -224,6 +224,15 @@ func (s *CommunityService) UnjoinCommunity(userID, communityID uint64) error {
 		return fmt.Errorf("not subscribed to this community")
 	}
 
+	// Check if user is a moderator
+	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
+	if err == nil && role != "" {
+		if err := s.communityModeratorRepo.DeleteModerator(communityID, userID); err != nil {
+			log.Printf("[Err] Error deleting moderator in CommunityService.UnjoinCommunity: %v", err)
+			return fmt.Errorf("failed to remove moderator role")
+		}
+	}
+
 	// Delete subscription
 	if err := s.subscriptionRepo.DeleteSubscription(userID, communityID); err != nil {
 		log.Printf("[Err] Error deleting subscription in CommunityService.UnjoinCommunity: %v", err)
