@@ -80,6 +80,9 @@ func (r *UserRepositoryImpl) UpdateUserProfile(id uint64, updateUser *request.Up
 	if updateUser.Avatar != nil {
 		updates["avatar"] = *updateUser.Avatar
 	}
+	if updateUser.CoverImage != nil {
+		updates["cover_image"] = *updateUser.CoverImage
+	}
 	return r.db.Model(&model.User{}).Where("id = ?", id).Updates(updates).Error
 }
 

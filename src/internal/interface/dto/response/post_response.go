@@ -10,9 +10,10 @@ import (
 )
 
 type CommunityInfo struct {
-	ID     uint64  `json:"id"`
-	Name   string  `json:"name"`
-	Avatar *string `json:"avatar,omitempty"`
+	ID               uint64  `json:"id"`
+	Name             string  `json:"name"`
+	Avatar           *string `json:"avatar,omitempty"`
+	ShortDescription string  `json:"shortDescription"`
 }
 
 type AuthorInfo struct {
@@ -110,9 +111,10 @@ func NewPostListResponse(post *model.Post) *PostListResponse {
 
 	if post.Community != nil {
 		response.Community = &CommunityInfo{
-			ID:     post.Community.ID,
-			Name:   post.Community.Name,
-			Avatar: post.Community.CommunityAvatar,
+			ID:               post.Community.ID,
+			Name:             post.Community.Name,
+			Avatar:           post.Community.CommunityAvatar,
+			ShortDescription: post.Community.ShortDescription,
 		}
 	}
 	if post.Author != nil {
@@ -167,8 +169,10 @@ func NewPostDetailResponse(post *model.Post) *PostDetailResponse {
 
 	if post.Community != nil {
 		response.Community = &CommunityInfo{
-			ID:   post.Community.ID,
-			Name: post.Community.Name,
+			ID:               post.Community.ID,
+			Name:             post.Community.Name,
+			Avatar:           post.Community.CommunityAvatar,
+			ShortDescription: post.Community.ShortDescription,
 		}
 	}
 	if post.Author != nil {
