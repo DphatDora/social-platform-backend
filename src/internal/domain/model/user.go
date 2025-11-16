@@ -12,6 +12,7 @@ type User struct {
 	Karma             uint64     `gorm:"column:karma"`
 	Bio               *string    `gorm:"column:bio"`
 	Avatar            *string    `gorm:"column:avatar"`
+	CoverImage        *string    `gorm:"column:cover_image"`
 	IsActive          bool       `gorm:"column:is_active"`
 	Role              string     `gorm:"column:role"`
 	PasswordChangedAt *time.Time `gorm:"column:password_changed_at"`
