@@ -40,6 +40,25 @@ func (r *UserInterestScoreRepositoryImpl) GetTopCommunitiesByScore(userID uint64
 	return communityIDs, err
 }
 
+func (r *UserInterestScoreRepositoryImpl) GetUserInterestScoresWithScores(userID uint64, limit int) (map[uint64]float64, error) {
+	var scores []*model.UserInterestScore
+	err := r.db.Where("user_id = ? AND score > 0", userID).
+		Order("score DESC").
+		Limit(limit).
+		Find(&scores).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	scoresMap := make(map[uint64]float64)
+	for _, score := range scores {
+		scoresMap[score.CommunityID] = score.Score
+	}
+
+	return scoresMap, nil
+}
+
 func (r *UserInterestScoreRepositoryImpl) UpdateScoreByAction(userID, communityID uint64, scoreDelta float64) error {
 	now := time.Now()
 

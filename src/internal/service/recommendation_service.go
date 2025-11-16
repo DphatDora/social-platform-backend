@@ -6,6 +6,8 @@ import (
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
+	"social-platform-backend/package/constant"
+	"sort"
 	"time"
 )
 
@@ -31,10 +33,10 @@ func NewRecommendationService(
 }
 
 func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
-	// Get top communities user is interested in
-	topCommunityIDs, err := s.userInterestScoreRepo.GetTopCommunitiesByScore(userID, 10)
+	// Get top communities user is interested in (limited to MAX_COMMUNITIES)
+	communityScores, err := s.userInterestScoreRepo.GetUserInterestScoresWithScores(userID, constant.RECOMMENDATION_MAX_COMMUNITIES)
 	if err != nil {
-		log.Printf("[Err] Error getting top communities in RecommendationService.GetRecommendedPosts: %v", err)
+		log.Printf("[Err] Error getting community scores in RecommendationService.GetRecommendedPosts: %v", err)
 		// If no interest data, return empty list
 		return []*response.PostListResponse{}, &response.Pagination{
 			Total: 0,
@@ -43,7 +45,7 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 		}, nil
 	}
 
-	if len(topCommunityIDs) == 0 {
+	if len(communityScores) == 0 {
 		// No interest data yet, return empty
 		return []*response.PostListResponse{}, &response.Pagination{
 			Total: 0,
@@ -59,16 +61,37 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 		preferredTags = userTags.PreferredTags
 	}
 
-	// Get posts from top communities and score them
+	// Fetch posts with weighted sampling based on community scores
 	allPosts := []*model.Post{}
-	for _, communityID := range topCommunityIDs {
-		// Get recent posts from this community (last 7 days)
-		posts, _, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 20, []string{}, &userID)
+	totalFetched := 0
+
+	for communityID, score := range communityScores {
+		// Calculate dynamic post limit based on community score
+		postsLimit := s.calculatePostsLimit(score)
+
+		// Ensure we don't exceed MAX_TOTAL_POSTS
+		if totalFetched+postsLimit > constant.RECOMMENDATION_MAX_TOTAL_POSTS {
+			postsLimit = constant.RECOMMENDATION_MAX_TOTAL_POSTS - totalFetched
+		}
+
+		if postsLimit <= 0 {
+			break
+		}
+
+		// Get recent posts from this community
+		posts, _, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, postsLimit, []string{}, &userID)
 		if err != nil {
 			log.Printf("[Warn] Error getting posts for community %d: %v", communityID, err)
 			continue
 		}
 		allPosts = append(allPosts, posts...)
+		totalFetched += len(posts)
+
+		// Stop if we've reached the max total posts
+		if totalFetched >= constant.RECOMMENDATION_MAX_TOTAL_POSTS {
+			log.Printf("[Info] Reached max posts limit (%d), stopping fetch", constant.RECOMMENDATION_MAX_TOTAL_POSTS)
+			break
+		}
 	}
 
 	// Score and sort posts
@@ -169,14 +192,10 @@ func (s *RecommendationService) scoreAndSortPosts(posts []*model.Post, preferred
 		scored = append(scored, scoredPost{post: post, score: score})
 	}
 
-	// Sort by score descending
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	// Sort by score descending using sort.Slice for O(n log n) performance
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	// Extract sorted posts
 	result := make([]*model.Post, len(scored))
@@ -187,11 +206,23 @@ func (s *RecommendationService) scoreAndSortPosts(posts []*model.Post, preferred
 	return result
 }
 
+// calculatePostsLimit determines how many posts to fetch from a community based on its score
+func (s *RecommendationService) calculatePostsLimit(score float64) int {
+	if score >= constant.RECOMMENDATION_HIGH_SCORE_THRESHOLD {
+		return constant.RECOMMENDATION_HIGH_SCORE_POSTS_LIMIT
+	} else if score >= constant.RECOMMENDATION_MEDIUM_SCORE_THRESHOLD {
+		return constant.RECOMMENDATION_MEDIUM_SCORE_POSTS_LIMIT
+	} else if score >= constant.RECOMMENDATION_LOW_SCORE_THRESHOLD {
+		return constant.RECOMMENDATION_LOW_SCORE_POSTS_LIMIT
+	}
+	return constant.RECOMMENDATION_MIN_SCORE_POSTS_LIMIT
+}
+
 func (s *RecommendationService) calculatePostScore(post *model.Post, preferredTags []string) float64 {
 	score := 0.0
 
 	// Factor 1: Post votes (engagement)
-	score += float64(post.Vote) * 0.5
+	score += float64(post.Vote) * constant.RECOMMENDATION_VOTE_WEIGHT
 
 	// Factor 2: Tag matching
 	if post.Tags != nil && len(*post.Tags) > 0 {
@@ -204,21 +235,21 @@ func (s *RecommendationService) calculatePostScore(post *model.Post, preferredTa
 				}
 			}
 		}
-		score += float64(tagMatchCount) * 10.0
+		score += float64(tagMatchCount) * constant.RECOMMENDATION_TAG_MATCH_WEIGHT
 	}
 
 	// Factor 3: Freshness (decay over time)
 	// Posts from last 24 hours get bonus, then decay
 	hoursSincePost := time.Since(post.CreatedAt).Hours()
-	if hoursSincePost < 24 {
-		score += 20.0 * (1.0 - hoursSincePost/24.0)
-	} else if hoursSincePost < 168 { // 7 days
-		score += 10.0 * (1.0 - (hoursSincePost-24.0)/144.0)
+	if hoursSincePost < constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS {
+		score += constant.RECOMMENDATION_FRESHNESS_RECENT_BONUS * (1.0 - hoursSincePost/constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS)
+	} else if hoursSincePost < constant.RECOMMENDATION_FRESHNESS_WEEK_HOURS {
+		score += constant.RECOMMENDATION_FRESHNESS_WEEK_BONUS * (1.0 - (hoursSincePost-constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS)/constant.RECOMMENDATION_FRESHNESS_DECAY_WINDOW)
 	}
 
 	// Factor 4: Author karma (quality indicator)
 	if post.Author != nil {
-		score += float64(post.Author.Karma) / 100.0
+		score += float64(post.Author.Karma) / constant.RECOMMENDATION_KARMA_DIVIDER
 	}
 
 	return score
