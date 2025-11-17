@@ -66,10 +66,9 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 	totalFetched := 0
 
 	for communityID, score := range communityScores {
-		// Calculate dynamic post limit based on community score
+		// Calculate posts limit based on community score
 		postsLimit := s.calculatePostsLimit(score)
 
-		// Ensure we don't exceed MAX_TOTAL_POSTS
 		if totalFetched+postsLimit > constant.RECOMMENDATION_MAX_TOTAL_POSTS {
 			postsLimit = constant.RECOMMENDATION_MAX_TOTAL_POSTS - totalFetched
 		}
@@ -87,9 +86,8 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 		allPosts = append(allPosts, posts...)
 		totalFetched += len(posts)
 
-		// Stop if we've reached the max total posts
+		// Stop if reach max total posts
 		if totalFetched >= constant.RECOMMENDATION_MAX_TOTAL_POSTS {
-			log.Printf("[Info] Reached max posts limit (%d), stopping fetch", constant.RECOMMENDATION_MAX_TOTAL_POSTS)
 			break
 		}
 	}
@@ -192,7 +190,7 @@ func (s *RecommendationService) scoreAndSortPosts(posts []*model.Post, preferred
 		scored = append(scored, scoredPost{post: post, score: score})
 	}
 
-	// Sort by score descending using sort.Slice for O(n log n) performance
+	// Sort by score descending
 	sort.Slice(scored, func(i, j int) bool {
 		return scored[i].score > scored[j].score
 	})
@@ -206,7 +204,6 @@ func (s *RecommendationService) scoreAndSortPosts(posts []*model.Post, preferred
 	return result
 }
 
-// calculatePostsLimit determines how many posts to fetch from a community based on its score
 func (s *RecommendationService) calculatePostsLimit(score float64) int {
 	if score >= constant.RECOMMENDATION_HIGH_SCORE_THRESHOLD {
 		return constant.RECOMMENDATION_HIGH_SCORE_POSTS_LIMIT
@@ -239,7 +236,6 @@ func (s *RecommendationService) calculatePostScore(post *model.Post, preferredTa
 	}
 
 	// Factor 3: Freshness (decay over time)
-	// Posts from last 24 hours get bonus, then decay
 	hoursSincePost := time.Since(post.CreatedAt).Hours()
 	if hoursSincePost < constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS {
 		score += constant.RECOMMENDATION_FRESHNESS_RECENT_BONUS * (1.0 - hoursSincePost/constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS)
@@ -247,7 +243,7 @@ func (s *RecommendationService) calculatePostScore(post *model.Post, preferredTa
 		score += constant.RECOMMENDATION_FRESHNESS_WEEK_BONUS * (1.0 - (hoursSincePost-constant.RECOMMENDATION_FRESHNESS_RECENT_HOURS)/constant.RECOMMENDATION_FRESHNESS_DECAY_WINDOW)
 	}
 
-	// Factor 4: Author karma (quality indicator)
+	// Factor 4: Author karma
 	if post.Author != nil {
 		score += float64(post.Author.Karma) / constant.RECOMMENDATION_KARMA_DIVIDER
 	}
