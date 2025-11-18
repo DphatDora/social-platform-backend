@@ -39,7 +39,7 @@ func (r *notificationSettingRepositoryImpl) GetUserNotificationSetting(userID ui
 func (r *notificationSettingRepositoryImpl) GetUserNotificationSettings(userID uint64) ([]*model.NotificationSetting, error) {
 	var settings []*model.NotificationSetting
 	err := r.db.Where("user_id = ?", userID).
-		Order("created_at DESC").
+		Order("id ASC").
 		Find(&settings).Error
 	return settings, err
 }
