@@ -39,7 +39,6 @@ func NewCommunityDetailResponse(community *model.Community) *CommunityDetailResp
 		CreatedAt:                community.CreatedAt,
 		IsRequiresMemberApproval: community.RequiresMemberApproval,
 		IsRequiresPostApproval:   community.RequiresPostApproval,
-		IsFollow:                 community.IsSubscribed,
 	}
 }
 
