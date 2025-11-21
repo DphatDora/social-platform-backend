@@ -107,6 +107,10 @@ func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*respons
 		communityResponse.IsFollow = community.IsSubscribed
 	}
 
+	if community.IsRequestJoin != nil {
+		communityResponse.IsRequestJoin = community.IsRequestJoin
+	}
+
 	return communityResponse, nil
 }
 
