@@ -130,7 +130,7 @@ func (r *CommunityRepositoryImpl) GetCommunities(page, limit int, userID *uint64
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
-		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ? AND user_subscriptions.status = 'approved'", *userID)
 	}
 
 	err := query.Group("communities.id").
@@ -171,7 +171,7 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
-		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ? AND user_subscriptions.status = 'approved'", *userID)
 	}
 
 	for _, p := range patterns {
@@ -208,7 +208,7 @@ func (r *CommunityRepositoryImpl) FilterCommunities(sortBy string, isPrivate *bo
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
-		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ? AND user_subscriptions.status = 'approved'", *userID)
 	}
 
 	query = query.Group("communities.id")
