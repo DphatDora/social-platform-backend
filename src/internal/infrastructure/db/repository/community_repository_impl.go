@@ -66,7 +66,7 @@ func (r *CommunityRepositoryImpl) GetCommunityByIDWithUserSubscription(community
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
-		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ? AND user_subscriptions.status = 'approved'", *userID)
 	}
 
 	err := query.Group("communities.id").First(&community).Error
