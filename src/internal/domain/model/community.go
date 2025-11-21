@@ -23,8 +23,9 @@ type Community struct {
 	DeletedAt              gorm.DeletedAt `gorm:"column:deleted_at"`
 
 	// computed column
-	MemberCount  int64 `gorm:"column:member_count;<-:false"`
-	IsSubscribed *bool `gorm:"column:is_subscribed;<-:false"`
+	MemberCount   int64 `gorm:"column:member_count;<-:false"`
+	IsSubscribed  *bool `gorm:"column:is_subscribed;<-:false"`
+	IsRequestJoin *bool `gorm:"column:is_request_join;<-:false"`
 
 	// relation
 	Creator *User `gorm:"foreignKey:CreatedBy;references:ID"`

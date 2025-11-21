@@ -54,9 +54,10 @@ func (r *CommunityRepositoryImpl) GetCommunityByIDWithUserSubscription(community
 
 	selectFields := "communities.*, COUNT(DISTINCT subscriptions.user_id) as member_count"
 
-	// Add is_subscribed field if userID exists
+	// Add is_subscribed and is_request_join fields if userID exists
 	if userID != nil {
-		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d THEN 1 ELSE 0 END) as is_subscribed", *userID)
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d AND user_subscriptions.status = 'approved' THEN 1 ELSE 0 END) as is_subscribed", *userID)
+		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_subscriptions.user_id = %d AND user_subscriptions.status = 'pending' THEN 1 ELSE 0 END) as is_request_join", *userID)
 	}
 
 	query := r.db.Table("communities").
@@ -66,7 +67,7 @@ func (r *CommunityRepositoryImpl) GetCommunityByIDWithUserSubscription(community
 
 	// Join with user's subscriptions if userID exists
 	if userID != nil {
-		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ? AND user_subscriptions.status = 'approved'", *userID)
+		query = query.Joins("LEFT JOIN subscriptions as user_subscriptions ON communities.id = user_subscriptions.community_id AND user_subscriptions.user_id = ?", *userID)
 	}
 
 	err := query.Group("communities.id").First(&community).Error
