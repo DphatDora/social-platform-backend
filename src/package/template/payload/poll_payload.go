@@ -12,7 +12,7 @@ type PollOption struct {
 type PollData struct {
 	Question       string       `json:"question"`
 	Options        []PollOption `json:"options"`
-	MultipleChoice bool         `json:"multiple_choice"`
-	ExpiresAt      *time.Time   `json:"expires_at,omitempty"`
-	TotalVotes     int          `json:"total_votes"`
+	MultipleChoice bool         `json:"multipleChoice"`
+	ExpiresAt      *time.Time   `json:"expiresAt,omitempty"`
+	TotalVotes     int          `json:"totalVotes"`
 }
