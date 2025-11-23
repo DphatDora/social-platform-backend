@@ -17,9 +17,12 @@ type CommunityInfo struct {
 }
 
 type AuthorInfo struct {
-	ID       uint64  `json:"id"`
-	Username string  `json:"username"`
-	Avatar   *string `json:"avatar,omitempty"`
+	ID        uint64    `json:"id"`
+	Username  string    `json:"username"`
+	Avatar    *string   `json:"avatar,omitempty"`
+	Karma     uint64    `json:"karma"`
+	Bio       *string   `json:"bio,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type PollOptionResponse struct {
@@ -119,9 +122,12 @@ func NewPostListResponse(post *model.Post) *PostListResponse {
 	}
 	if post.Author != nil {
 		response.Author = &AuthorInfo{
-			ID:       post.Author.ID,
-			Username: post.Author.Username,
-			Avatar:   post.Author.Avatar,
+			ID:        post.Author.ID,
+			Username:  post.Author.Username,
+			Avatar:    post.Author.Avatar,
+			Bio:       post.Author.Bio,
+			CreatedAt: post.Author.CreatedAt,
+			Karma:     post.Author.Karma,
 		}
 	}
 
@@ -177,9 +183,12 @@ func NewPostDetailResponse(post *model.Post) *PostDetailResponse {
 	}
 	if post.Author != nil {
 		response.Author = &AuthorInfo{
-			ID:       post.Author.ID,
-			Username: post.Author.Username,
-			Avatar:   post.Author.Avatar,
+			ID:        post.Author.ID,
+			Username:  post.Author.Username,
+			Avatar:    post.Author.Avatar,
+			Bio:       post.Author.Bio,
+			Karma:     post.Author.Karma,
+			CreatedAt: post.Author.CreatedAt,
 		}
 	}
 	return response
@@ -224,9 +233,12 @@ func NewCommunityPostListResponse(post *model.Post) *CommunityPostListResponse {
 	}
 	if post.Author != nil {
 		response.Author = &AuthorInfo{
-			ID:       post.Author.ID,
-			Username: post.Author.Username,
-			Avatar:   post.Author.Avatar,
+			ID:        post.Author.ID,
+			Username:  post.Author.Username,
+			Avatar:    post.Author.Avatar,
+			Bio:       post.Author.Bio,
+			Karma:     post.Author.Karma,
+			CreatedAt: post.Author.CreatedAt,
 		}
 	}
 	return response
