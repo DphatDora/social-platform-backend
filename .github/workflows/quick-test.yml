@@ -1,0 +1,36 @@
+name: Quick Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quick-test:
+    name: Quick Test Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.4"
+          cache-dependency-path: src/go.sum
+
+      - name: Run quick tests
+        working-directory: ./src
+        run: |
+          echo "Running quick tests..."
+          go test -short -v ./internal/service ./package/util
+
+      - name: Test summary
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ All tests passed!"
+          else
+            echo "❌ Some tests failed. Check logs above."
+            exit 1
+          fi

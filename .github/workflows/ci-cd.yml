@@ -1,0 +1,122 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.4"
+          cache-dependency-path: src/go.sum
+
+      - name: Install dependencies
+        working-directory: ./src
+        run: go mod download
+
+      - name: Run tests
+        working-directory: ./src
+        run: go test -v ./...
+
+      - name: Run tests with coverage
+        working-directory: ./src
+        run: |
+          go test -v -coverprofile=coverage.out -covermode=count ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: src/coverage.out
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.4"
+          cache-dependency-path: src/go.sum
+
+      - name: Build binary
+        working-directory: ./src
+        run: |
+          go build -v -o ../main ./cmd/server
+          ls -lh ../main
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-binary
+          path: main
+
+  deploy:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          echo "Deploying to development environment..."
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_DEV }}"
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting 30 seconds for deployment to start..."
+          sleep 30
+
+      - name: Deployment notification
+        run: |
+          echo "Deployment triggered successfully!"
+          echo "Environment: Development"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Check Render dashboard for deployment status"
+
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main'
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          echo "Deploying to production environment..."
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}"
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting 30 seconds for deployment to start..."
+          sleep 30
+
+      - name: Deployment notification
+        run: |
+          echo "Deployment triggered successfully!"
+          echo "Environment: Production"
+          echo "PR: #${{ github.event.pull_request.number }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Check Render dashboard for deployment status"
