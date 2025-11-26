@@ -517,3 +517,15 @@ func (r *PostRepositoryImpl) GetCommunityPostsForModerator(communityID uint64, s
 
 	return posts, total, nil
 }
+
+func (r *PostRepositoryImpl) GetPostsLastWeekCount(communityID uint64) (int64, error) {
+	var count int64
+	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
+
+	err := r.db.Model(&model.Post{}).
+		Where("community_id = ? AND status = ? AND created_at >= ?",
+			communityID, constant.POST_STATUS_APPROVED, sevenDaysAgo).
+		Count(&count).Error
+
+	return count, err
+}

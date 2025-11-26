@@ -477,6 +477,11 @@ func (m *MockPostRepository) GetPostsByUserID(userID uint64, sortBy string, page
 	return args.Get(0).([]*model.Post), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *MockPostRepository) GetPostsLastWeekCount(communityID uint64) (int64, error) {
+	args := m.Called(communityID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 type MockCommentRepository struct {
 	mock.Mock
 }
