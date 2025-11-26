@@ -65,12 +65,14 @@ func TestCommunityService_CreateCommunity_RepositoryError(t *testing.T) {
 func TestCommunityService_GetCommunityByID_Success(t *testing.T) {
 	mockCommunityRepo := new(MockCommunityRepository)
 	mockCommunityModeratorRepo := new(MockCommunityModeratorRepository)
+	mockPostRepo := new(MockPostRepository)
 
 	communityService := NewCommunityService(
 		mockCommunityRepo,
-		nil,
+		nil, // subscriptionRepo
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		mockPostRepo,
+		nil, nil, nil, nil,
 	)
 
 	communityID := uint64(456)
@@ -83,13 +85,16 @@ func TestCommunityService_GetCommunityByID_Success(t *testing.T) {
 
 	mockCommunityRepo.On("GetCommunityByIDWithUserSubscription", communityID, &userID).Return(community, uint64(100), nil)
 	mockCommunityModeratorRepo.On("GetCommunityModerators", communityID).Return([]*model.CommunityModerator{}, nil)
+	mockPostRepo.On("GetPostsLastWeekCount", communityID).Return(int64(5), nil)
 
 	result, err := communityService.GetCommunityByID(communityID, &userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
+	assert.Equal(t, int64(5), result.PostsLastWeek)
 	mockCommunityRepo.AssertExpectations(t)
 	mockCommunityModeratorRepo.AssertExpectations(t)
+	mockPostRepo.AssertExpectations(t)
 }
 
 func TestCommunityService_GetCommunityByID_NotFound(t *testing.T) {
@@ -115,12 +120,14 @@ func TestCommunityService_GetCommunityByID_NotFound(t *testing.T) {
 func TestCommunityService_GetCommunityByID_WithModerators(t *testing.T) {
 	mockCommunityRepo := new(MockCommunityRepository)
 	mockCommunityModeratorRepo := new(MockCommunityModeratorRepository)
+	mockPostRepo := new(MockPostRepository)
 
 	communityService := NewCommunityService(
 		mockCommunityRepo,
-		nil,
+		nil, // subscriptionRepo
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		mockPostRepo,
+		nil, nil, nil, nil,
 	)
 
 	communityID := uint64(456)
@@ -145,14 +152,17 @@ func TestCommunityService_GetCommunityByID_WithModerators(t *testing.T) {
 
 	mockCommunityRepo.On("GetCommunityByIDWithUserSubscription", communityID, &userID).Return(community, uint64(100), nil)
 	mockCommunityModeratorRepo.On("GetCommunityModerators", communityID).Return(moderators, nil)
+	mockPostRepo.On("GetPostsLastWeekCount", communityID).Return(int64(10), nil)
 
 	result, err := communityService.GetCommunityByID(communityID, &userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Moderators, 1)
+	assert.Equal(t, int64(10), result.PostsLastWeek)
 	mockCommunityRepo.AssertExpectations(t)
 	mockCommunityModeratorRepo.AssertExpectations(t)
+	mockPostRepo.AssertExpectations(t)
 }
 
 func TestCommunityService_UpdateCommunity_Success(t *testing.T) {
