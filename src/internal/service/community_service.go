@@ -99,8 +99,16 @@ func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*respons
 		moderatorResponses[i] = *response.NewModeratorResponse(mod.User, mod.Role)
 	}
 
+	// Get posts count in last week
+	postsLastWeek, err := s.postRepo.GetPostsLastWeekCount(id)
+	if err != nil {
+		log.Printf("[Err] Error getting posts last week count in CommunityService.GetCommunityByID: %v", err)
+		postsLastWeek = 0
+	}
+
 	communityResponse := response.NewCommunityDetailResponse(community)
 	communityResponse.TotalMembers = memberCount
+	communityResponse.PostsLastWeek = postsLastWeek
 	communityResponse.Moderators = moderatorResponses
 
 	if community.IsSubscribed != nil {
