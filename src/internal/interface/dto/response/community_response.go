@@ -18,6 +18,7 @@ type CommunityDetailResponse struct {
 	IsPrivate                bool           `json:"isPrivate"`
 	CreatedAt                time.Time      `json:"createdAt"`
 	TotalMembers             int64          `json:"totalMembers"`
+	PostsLastWeek            int64          `json:"postsLastWeek"`
 	IsRequiresMemberApproval bool           `json:"isRequiresMemberApproval"`
 	IsRequiresPostApproval   bool           `json:"isRequiresPostApproval"`
 	IsFollow                 *bool          `json:"isFollow,omitempty"`

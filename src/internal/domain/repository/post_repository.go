@@ -22,4 +22,5 @@ type PostRepository interface {
 	GetCommunityPostsForModerator(communityID uint64, status, searchTitle string, page, limit int) ([]*model.Post, int64, error)
 	SearchPostsByTitle(title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*model.Post, int64, error)
 	GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Post, int64, error)
+	GetPostsLastWeekCount(communityID uint64) (int64, error)
 }
