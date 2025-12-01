@@ -42,24 +42,18 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
 		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
 		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM post_votes WHERE post_id = posts.id), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
-		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM post_votes WHERE post_id = posts.id AND user_id = %d) as user_vote", *userID)
 	}
 
 	query := r.db.Table("posts").
 		Select(selectFields).
 		Joins("INNER JOIN communities ON posts.community_id = communities.id").
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
-
-	// Join with user's votes if userID exists
-	if userID != nil {
-		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
-	}
 
 	if userID == nil {
 		// only show posts from public communities
@@ -209,24 +203,18 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
 		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
 		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM post_votes WHERE post_id = posts.id), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
-		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM post_votes WHERE post_id = posts.id AND user_id = %d) as user_vote", *userID)
 	}
 
 	query := r.db.Table("posts").
 		Select(selectFields).
 		Joins("INNER JOIN communities ON posts.community_id = communities.id").
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
-
-	// Join with user's votes if userID exists
-	if userID != nil {
-		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
-	}
 
 	if userID == nil {
 		// only show posts from public communities
@@ -286,23 +274,17 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
 		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
 		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM post_votes WHERE post_id = posts.id), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
-		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM post_votes WHERE post_id = posts.id AND user_id = %d) as user_vote", *userID)
 	}
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
-
-	// Join with user's votes if userID exists
-	if userID != nil {
-		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
-	}
 
 	query = query.Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED)
 
@@ -371,24 +353,18 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 	selectFields := `posts.id, posts.community_id, posts.author_id, posts.title, posts.type, 
 		posts.content, posts.url, posts.media_urls, posts.poll_data, posts.tags, 
 		posts.status, posts.created_at, posts.updated_at, posts.deleted_at,
-		COALESCE(SUM(CASE WHEN post_votes.vote = true THEN 1 WHEN post_votes.vote = false THEN -1 ELSE 0 END), 0) as vote,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM post_votes WHERE post_id = posts.id), 0) as vote,
 		COUNT(DISTINCT comments.id) as comment_count`
 
 	// Add user_vote field if userID exists
 	if userID != nil {
-		selectFields += fmt.Sprintf(", MAX(CASE WHEN user_post_votes.user_id = %d THEN CAST(user_post_votes.vote AS INT) ELSE NULL END) as user_vote", *userID)
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM post_votes WHERE post_id = posts.id AND user_id = %d) as user_vote", *userID)
 	}
 
 	query := r.db.Table("posts").
 		Select(selectFields).
 		Joins("INNER JOIN communities ON posts.community_id = communities.id").
-		Joins("LEFT JOIN post_votes ON posts.id = post_votes.post_id").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
-
-	// Join with user's votes if userID exists
-	if userID != nil {
-		query = query.Joins("LEFT JOIN post_votes as user_post_votes ON posts.id = user_post_votes.post_id AND user_post_votes.user_id = ?", *userID)
-	}
 
 	if userID == nil {
 		// only show posts from public communities
