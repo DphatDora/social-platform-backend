@@ -7,6 +7,7 @@ import (
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
+	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 
 	"github.com/redis/go-redis/v9"
@@ -327,6 +328,23 @@ func (s *UserService) GetUserSuperAdminCommunities(userID uint64) ([]*response.C
 	if err != nil {
 		log.Printf("[Err] Error getting communities by creator in UserService.GetUserSuperAdminCommunities: %v", err)
 		return nil, fmt.Errorf("failed to get super admin communities")
+	}
+
+	communityResponses := make([]*response.CommunityListResponse, len(communities))
+	for i, community := range communities {
+		resp := response.NewCommunityListResponse(community)
+		resp.TotalMembers = community.MemberCount
+		communityResponses[i] = resp
+	}
+
+	return communityResponses, nil
+}
+
+func (s *UserService) GetUserAdminCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+	communities, err := s.communityRepo.GetCommunitiesByModeratorID(userID, constant.ROLE_ADMIN)
+	if err != nil {
+		log.Printf("[Err] Error getting communities by moderator in UserService.GetUserAdminCommunities: %v", err)
+		return nil, fmt.Errorf("failed to get admin communities")
 	}
 
 	communityResponses := make([]*response.CommunityListResponse, len(communities))

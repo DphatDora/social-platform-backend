@@ -305,6 +305,14 @@ func (m *MockCommunityRepository) GetCommunitiesByCreatorID(creatorID uint64) ([
 	return args.Get(0).([]*model.Community), args.Error(1)
 }
 
+func (m *MockCommunityRepository) GetCommunitiesByModeratorID(moderatorID uint64, role string) ([]*model.Community, error) {
+	args := m.Called(moderatorID, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Community), args.Error(1)
+}
+
 func (m *MockCommunityRepository) IsCommunityNameExists(name string) (bool, error) {
 	args := m.Called(name)
 	return args.Bool(0), args.Error(1)

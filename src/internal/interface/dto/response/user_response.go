@@ -54,17 +54,21 @@ type UserAchievement struct {
 }
 
 type UserSearchResponse struct {
-	ID       uint64  `json:"id"`
-	Username string  `json:"username"`
-	Avatar   *string `json:"avatar,omitempty"`
-	Karma    uint64  `json:"karma"`
+	ID        uint64    `json:"id"`
+	Username  string    `json:"username"`
+	Avatar    *string   `json:"avatar,omitempty"`
+	Bio       *string   `json:"bio,omitempty"`
+	Karma     uint64    `json:"karma"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 func NewUserSearchResponse(user *model.User, karma uint64) *UserSearchResponse {
 	return &UserSearchResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Avatar:   user.Avatar,
-		Karma:    karma,
+		ID:        user.ID,
+		Username:  user.Username,
+		Avatar:    user.Avatar,
+		Bio:       user.Bio,
+		Karma:     karma,
+		CreatedAt: user.CreatedAt,
 	}
 }
