@@ -513,14 +513,6 @@ func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUser
 		}
 		return nil
 	}
-	// if role is "user", delete record from moderators
-	if role == constant.ROLE_USER {
-		if err := s.communityModeratorRepo.DeleteModerator(communityID, targetUserID); err != nil {
-			log.Printf("[Err] Error deleting moderator in CommunityService.UpdateMemberRole: %v", err)
-			return fmt.Errorf("failed to delete moderator role")
-		}
-		return nil
-	}
 
 	return fmt.Errorf("invalid role")
 }

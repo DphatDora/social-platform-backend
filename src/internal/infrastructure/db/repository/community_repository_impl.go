@@ -265,6 +265,30 @@ func (r *CommunityRepositoryImpl) GetCommunitiesByCreatorID(creatorID uint64) ([
 	return communities, nil
 }
 
+func (r *CommunityRepositoryImpl) GetCommunitiesByModeratorID(moderatorID uint64, role string) ([]*model.Community, error) {
+	var communities []*model.Community
+
+	query := r.db.Table("communities").
+		Select("communities.*, COUNT(subscriptions.user_id) as member_count").
+		Joins("INNER JOIN community_moderators ON community_moderators.community_id = communities.id").
+		Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = 'approved'").
+		Where("community_moderators.user_id = ?", moderatorID)
+
+	if role != "" {
+		query = query.Where("community_moderators.role = ?", role)
+	}
+
+	err := query.Group("communities.id").
+		Order("communities.created_at DESC").
+		Find(&communities).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return communities, nil
+}
+
 func (r *CommunityRepositoryImpl) IsCommunityNameExists(name string) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.Community{}).

@@ -463,3 +463,32 @@ func (h *UserHandler) GetUserSuperAdminCommunities(c *gin.Context) {
 		Data:    communities,
 	})
 }
+
+func (h *UserHandler) GetUserAdminCommunities(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid user ID in UserHandler.GetUserAdminCommunities: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid user ID",
+		})
+		return
+	}
+
+	communities, err := h.userService.GetUserAdminCommunities(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting admin communities in UserHandler.GetUserAdminCommunities: %v", err)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to get admin communities",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Admin communities retrieved successfully",
+		Data:    communities,
+	})
+}
