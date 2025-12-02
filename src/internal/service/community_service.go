@@ -294,8 +294,13 @@ func (s *CommunityService) GetCommunities(page, limit int, userID *uint64) ([]*r
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
-	communities, total, err := s.communityRepo.SearchCommunitiesByName(name, page, limit, userID)
+func (s *CommunityService) SearchCommunitiesByName(name string, sortBy string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+	// Validate sortBy
+	if sortBy != constant.SORT_NEWEST && sortBy != constant.SORT_MEMBER_COUNT {
+		sortBy = constant.SORT_NEWEST
+	}
+
+	communities, total, err := s.communityRepo.SearchCommunitiesByName(name, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching communities in CommunityService.SearchCommunitiesByName: %v", err)
 		return nil, nil, fmt.Errorf("failed to search communities")
@@ -321,7 +326,7 @@ func (s *CommunityService) SearchCommunitiesByName(name string, page, limit int,
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		pagination.NextURL = fmt.Sprintf("/api/v1/communities/search?name=%s&page=%d&limit=%d", name, page+1, limit)
+		pagination.NextURL = fmt.Sprintf("/api/v1/communities/search?name=%s&sortBy=%s&page=%d&limit=%d", name, sortBy, page+1, limit)
 	}
 
 	return communityResponses, pagination, nil

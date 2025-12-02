@@ -281,8 +281,8 @@ func (m *MockCommunityRepository) GetCommunities(page, limit int, userID *uint64
 	return args.Get(0).([]*model.Community), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *MockCommunityRepository) SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
-	args := m.Called(name, page, limit, userID)
+func (m *MockCommunityRepository) SearchCommunitiesByName(name string, sortBy string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
+	args := m.Called(name, sortBy, page, limit, userID)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
 	}

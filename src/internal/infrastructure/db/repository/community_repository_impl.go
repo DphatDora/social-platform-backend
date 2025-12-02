@@ -143,7 +143,7 @@ func (r *CommunityRepositoryImpl) GetCommunities(page, limit int, userID *uint64
 	return communities, total, err
 }
 
-func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
+func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, sortBy string, page, limit int, userID *uint64) ([]*model.Community, int64, error) {
 	var communities []*model.Community
 	var total int64
 
@@ -179,9 +179,17 @@ func (r *CommunityRepositoryImpl) SearchCommunitiesByName(name string, page, lim
 		query = query.Where("unaccent(lower(communities.name)) LIKE unaccent(lower(?))", p)
 	}
 
-	err := query.Group("communities.id").
-		Order("communities.created_at DESC").
-		Limit(limit).
+	query = query.Group("communities.id")
+
+	// Apply sorting
+	switch sortBy {
+	case constant.SORT_MEMBER_COUNT:
+		query = query.Order("member_count DESC")
+	default:
+		query = query.Order("communities.created_at DESC")
+	}
+
+	err := query.Limit(limit).
 		Offset(offset).
 		Find(&communities).Error
 	if err != nil {
