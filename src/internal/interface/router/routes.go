@@ -58,7 +58,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	recommendService := service.NewRecommendationService(userInterestScoreRepo, userTagPrefRepo, postRepo, communityRepo)
 	notificationService := service.NewNotificationService(notificationRepo, notificationSettingRepo, botTaskRepo, userRepo, sseService, botTaskService)
 	authService := service.NewAuthService(userRepo, verificationRepo, passwordResetRepo, botTaskRepo, communityModeratorRepo, notificationSettingRepo, botTaskService, redisClient)
-	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, userSavedPostRepo, postRepo, botTaskService, redisClient)
+	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, subscriptionRepo, userSavedPostRepo, postRepo, botTaskService, redisClient)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, messageAttachmentRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, subscriptionRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
@@ -145,6 +145,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 		users.GET("/:id/badge-history", appHandler.userHandler.GetUserBadgeHistory)
 		users.GET("/:id/communities/super-admin", appHandler.userHandler.GetUserSuperAdminCommunities)
 		users.GET("/:id/communities/admin", appHandler.userHandler.GetUserAdminCommunities)
+		users.GET("/:id/communities/joined", appHandler.userHandler.GetUserJoinedCommunities)
 	}
 }
 

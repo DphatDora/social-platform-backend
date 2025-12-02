@@ -103,6 +103,25 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 	return subscriptions, total, nil
 }
 
+func (r *SubscriptionRepositoryImpl) GetCommunitiesByUserID(userID uint64) ([]*model.Subscription, error) {
+	var subscriptions []*model.Subscription
+
+	err := r.db.Table("subscriptions").
+		Select("subscriptions.*, community_moderators.role as moderator_role").
+		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
+		Where("subscriptions.user_id = ? AND subscriptions.status = ?", userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+		Preload("Community").
+		Order("CASE WHEN community_moderators.role = 'super_admin' THEN 1 WHEN community_moderators.role = 'admin' THEN 2 ELSE 3 END").
+		Order("subscriptions.created_at DESC").
+		Find(&subscriptions).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return subscriptions, nil
+}
+
 func (r *SubscriptionRepositoryImpl) UpdateSubscriptionStatus(userID, communityID uint64, status string) error {
 	return r.db.Model(&model.Subscription{}).
 		Where("user_id = ? AND community_id = ?", userID, communityID).

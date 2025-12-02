@@ -17,6 +17,7 @@ type UserService struct {
 	userRepo               repository.UserRepository
 	communityRepo          repository.CommunityRepository
 	communityModeratorRepo repository.CommunityModeratorRepository
+	subscriptionRepo       repository.SubscriptionRepository
 	userSavedPostRepo      repository.UserSavedPostRepository
 	postRepo               repository.PostRepository
 	botTaskService         *BotTaskService
@@ -27,6 +28,7 @@ func NewUserService(
 	userRepo repository.UserRepository,
 	communityRepo repository.CommunityRepository,
 	communityModeratorRepo repository.CommunityModeratorRepository,
+	subscriptionRepo repository.SubscriptionRepository,
 	userSavedPostRepo repository.UserSavedPostRepository,
 	postRepo repository.PostRepository,
 	botTaskService *BotTaskService,
@@ -36,6 +38,7 @@ func NewUserService(
 		userRepo:               userRepo,
 		communityRepo:          communityRepo,
 		communityModeratorRepo: communityModeratorRepo,
+		subscriptionRepo:       subscriptionRepo,
 		userSavedPostRepo:      userSavedPostRepo,
 		postRepo:               postRepo,
 		botTaskService:         botTaskService,
@@ -352,6 +355,29 @@ func (s *UserService) GetUserAdminCommunities(userID uint64) ([]*response.Commun
 		resp := response.NewCommunityListResponse(community)
 		resp.TotalMembers = community.MemberCount
 		communityResponses[i] = resp
+	}
+
+	return communityResponses, nil
+}
+
+func (s *UserService) GetUserJoinedCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+	subscriptions, err := s.subscriptionRepo.GetCommunitiesByUserID(userID)
+	if err != nil {
+		log.Printf("[Err] Error getting joined communities in UserService.GetUserJoinedCommunities: %v", err)
+		return nil, fmt.Errorf("failed to get joined communities")
+	}
+
+	communityResponses := make([]*response.CommunityListResponse, len(subscriptions))
+	for i, subscription := range subscriptions {
+		if subscription.Community != nil {
+			resp := response.NewCommunityListResponse(subscription.Community)
+			resp.TotalMembers = subscription.Community.MemberCount
+			// Add user role if available
+			if subscription.ModeratorRole != nil {
+				resp.UserRole = subscription.ModeratorRole
+			}
+			communityResponses[i] = resp
+		}
 	}
 
 	return communityResponses, nil
