@@ -53,6 +53,7 @@ type CommunityListResponse struct {
 	IsPrivate        bool           `json:"isPrivate"`
 	TotalMembers     int64          `json:"totalMembers"`
 	IsFollow         *bool          `json:"isFollow,omitempty"`
+	UserRole         *string        `json:"userRole,omitempty"`
 }
 
 func NewCommunityListResponse(community *model.Community) *CommunityListResponse {

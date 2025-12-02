@@ -568,6 +568,14 @@ func (m *MockSubscriptionRepository) GetCommunityMembers(communityID uint64, sor
 	return args.Get(0).([]*model.Subscription), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *MockSubscriptionRepository) GetCommunitiesByUserID(userID uint64) ([]*model.Subscription, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Subscription), args.Error(1)
+}
+
 func (m *MockSubscriptionRepository) UpdateSubscriptionStatus(userID, communityID uint64, status string) error {
 	args := m.Called(userID, communityID, status)
 	return args.Error(0)
