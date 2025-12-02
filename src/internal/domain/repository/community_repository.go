@@ -13,7 +13,7 @@ type CommunityRepository interface {
 	UpdateCommunity(id uint64, updateCommunity *request.UpdateCommunityRequest) error
 	DeleteCommunity(id uint64) error
 	GetCommunities(page, limit int, userID *uint64) ([]*model.Community, int64, error)
-	SearchCommunitiesByName(name string, page, limit int, userID *uint64) ([]*model.Community, int64, error)
+	SearchCommunitiesByName(name string, sortBy string, page, limit int, userID *uint64) ([]*model.Community, int64, error)
 	FilterCommunities(sortBy string, isPrivate *bool, topics []string, page, limit int, userID *uint64) ([]*model.Community, int64, error)
 	GetCommunitiesByCreatorID(creatorID uint64) ([]*model.Community, error)
 	GetCommunitiesByModeratorID(moderatorID uint64, role string) ([]*model.Community, error)

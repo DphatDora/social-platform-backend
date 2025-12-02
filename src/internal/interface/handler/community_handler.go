@@ -360,6 +360,7 @@ func (h *CommunityHandler) SearchCommunities(c *gin.Context) {
 		return
 	}
 
+	sortBy := c.DefaultQuery("sortBy", constant.SORT_NEWEST)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
 
@@ -373,7 +374,7 @@ func (h *CommunityHandler) SearchCommunities(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, page, limit, userID)
+	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error searching communities in CommunityHandler.SearchCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
