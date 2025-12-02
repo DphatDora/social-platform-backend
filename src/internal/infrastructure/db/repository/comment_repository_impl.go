@@ -29,7 +29,7 @@ func (r *CommentRepositoryImpl) GetCommentByID(id uint64) (*model.Comment, error
 	return &comment, nil
 }
 
-func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, limit, offset int) ([]*model.Comment, int64, error) {
+func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
@@ -40,6 +40,16 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, limit, offset
 		return nil, 0, err
 	}
 
+	var orderClause string
+	switch sortBy {
+	case constant.COMMENT_SORT_OLDEST:
+		orderClause = "comments.created_at ASC"
+	case constant.COMMENT_SORT_POPULAR:
+		orderClause = "vote DESC, comments.created_at DESC"
+	default: // newest
+		orderClause = "comments.created_at DESC"
+	}
+
 	// Get top-level comments with author info and vote count
 	err := r.db.Table("comments").
 		Select(`comments.*,
@@ -47,7 +57,7 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, limit, offset
 		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
 		Where("comments.post_id = ? AND comments.parent_comment_id IS NULL", postID).
 		Group("comments.id").
-		Order("comments.created_at DESC").
+		Order(orderClause).
 		Preload("Author").
 		Limit(limit).
 		Offset(offset).

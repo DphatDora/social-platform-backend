@@ -163,7 +163,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 	return nil
 }
 
-func (s *CommentService) GetCommentsByPostID(postID uint64, page, limit int) ([]*response.CommentResponse, *response.Pagination, error) {
+func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page, limit int) ([]*response.CommentResponse, *response.Pagination, error) {
 	// Validate pagination
 	if page <= 0 {
 		page = constant.DEFAULT_PAGE
@@ -172,10 +172,14 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, page, limit int) ([]
 		limit = constant.DEFAULT_LIMIT
 	}
 
+	if sortBy != constant.COMMENT_SORT_NEWEST && sortBy != constant.COMMENT_SORT_OLDEST && sortBy != constant.COMMENT_SORT_POPULAR {
+		sortBy = constant.COMMENT_SORT_NEWEST
+	}
+
 	offset := (page - 1) * limit
 
 	// Get top-level comments
-	comments, total, err := s.commentRepo.GetCommentsByPostID(postID, limit, offset)
+	comments, total, err := s.commentRepo.GetCommentsByPostID(postID, sortBy, limit, offset)
 	if err != nil {
 		log.Printf("[Err] Error getting comments in CommentService.GetCommentsByPostID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comments")
@@ -205,7 +209,7 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, page, limit int) ([]
 	}
 	totalPages := (total + int64(limit) - 1) / int64(limit)
 	if int64(page) < totalPages {
-		pagination.NextURL = fmt.Sprintf("/api/v1/posts/%d/comments?page=%d&limit=%d", postID, page+1, limit)
+		pagination.NextURL = fmt.Sprintf("/api/v1/posts/%d/comments?page=%d&limit=%d&sortBy=%s", postID, page+1, limit, sortBy)
 	}
 
 	return commentResponses, pagination, nil
