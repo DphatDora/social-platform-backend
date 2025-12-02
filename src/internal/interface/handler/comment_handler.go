@@ -74,6 +74,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(constant.DEFAULT_PAGE)))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(constant.DEFAULT_LIMIT)))
+	sortBy := c.DefaultQuery("sortBy", constant.COMMENT_SORT_NEWEST)
 
 	if page < 1 {
 		page = 1
@@ -82,7 +83,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 		limit = 12
 	}
 
-	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, page, limit)
+	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, sortBy, page, limit)
 	if err != nil {
 		log.Printf("[Err] Error getting comments in CommentHandler.GetCommentsByPostID: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{

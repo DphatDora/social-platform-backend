@@ -143,8 +143,8 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 		users.GET("/:id/posts", appHandler.postHandler.GetPostsByUser)
 		users.GET("/:id/comments", appHandler.commentHandler.GetCommentsByUser)
 		users.GET("/:id/badge-history", appHandler.userHandler.GetUserBadgeHistory)
-		users.GET("/:id/communities/super-admin", appHandler.userHandler.GetUserSuperAdminCommunities)
-		users.GET("/:id/communities/admin", appHandler.userHandler.GetUserAdminCommunities)
+		// users.GET("/:id/communities/super-admin", appHandler.userHandler.GetUserSuperAdminCommunities)
+		// users.GET("/:id/communities/admin", appHandler.userHandler.GetUserAdminCommunities)
 		users.GET("/:id/communities/joined", appHandler.userHandler.GetUserJoinedCommunities)
 	}
 }

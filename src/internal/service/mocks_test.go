@@ -507,8 +507,8 @@ func (m *MockCommentRepository) GetCommentByID(id uint64) (*model.Comment, error
 	return args.Get(0).(*model.Comment), args.Error(1)
 }
 
-func (m *MockCommentRepository) GetCommentsByPostID(postID uint64, limit, offset int) ([]*model.Comment, int64, error) {
-	args := m.Called(postID, limit, offset)
+func (m *MockCommentRepository) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int) ([]*model.Comment, int64, error) {
+	args := m.Called(postID, sortBy, limit, offset)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
 	}

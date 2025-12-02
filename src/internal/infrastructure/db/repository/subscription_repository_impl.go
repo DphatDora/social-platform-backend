@@ -112,7 +112,7 @@ func (r *SubscriptionRepositoryImpl) GetCommunitiesByUserID(userID uint64) ([]*m
 		Where("subscriptions.user_id = ? AND subscriptions.status = ?", userID, constant.SUBSCRIPTION_STATUS_APPROVED).
 		Preload("Community").
 		Order("CASE WHEN community_moderators.role = 'super_admin' THEN 1 WHEN community_moderators.role = 'admin' THEN 2 ELSE 3 END").
-		Order("subscriptions.created_at DESC").
+		Order("subscriptions.subscribed_at DESC").
 		Find(&subscriptions).Error
 
 	if err != nil {
