@@ -9,12 +9,14 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
+	"time"
 )
 
 type CommentService struct {
 	commentRepo         repository.CommentRepository
 	postRepo            repository.PostRepository
 	commentVoteRepo     repository.CommentVoteRepository
+	commentReportRepo   repository.CommentReportRepository
 	botTaskRepo         repository.BotTaskRepository
 	userRepo            repository.UserRepository
 	userSavedPostRepo   repository.UserSavedPostRepository
@@ -26,6 +28,7 @@ func NewCommentService(
 	commentRepo repository.CommentRepository,
 	postRepo repository.PostRepository,
 	commentVoteRepo repository.CommentVoteRepository,
+	commentReportRepo repository.CommentReportRepository,
 	botTaskRepo repository.BotTaskRepository,
 	userRepo repository.UserRepository,
 	userSavedPostRepo repository.UserSavedPostRepository,
@@ -36,6 +39,7 @@ func NewCommentService(
 		commentRepo:         commentRepo,
 		postRepo:            postRepo,
 		commentVoteRepo:     commentVoteRepo,
+		commentReportRepo:   commentReportRepo,
 		botTaskRepo:         botTaskRepo,
 		userRepo:            userRepo,
 		userSavedPostRepo:   userSavedPostRepo,
@@ -163,7 +167,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 	return nil
 }
 
-func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page, limit int) ([]*response.CommentResponse, *response.Pagination, error) {
+func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page, limit int, userID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
 	// Validate pagination
 	if page <= 0 {
 		page = constant.DEFAULT_PAGE
@@ -179,7 +183,7 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 	offset := (page - 1) * limit
 
 	// Get top-level comments
-	comments, total, err := s.commentRepo.GetCommentsByPostID(postID, sortBy, limit, offset)
+	comments, total, err := s.commentRepo.GetCommentsByPostID(postID, sortBy, limit, offset, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting comments in CommentService.GetCommentsByPostID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comments")
@@ -191,7 +195,7 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 		commentResp := response.NewCommentResponse(comment)
 
 		// Get all replies for this comment
-		replies, err := s.loadRepliesRecursively(comment.ID)
+		replies, err := s.loadRepliesRecursively(comment.ID, userID)
 		if err != nil {
 			log.Printf("[Err] Error loading replies in CommentService.GetCommentsByPostID: %v", err)
 			// Continue without replies rather than failing entirely
@@ -215,8 +219,8 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 	return commentResponses, pagination, nil
 }
 
-func (s *CommentService) loadRepliesRecursively(parentID uint64) ([]*response.CommentResponse, error) {
-	replies, err := s.commentRepo.GetRepliesByParentID(parentID)
+func (s *CommentService) loadRepliesRecursively(parentID uint64, userID *uint64) ([]*response.CommentResponse, error) {
+	replies, err := s.commentRepo.GetRepliesByParentID(parentID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +230,7 @@ func (s *CommentService) loadRepliesRecursively(parentID uint64) ([]*response.Co
 		replyResp := response.NewCommentResponse(reply)
 
 		// Load child replies
-		nestedReplies, err := s.loadRepliesRecursively(reply.ID)
+		nestedReplies, err := s.loadRepliesRecursively(reply.ID, userID)
 		if err != nil {
 			log.Printf("[Err] Error loading nested replies: %v", err)
 			nestedReplies = []*response.CommentResponse{}
@@ -364,7 +368,7 @@ func (s *CommentService) UnvoteComment(userID, commentID uint64) error {
 	return nil
 }
 
-func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*response.CommentResponse, *response.Pagination, error) {
+func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page, limit int, requestUserID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
 	// Check if user exists
 	_, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
@@ -372,7 +376,7 @@ func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page,
 		return nil, nil, fmt.Errorf("user not found")
 	}
 
-	comments, total, err := s.commentRepo.GetCommentsByUserID(userID, sortBy, page, limit)
+	comments, total, err := s.commentRepo.GetCommentsByUserID(userID, sortBy, page, limit, requestUserID)
 	if err != nil {
 		log.Printf("[Err] Error getting comments by user ID in CommentService.GetCommentsByUserID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comments")
@@ -390,4 +394,39 @@ func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page,
 	}
 
 	return commentResponses, pagination, nil
+}
+
+func (s *CommentService) ReportComment(userID, commentID uint64, req *request.ReportCommentRequest) error {
+	// Check if comment exists
+	_, err := s.commentRepo.GetCommentByID(commentID)
+	if err != nil {
+		log.Printf("[Err] Comment not found in CommentService.ReportComment: %v", err)
+		return fmt.Errorf("comment not found")
+	}
+
+	// Check if user already reported this comment
+	alreadyReported, err := s.commentReportRepo.IsUserReportedComment(userID, commentID)
+	if err != nil {
+		log.Printf("[Err] Error checking if user reported comment in CommentService.ReportComment: %v", err)
+		return fmt.Errorf("failed to check report status")
+	}
+	if alreadyReported {
+		return fmt.Errorf("you have already reported this comment")
+	}
+
+	// Create report
+	report := &model.CommentReport{
+		CommentID:  commentID,
+		ReporterID: userID,
+		Reasons:    req.Reasons,
+		Note:       req.Note,
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.commentReportRepo.CreateCommentReport(report); err != nil {
+		log.Printf("[Err] Error creating comment report in CommentService.ReportComment: %v", err)
+		return fmt.Errorf("failed to report comment")
+	}
+
+	return nil
 }

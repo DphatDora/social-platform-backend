@@ -18,7 +18,7 @@ func TestCommentService_CreateComment_Success(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -48,7 +48,7 @@ func TestCommentService_CreateComment_PostNotFound(t *testing.T) {
 	commentService := NewCommentService(
 		nil,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreateCommentRequest{
@@ -72,7 +72,7 @@ func TestCommentService_CreateComment_WithParent(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -112,7 +112,7 @@ func TestCommentService_CreateComment_ParentNotFound(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	parentCommentID := uint64(999)
@@ -142,7 +142,7 @@ func TestCommentService_CreateComment_ParentDifferentPost(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	parentCommentID := uint64(111)
@@ -174,7 +174,7 @@ func TestCommentService_UpdateComment_Success(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -202,7 +202,7 @@ func TestCommentService_UpdateComment_NotAuthor(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -230,7 +230,7 @@ func TestCommentService_DeleteComment_Success(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -256,7 +256,7 @@ func TestCommentService_DeleteComment_NotFound(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	commentID := uint64(999)
@@ -267,4 +267,109 @@ func TestCommentService_DeleteComment_NotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "comment not found")
 	mockCommentRepo.AssertExpectations(t)
+}
+
+func TestCommentService_ReportComment_Success(t *testing.T) {
+	mockCommentRepo := new(MockCommentRepository)
+	mockCommentReportRepo := new(MockCommentReportRepository)
+
+	commentService := NewCommentService(
+		mockCommentRepo,
+		nil,
+		nil,
+		mockCommentReportRepo,
+		nil, nil, nil, nil, nil,
+	)
+
+	userID := uint64(123)
+	commentID := uint64(456)
+	noteText := "This is spam content"
+	req := &request.ReportCommentRequest{
+		Reasons: []string{"spam", "harassment"},
+		Note:    &noteText,
+	}
+
+	comment := &model.Comment{
+		ID:       commentID,
+		AuthorID: 999,
+	}
+
+	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
+	mockCommentReportRepo.On("IsUserReportedComment", userID, commentID).Return(false, nil)
+	mockCommentReportRepo.On("CreateCommentReport", mock.MatchedBy(func(report *model.CommentReport) bool {
+		return report.CommentID == commentID &&
+			report.ReporterID == userID &&
+			len(report.Reasons) == 2 &&
+			report.Reasons[0] == "spam" &&
+			report.Reasons[1] == "harassment" &&
+			report.Note != nil &&
+			*report.Note == noteText
+	})).Return(nil)
+
+	err := commentService.ReportComment(userID, commentID, req)
+
+	assert.NoError(t, err)
+	mockCommentRepo.AssertExpectations(t)
+	mockCommentReportRepo.AssertExpectations(t)
+}
+
+func TestCommentService_ReportComment_CommentNotFound(t *testing.T) {
+	mockCommentRepo := new(MockCommentRepository)
+	mockCommentReportRepo := new(MockCommentReportRepository)
+
+	commentService := NewCommentService(
+		mockCommentRepo,
+		nil,
+		nil,
+		mockCommentReportRepo,
+		nil, nil, nil, nil, nil,
+	)
+
+	userID := uint64(123)
+	commentID := uint64(999)
+	req := &request.ReportCommentRequest{
+		Reasons: []string{"spam"},
+	}
+
+	mockCommentRepo.On("GetCommentByID", commentID).Return(nil, errors.New("not found"))
+
+	err := commentService.ReportComment(userID, commentID, req)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "comment not found")
+	mockCommentRepo.AssertExpectations(t)
+}
+
+func TestCommentService_ReportComment_AlreadyReported(t *testing.T) {
+	mockCommentRepo := new(MockCommentRepository)
+	mockCommentReportRepo := new(MockCommentReportRepository)
+
+	commentService := NewCommentService(
+		mockCommentRepo,
+		nil,
+		nil,
+		mockCommentReportRepo,
+		nil, nil, nil, nil, nil,
+	)
+
+	userID := uint64(123)
+	commentID := uint64(456)
+	req := &request.ReportCommentRequest{
+		Reasons: []string{"spam"},
+	}
+
+	comment := &model.Comment{
+		ID:       commentID,
+		AuthorID: 999,
+	}
+
+	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
+	mockCommentReportRepo.On("IsUserReportedComment", userID, commentID).Return(true, nil)
+
+	err := commentService.ReportComment(userID, commentID, req)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already reported")
+	mockCommentRepo.AssertExpectations(t)
+	mockCommentReportRepo.AssertExpectations(t)
 }

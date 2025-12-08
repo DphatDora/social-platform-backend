@@ -19,7 +19,7 @@ func TestCommunityService_CreateCommunity_Success(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -44,7 +44,7 @@ func TestCommunityService_CreateCommunity_RepositoryError(t *testing.T) {
 
 	communityService := NewCommunityService(
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	desc := "Test"
@@ -72,7 +72,7 @@ func TestCommunityService_GetCommunityByID_Success(t *testing.T) {
 		nil, // subscriptionRepo
 		mockCommunityModeratorRepo,
 		mockPostRepo,
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	communityID := uint64(456)
@@ -102,7 +102,7 @@ func TestCommunityService_GetCommunityByID_NotFound(t *testing.T) {
 
 	communityService := NewCommunityService(
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	communityID := uint64(999)
@@ -127,7 +127,7 @@ func TestCommunityService_GetCommunityByID_WithModerators(t *testing.T) {
 		nil, // subscriptionRepo
 		mockCommunityModeratorRepo,
 		mockPostRepo,
-		nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	communityID := uint64(456)
@@ -173,7 +173,7 @@ func TestCommunityService_UpdateCommunity_Success(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -204,7 +204,7 @@ func TestCommunityService_UpdateCommunity_NotSuperAdmin(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -235,7 +235,7 @@ func TestCommunityService_UpdateCommunity_NotModerator(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -266,7 +266,7 @@ func TestCommunityService_DeleteCommunity_Success(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -293,7 +293,7 @@ func TestCommunityService_DeleteCommunity_NotSuperAdmin(t *testing.T) {
 		mockCommunityRepo,
 		nil,
 		mockCommunityModeratorRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)

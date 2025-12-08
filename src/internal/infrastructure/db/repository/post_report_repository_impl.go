@@ -53,7 +53,13 @@ func (r *PostReportRepositoryImpl) GetPostReportsByCommunityID(communityID uint6
 }
 
 func (r *PostReportRepositoryImpl) DeletePostReport(id uint64) error {
-	return r.db.Where("id = ?", id).Delete(&model.PostReport{}).Error
+
+	var report model.PostReport
+	if err := r.db.Where("id = ?", id).First(&report).Error; err != nil {
+		return err
+	}
+
+	return r.db.Where("post_id = ?", report.PostID).Delete(&model.PostReport{}).Error
 }
 
 func (r *PostReportRepositoryImpl) IsUserReportedPost(userID, postID uint64) (bool, error) {

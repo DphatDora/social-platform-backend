@@ -1,0 +1,1 @@
+You have been banned from "{{.CommunityName}}". Reason: {{.Reason}}{{if .ExpiresAt}} (Expires: {{.ExpiresAt}}){{end}}

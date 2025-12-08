@@ -41,6 +41,8 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	postReportRepo := repository.NewPostReportRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
 	commentVoteRepo := repository.NewCommentVoteRepository(db)
+	commentReportRepo := repository.NewCommentReportRepository(db)
+	userRestrictionRepo := repository.NewUserRestrictionRepository(db)
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	messageAttachmentRepo := repository.NewMessageAttachmentRepository(db)
@@ -61,8 +63,8 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	userService := service.NewUserService(userRepo, communityRepo, communityModeratorRepo, subscriptionRepo, userSavedPostRepo, postRepo, botTaskService, redisClient)
 	messageService := service.NewMessageService(conversationRepo, messageRepo, messageAttachmentRepo, userRepo, sseService)
 	postService := service.NewPostService(postRepo, communityRepo, subscriptionRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
-	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
-	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, topicRepo, notificationService, botTaskService)
+	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, commentReportRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
+	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, commentRepo, commentReportRepo, topicRepo, userRestrictionRepo, notificationService, botTaskService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -89,7 +91,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	api := router.Group("/api/v1")
 	{
 		setupPublicRoutes(api, appHandler, conf, redisClient)
-		setupProtectedRoutes(api, appHandler, conf, redisClient, userRepo)
+		setupProtectedRoutes(api, appHandler, conf, redisClient, userRepo, userRestrictionRepo, postRepo)
 	}
 
 	return router
@@ -149,7 +151,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client, userRepo domainRepository.UserRepository) {
+func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client, userRepo domainRepository.UserRepository, userRestrictionRepo domainRepository.UserRestrictionRepository, postRepo domainRepository.PostRepository) {
 	protected := rg.Group("")
 	protected.Use(middleware.AuthMiddleware(conf, redisClient, userRepo))
 	{
@@ -184,15 +186,21 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 			communities.GET("/:id/manage/posts", appHandler.communityHandler.GetCommunityPostsForModerator)
 			communities.PATCH("/:id/manage/posts/:postId/status", appHandler.communityHandler.UpdatePostStatusByModerator)
 			communities.DELETE("/:id/manage/posts/:postId", appHandler.communityHandler.DeletePostByModerator)
+			communities.DELETE("/:id/manage/comments/:commentId", appHandler.communityHandler.DeleteCommentByModerator)
 			communities.GET("/:id/manage/reports", appHandler.communityHandler.GetCommunityPostReports)
 			communities.DELETE("/:id/manage/reports/:reportId", appHandler.communityHandler.DeletePostReport)
+			communities.GET("/:id/manage/comment-reports", appHandler.communityHandler.GetCommunityCommentReports)
+			communities.DELETE("/:id/manage/comment-reports/:reportId", appHandler.communityHandler.DeleteCommentReport)
+			communities.POST("/:id/manage/ban-user", appHandler.communityHandler.BanUser)
+			communities.GET("/:id/manage/restrictions/user/:userId", appHandler.communityHandler.GetUserRestrictionHistory)
+			communities.DELETE("/:id/manage/restrictions/:restrictionId", appHandler.communityHandler.RemoveUserRestriction)
 			communities.PATCH("/:id/manage/subscriptions/:userId/status", appHandler.communityHandler.UpdateSubscriptionStatus)
 		}
 
 		posts := protected.Group("/posts")
 		posts.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
-			posts.POST("", appHandler.postHandler.CreatePost)
+			posts.POST("", middleware.CheckUserRestrictionForPostMiddleware(userRestrictionRepo), appHandler.postHandler.CreatePost)
 			posts.PUT("/:id", appHandler.postHandler.UpdatePost)
 			posts.DELETE("/:id", appHandler.postHandler.DeletePost)
 			posts.POST("/:id/vote", appHandler.postHandler.VotePost)
@@ -205,11 +213,12 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		comments := protected.Group("/comments")
 		comments.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
-			comments.POST("", appHandler.commentHandler.CreateComment)
+			comments.POST("", middleware.CheckUserRestrictionForCommentMiddleware(userRestrictionRepo, postRepo), appHandler.commentHandler.CreateComment)
 			comments.PUT("/:id", appHandler.commentHandler.UpdateComment)
 			comments.DELETE("/:id", appHandler.commentHandler.DeleteComment)
 			comments.POST("/:id/vote", appHandler.commentHandler.VoteComment)
 			comments.DELETE("/:id/vote", appHandler.commentHandler.UnvoteComment)
+			comments.POST("/:id/report", appHandler.commentHandler.ReportComment)
 		}
 
 		messages := protected.Group("/messages")

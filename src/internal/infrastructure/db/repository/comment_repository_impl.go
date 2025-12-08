@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/package/constant"
@@ -29,7 +30,7 @@ func (r *CommentRepositoryImpl) GetCommentByID(id uint64) (*model.Comment, error
 	return &comment, nil
 }
 
-func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int) ([]*model.Comment, int64, error) {
+func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int, userID *uint64) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
@@ -50,13 +51,19 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, sortBy string
 		orderClause = "comments.created_at DESC"
 	}
 
+	selectFields := `comments.id, comments.post_id, comments.author_id, comments.parent_comment_id, 
+		comments.content, comments.media_url, comments.created_at, comments.updated_at,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM comment_votes WHERE comment_id = comments.id), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM comment_votes WHERE comment_id = comments.id AND user_id = %d) as user_vote", *userID)
+	}
+
 	// Get top-level comments with author info and vote count
 	err := r.db.Table("comments").
-		Select(`comments.*,
-			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Select(selectFields).
 		Where("comments.post_id = ? AND comments.parent_comment_id IS NULL", postID).
-		Group("comments.id").
 		Order(orderClause).
 		Preload("Author").
 		Limit(limit).
@@ -69,16 +76,22 @@ func (r *CommentRepositoryImpl) GetCommentsByPostID(postID uint64, sortBy string
 	return comments, total, nil
 }
 
-func (r *CommentRepositoryImpl) GetRepliesByParentID(parentID uint64) ([]*model.Comment, error) {
+func (r *CommentRepositoryImpl) GetRepliesByParentID(parentID uint64, userID *uint64) ([]*model.Comment, error) {
 	var replies []*model.Comment
+
+	selectFields := `comments.id, comments.post_id, comments.author_id, comments.parent_comment_id, 
+		comments.content, comments.media_url, comments.created_at, comments.updated_at,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM comment_votes WHERE comment_id = comments.id), 0) as vote`
+
+	// Add user_vote field if userID exists
+	if userID != nil {
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM comment_votes WHERE comment_id = comments.id AND user_id = %d) as user_vote", *userID)
+	}
 
 	// Get replies with vote count
 	err := r.db.Table("comments").
-		Select(`comments.*,
-			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Select(selectFields).
 		Where("comments.parent_comment_id = ?", parentID).
-		Group("comments.id").
 		Order("comments.created_at ASC").
 		Preload("Author").
 		Find(&replies).Error
@@ -117,7 +130,7 @@ func (r *CommentRepositoryImpl) DeleteComment(commentID uint64, parentCommentID 
 	})
 }
 
-func (r *CommentRepositoryImpl) GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Comment, int64, error) {
+func (r *CommentRepositoryImpl) GetCommentsByUserID(userID uint64, sortBy string, page, limit int, requestUserID *uint64) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
@@ -128,12 +141,18 @@ func (r *CommentRepositoryImpl) GetCommentsByUserID(userID uint64, sortBy string
 		return nil, 0, err
 	}
 
+	selectFields := `comments.id, comments.post_id, comments.author_id, comments.parent_comment_id, 
+		comments.content, comments.media_url, comments.created_at, comments.updated_at,
+		COALESCE((SELECT SUM(CASE WHEN vote = true THEN 1 WHEN vote = false THEN -1 ELSE 0 END) FROM comment_votes WHERE comment_id = comments.id), 0) as vote`
+
+	// Add user_vote field if requestUserID exists
+	if requestUserID != nil {
+		selectFields += fmt.Sprintf(", (SELECT CAST(vote AS INT) FROM comment_votes WHERE comment_id = comments.id AND user_id = %d) as user_vote", *requestUserID)
+	}
+
 	query := r.db.Table("comments").
-		Select(`comments.*,
-			COALESCE(SUM(CASE WHEN comment_votes.vote = true THEN 1 WHEN comment_votes.vote = false THEN -1 ELSE 0 END), 0) as vote`).
-		Joins("LEFT JOIN comment_votes ON comments.id = comment_votes.comment_id").
+		Select(selectFields).
 		Where("comments.author_id = ? AND comments.deleted_at IS NULL", userID).
-		Group("comments.id").
 		Preload("Author").
 		Preload("Post")
 

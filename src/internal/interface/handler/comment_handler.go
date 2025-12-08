@@ -61,6 +61,9 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
+	// Get userID from context (if exists)
+	userID := util.GetOptionalUserIDFromContext(c)
+
 	postIDParam := c.Param("id")
 	postID, err := strconv.ParseUint(postIDParam, 10, 64)
 	if err != nil {
@@ -83,7 +86,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 		limit = 12
 	}
 
-	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, sortBy, page, limit)
+	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, sortBy, page, limit, userID)
 	if err != nil {
 		log.Printf("[Err] Error getting comments in CommentHandler.GetCommentsByPostID: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -290,6 +293,9 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
+	// Get requestUserID from context (if exists) - this is the user viewing the comments
+	requestUserID := util.GetOptionalUserIDFromContext(c)
+
 	idParam := c.Param("id")
 	userID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
@@ -312,7 +318,7 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	comments, pagination, err := h.commentService.GetCommentsByUserID(userID, sortBy, page, limit)
+	comments, pagination, err := h.commentService.GetCommentsByUserID(userID, sortBy, page, limit, requestUserID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -335,5 +341,58 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 		Message:    "Comments retrieved successfully",
 		Data:       comments,
 		Pagination: pagination,
+	})
+}
+
+func (h *CommentHandler) ReportComment(c *gin.Context) {
+	userID, err := util.GetUserIDFromContext(c)
+	if err != nil {
+		log.Printf("[Err] %s in CommentHandler.ReportComment", err.Error())
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	commentIDParam := c.Param("id")
+	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
+	if err != nil {
+		log.Printf("[Err] Invalid comment ID in CommentHandler.ReportComment: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid comment ID",
+		})
+		return
+	}
+
+	var req request.ReportCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[Err] Error binding JSON in CommentHandler.ReportComment: %v", err)
+		c.JSON(http.StatusBadRequest, response.APIResponse{
+			Success: false,
+			Message: "Invalid request payload: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.commentService.ReportComment(userID, commentID, &req); err != nil {
+		log.Printf("[Err] Error reporting comment in CommentHandler.ReportComment: %v", err)
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "comment not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "you have already reported this comment" {
+			statusCode = http.StatusConflict
+		}
+		c.JSON(statusCode, response.APIResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Comment reported successfully",
 	})
 }
