@@ -14,12 +14,15 @@ import (
 )
 
 type NotificationTemplateData struct {
-	UserName      string
-	PostID        uint64
-	VoteType      string
-	CommentID     uint64
-	CommunityID   uint64
-	CommunityName string
+	UserName        string
+	PostID          uint64
+	VoteType        string
+	CommentID       uint64
+	CommunityID     uint64
+	CommunityName   string
+	Reason          string
+	RestrictionType string
+	ExpiresAt       string
 }
 
 type NotificationService struct {
@@ -59,7 +62,7 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 			UserID:     userID,
 			Action:     action,
 			IsPush:     true,
-			IsSendMail: true,
+			IsSendMail: false,
 		}
 	}
 
@@ -133,12 +136,16 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "post_rejected.txt"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted.txt"
+	case constant.NOTIFICATION_ACTION_COMMENT_DELETED:
+		return basePath + "comment_deleted.txt"
 	case constant.NOTIFICATION_ACTION_POST_REPORTED:
 		return basePath + "post_reported.txt"
 	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
 		return basePath + "subscription_approved.txt"
 	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
 		return basePath + "subscription_rejected.txt"
+	case constant.NOTIFICATION_ACTION_USER_BANNED:
+		return basePath + "user_banned.txt"
 	default:
 		return ""
 	}
@@ -161,6 +168,8 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 		return basePath + "post_rejected_email.html"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted_email.html"
+	case constant.NOTIFICATION_ACTION_COMMENT_DELETED:
+		return basePath + "comment_deleted_email.html"
 	case constant.NOTIFICATION_ACTION_POST_REPORTED:
 		return basePath + "post_reported_email.html"
 	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
@@ -219,11 +228,24 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 				data.PostID = postID
 			}
 		}
+	case constant.NOTIFICATION_ACTION_COMMENT_DELETED:
+		if p, ok := notifPayload.(payload.CommentDeletedNotificationPayload); ok {
+			data.CommentID = p.CommentID
+			data.PostID = p.PostID
+		}
 	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED,
 		constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
 		if p, ok := notifPayload.(payload.SubscriptionNotificationPayload); ok {
 			data.CommunityID = p.CommunityID
 			data.CommunityName = p.CommunityName
+		}
+	case constant.NOTIFICATION_ACTION_USER_BANNED:
+		if p, ok := notifPayload.(payload.UserBanNotificationPayload); ok {
+			data.CommunityID = p.CommunityID
+			data.CommunityName = p.CommunityName
+			data.RestrictionType = p.RestrictionType
+			data.Reason = p.Reason
+			data.ExpiresAt = p.ExpiresAt
 		}
 	}
 

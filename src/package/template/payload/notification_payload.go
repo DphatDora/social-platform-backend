@@ -31,3 +31,16 @@ type SubscriptionNotificationPayload struct {
 	CommunityID   uint64 `json:"communityId"`
 	CommunityName string `json:"communityName"`
 }
+
+type UserBanNotificationPayload struct {
+	CommunityID     uint64 `json:"communityId"`
+	CommunityName   string `json:"communityName"`
+	RestrictionType string `json:"restrictionType"`
+	Reason          string `json:"reason"`
+	ExpiresAt       string `json:"expiresAt,omitempty"`
+}
+
+type CommentDeletedNotificationPayload struct {
+	CommentID uint64 `json:"commentId"`
+	PostID    uint64 `json:"postId"`
+}

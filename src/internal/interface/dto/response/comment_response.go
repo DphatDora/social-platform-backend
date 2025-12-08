@@ -13,6 +13,7 @@ type CommentResponse struct {
 	Content         string             `json:"content"`
 	MediaURL        *string            `json:"mediaUrl,omitempty"`
 	Vote            int64              `json:"vote"`
+	IsVoted         *bool              `json:"isVoted,omitempty"`
 	CreatedAt       time.Time          `json:"createdAt"`
 	UpdatedAt       *time.Time         `json:"updatedAt,omitempty"`
 	Replies         []*CommentResponse `json:"replies,omitempty"`
@@ -30,11 +31,19 @@ func NewCommentResponse(comment *model.Comment) *CommentResponse {
 		UpdatedAt:       comment.UpdatedAt,
 	}
 
+	if comment.UserVote != nil {
+		isVoted := *comment.UserVote == 1
+		response.IsVoted = &isVoted
+	}
+
 	if comment.Author != nil {
 		response.Author = &AuthorInfo{
-			ID:       comment.Author.ID,
-			Username: comment.Author.Username,
-			Avatar:   comment.Author.Avatar,
+			ID:        comment.Author.ID,
+			Username:  comment.Author.Username,
+			Avatar:    comment.Author.Avatar,
+			Bio:       comment.Author.Bio,
+			Karma:     comment.Author.Karma,
+			CreatedAt: comment.Author.CreatedAt,
 		}
 	}
 

@@ -8,7 +8,9 @@ const (
 	NOTIFICATION_ACTION_POST_APPROVED         = "post_approved"
 	NOTIFICATION_ACTION_POST_REJECTED         = "post_rejected"
 	NOTIFICATION_ACTION_POST_DELETED          = "post_deleted"
+	NOTIFICATION_ACTION_COMMENT_DELETED       = "comment_deleted"
 	NOTIFICATION_ACTION_POST_REPORTED         = "post_reported"
 	NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED = "subscription_approved"
 	NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED = "subscription_rejected"
+	NOTIFICATION_ACTION_USER_BANNED           = "user_banned"
 )

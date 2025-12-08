@@ -11,3 +11,8 @@ type UpdateCommentRequest struct {
 	Content  string  `json:"content" binding:"required"`
 	MediaURL *string `json:"mediaUrl,omitempty"`
 }
+
+type ReportCommentRequest struct {
+	Reasons []string `json:"reasons" binding:"required,min=1"`
+	Note    *string  `json:"note,omitempty"`
+}

@@ -507,8 +507,8 @@ func (m *MockCommentRepository) GetCommentByID(id uint64) (*model.Comment, error
 	return args.Get(0).(*model.Comment), args.Error(1)
 }
 
-func (m *MockCommentRepository) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int) ([]*model.Comment, int64, error) {
-	args := m.Called(postID, sortBy, limit, offset)
+func (m *MockCommentRepository) GetCommentsByPostID(postID uint64, sortBy string, limit, offset int, userID *uint64) ([]*model.Comment, int64, error) {
+	args := m.Called(postID, sortBy, limit, offset, userID)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
 	}
@@ -525,20 +525,47 @@ func (m *MockCommentRepository) DeleteComment(commentID uint64, parentCommentID 
 	return args.Error(0)
 }
 
-func (m *MockCommentRepository) GetRepliesByParentID(parentID uint64) ([]*model.Comment, error) {
-	args := m.Called(parentID)
+func (m *MockCommentRepository) GetRepliesByParentID(parentID uint64, userID *uint64) ([]*model.Comment, error) {
+	args := m.Called(parentID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*model.Comment), args.Error(1)
 }
 
-func (m *MockCommentRepository) GetCommentsByUserID(userID uint64, sortBy string, page, limit int) ([]*model.Comment, int64, error) {
-	args := m.Called(userID, sortBy, page, limit)
+func (m *MockCommentRepository) GetCommentsByUserID(userID uint64, sortBy string, page, limit int, requestUserID *uint64) ([]*model.Comment, int64, error) {
+	args := m.Called(userID, sortBy, page, limit, requestUserID)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
 	}
 	return args.Get(0).([]*model.Comment), args.Get(1).(int64), args.Error(2)
+}
+
+type MockCommentReportRepository struct {
+	mock.Mock
+}
+
+func (m *MockCommentReportRepository) CreateCommentReport(report *model.CommentReport) error {
+	args := m.Called(report)
+	return args.Error(0)
+}
+
+func (m *MockCommentReportRepository) GetCommentReportsByCommunityID(communityID uint64, page, limit int) ([]*model.CommentReport, int64, error) {
+	args := m.Called(communityID, page, limit)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]*model.CommentReport), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockCommentReportRepository) DeleteCommentReport(id uint64) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockCommentReportRepository) IsUserReportedComment(userID, commentID uint64) (bool, error) {
+	args := m.Called(userID, commentID)
+	return args.Bool(0), args.Error(1)
 }
 
 type MockSubscriptionRepository struct {
