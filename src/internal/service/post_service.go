@@ -10,6 +10,7 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
+	"social-platform-backend/package/util"
 	"strings"
 	"time"
 )
@@ -112,20 +113,68 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		return fmt.Errorf("failed to create post")
 	}
 
-	go func(userID uint64) {
+	go func(userID uint64, post *model.Post, postType string) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("[Panic] Recovered in PostService.CreatePost background task: %v", r)
 			}
 		}()
 
-		// Create bottask for updating karma
+		// Check content moderation
+		violation := false
+		violationReason := ""
+		violationCategory := ""
+
+		if postType == constant.PostTypeText || postType == constant.PostTypeLink || postType == constant.PostTypePoll {
+			combinedText := post.Title + " " + post.Content
+			if textViolation, err := util.CheckTextContent(combinedText); err != nil {
+				log.Printf("[Err] Error checking text content in PostService.CreatePost: %v", err)
+			} else if textViolation.IsViolation {
+				violation = true
+				violationReason = textViolation.Reason
+				violationCategory = textViolation.Category
+			}
+		}
+
+		if !violation && postType == constant.PostTypeMedia && post.MediaURLs != nil {
+			for _, mediaURL := range *post.MediaURLs {
+				if imageViolation, err := util.CheckImageContent(mediaURL); err != nil {
+					log.Printf("[Err] Error checking image content in PostService.CreatePost: %v", err)
+				} else if imageViolation.IsViolation {
+					violation = true
+					violationReason = imageViolation.Reason
+					violationCategory = imageViolation.Category
+					break
+				}
+			}
+		}
+
+		if violation {
+			log.Printf("[Info] Content violation detected for post %d: %s", post.ID, violationReason)
+			if err := s.postRepo.UpdatePostStatus(post.ID, constant.POST_STATUS_REJECTED); err != nil {
+				log.Printf("[Err] Error updating post status to rejected: %v", err)
+			}
+
+			if s.notificationService != nil {
+				notifPayload := &payload.ContentViolationPostPayload{
+					PostID:   post.ID,
+					Reason:   violationReason,
+					Category: violationCategory,
+				}
+				if err := s.notificationService.CreateNotification(userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_POST, notifPayload); err != nil {
+					log.Printf("[Err] Error sending content violation notification: %v", err)
+				}
+			}
+
+			return
+		}
+
 		if s.botTaskService != nil {
 			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_POST); err != nil {
 				log.Printf("[Err] Error creating karma task in PostService.CreatePost: %v", err)
 			}
 		}
-	}(userID)
+	}(userID, post, req.Type)
 
 	return nil
 }

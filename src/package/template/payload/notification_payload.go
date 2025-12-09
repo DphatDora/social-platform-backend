@@ -45,3 +45,16 @@ type CommentDeletedNotificationPayload struct {
 	CommentID uint64 `json:"commentId"`
 	PostID    uint64 `json:"postId"`
 }
+
+type ContentViolationPostPayload struct {
+	PostID   uint64 `json:"postId"`
+	Reason   string `json:"reason"`
+	Category string `json:"category"`
+}
+
+type ContentViolationCommentPayload struct {
+	CommentID uint64 `json:"commentId"`
+	PostID    uint64 `json:"postId"`
+	Reason    string `json:"reason"`
+	Category  string `json:"category"`
+}

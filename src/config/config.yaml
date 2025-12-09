@@ -43,6 +43,9 @@ auth:
   googleClientSecret:
   googleRedirectUrl:
 
+gemini:
+  apiKey:
+
 redis:
   host:
   port:
