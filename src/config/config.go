@@ -21,6 +21,7 @@ type Config struct {
 	Auth     Auth
 	Client   Client
 	Server   Server
+	Gemini   Gemini
 	Redis    Redis
 }
 
@@ -82,6 +83,9 @@ func bindEnvs() {
 	_ = viper.BindEnv("auth.googleClientID", "GOOGLE_CLIENT_ID")
 	_ = viper.BindEnv("auth.googleClientSecret", "GOOGLE_CLIENT_SECRET")
 	_ = viper.BindEnv("auth.googleRedirectURL", "GOOGLE_REDIRECT_URL")
+
+	// Gemini
+	_ = viper.BindEnv("gemini.apiKey", "GEMINI_API_KEY")
 
 	// Redis
 	_ = viper.BindEnv("redis.host", "REDIS_HOST")

@@ -9,6 +9,7 @@ import (
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/template/payload"
+	"social-platform-backend/package/util"
 	"time"
 )
 
@@ -83,15 +84,58 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		return fmt.Errorf("failed to create comment")
 	}
 
-	// Background tasks
-	go func(userID uint64, post *model.Post, parentComment *model.Comment) {
+	go func(userID uint64, post *model.Post, parentComment *model.Comment, comment *model.Comment) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("[Panic] Recovered in CommentService background task: %v", r)
 			}
 		}()
 
-		// Update karma
+		// Check content moderation
+		violation := false
+		violationReason := ""
+		violationCategory := ""
+
+		if textViolation, err := util.CheckTextContent(comment.Content); err != nil {
+			log.Printf("[Err] Error checking text content in CommentService.CreateComment: %v", err)
+		} else if textViolation.IsViolation {
+			violation = true
+			violationReason = textViolation.Reason
+			violationCategory = textViolation.Category
+		}
+
+		if !violation && comment.MediaURL != nil && *comment.MediaURL != "" {
+			if imageViolation, err := util.CheckImageContent(*comment.MediaURL); err != nil {
+				log.Printf("[Err] Error checking image content in CommentService.CreateComment: %v", err)
+			} else if imageViolation.IsViolation {
+				violation = true
+				violationReason = imageViolation.Reason
+				violationCategory = imageViolation.Category
+			}
+		}
+
+		if violation {
+			log.Printf("[Info] Content violation detected for comment %d: %s", comment.ID, violationReason)
+
+			if err := s.commentRepo.DeleteComment(comment.ID, comment.ParentCommentID); err != nil {
+				log.Printf("[Err] Error deleting comment for violation: %v", err)
+			}
+
+			if s.notificationService != nil {
+				notifPayload := &payload.ContentViolationCommentPayload{
+					CommentID: comment.ID,
+					PostID:    post.ID,
+					Reason:    violationReason,
+					Category:  violationCategory,
+				}
+				if err := s.notificationService.CreateNotification(userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT, notifPayload); err != nil {
+					log.Printf("[Err] Error sending content violation notification: %v", err)
+				}
+			}
+
+			return
+		}
+
 		if s.botTaskService != nil {
 			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
 				log.Printf("[Err] Error creating karma task in CommentService.CreateComment: %v", err)
@@ -162,7 +206,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 				}
 			}
 		}()
-	}(userID, post, parentComment)
+	}(userID, post, parentComment, comment)
 
 	return nil
 }

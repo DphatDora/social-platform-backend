@@ -143,6 +143,10 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "subscription_status_updated.txt"
 	case constant.NOTIFICATION_ACTION_USER_BANNED:
 		return basePath + "user_banned.txt"
+	case constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_POST:
+		return basePath + "content_violation_post.txt"
+	case constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT:
+		return basePath + "content_violation_comment.txt"
 	default:
 		return ""
 	}
@@ -239,6 +243,24 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 			data.RestrictionType = p.RestrictionType
 			data.Reason = p.Reason
 			data.ExpiresAt = p.ExpiresAt
+		}
+	case constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_POST:
+		if p, ok := notifPayload.(*payload.ContentViolationPostPayload); ok {
+			data.PostID = p.PostID
+			data.Reason = p.Reason
+		} else if p, ok := notifPayload.(payload.ContentViolationPostPayload); ok {
+			data.PostID = p.PostID
+			data.Reason = p.Reason
+		}
+	case constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT:
+		if p, ok := notifPayload.(*payload.ContentViolationCommentPayload); ok {
+			data.CommentID = p.CommentID
+			data.PostID = p.PostID
+			data.Reason = p.Reason
+		} else if p, ok := notifPayload.(payload.ContentViolationCommentPayload); ok {
+			data.CommentID = p.CommentID
+			data.PostID = p.PostID
+			data.Reason = p.Reason
 		}
 	}
 

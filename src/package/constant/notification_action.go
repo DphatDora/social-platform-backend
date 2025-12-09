@@ -10,4 +10,6 @@ const (
 	NOTIFICATION_ACTION_COMMENT_DELETED             = "comment_deleted"
 	NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED = "subscription_status_updated"
 	NOTIFICATION_ACTION_USER_BANNED                 = "user_banned"
+	NOTIFICATION_ACTION_CONTENT_VIOLATION_POST      = "content_violation_post"
+	NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT   = "content_violation_comment"
 )
