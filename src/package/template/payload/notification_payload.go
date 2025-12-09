@@ -22,14 +22,15 @@ type CommentReplyNotificationPayload struct {
 	UserName  string `json:"userName"`
 }
 
-type PostReportNotificationPayload struct {
-	PostID   uint64 `json:"postId"`
-	UserName string `json:"userName"`
+type PostStatusNotificationPayload struct {
+	PostID uint64 `json:"postId"`
+	Status string `json:"status"`
 }
 
-type SubscriptionNotificationPayload struct {
+type SubscriptionStatusNotificationPayload struct {
 	CommunityID   uint64 `json:"communityId"`
 	CommunityName string `json:"communityName"`
+	Status        string `json:"status"`
 }
 
 type UserBanNotificationPayload struct {

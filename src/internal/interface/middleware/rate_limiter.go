@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/response"
+	"social-platform-backend/package/constant"
 	"social-platform-backend/package/util"
 	"time"
 
@@ -23,7 +24,7 @@ func LoginRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
 		key := fmt.Sprintf("rate_limit:login:%s", clientIP)
 
 		// Check rate limit (5reqs/min)
-		allowed, err := util.CheckRateLimit(redisClient, key, 5, time.Minute)
+		allowed, err := util.CheckRateLimit(redisClient, key, constant.RATE_LIMIT_LOGIN, time.Minute)
 		if err != nil {
 			log.Printf("[Err] Error checking login rate limit for IP %s: %v", clientIP, err)
 			c.Next()
@@ -60,7 +61,7 @@ func APIRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
 			clientIP := c.ClientIP()
 			key := fmt.Sprintf("rate_limit:api:%s", clientIP)
 
-			allowed, err := util.CheckRateLimit(redisClient, key, 30, time.Minute)
+			allowed, err := util.CheckRateLimit(redisClient, key, constant.RATE_LIMIT_API, time.Minute)
 			if err != nil {
 				log.Printf("[Err] Error checking API rate limit for IP %s: %v", clientIP, err)
 				// Gracefully fallback: allow request to proceed when Redis is unavailable

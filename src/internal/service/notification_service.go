@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"social-platform-backend/config"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
@@ -20,9 +21,11 @@ type NotificationTemplateData struct {
 	CommentID       uint64
 	CommunityID     uint64
 	CommunityName   string
+	Status          string
 	Reason          string
 	RestrictionType string
 	ExpiresAt       string
+	ClientURL       string
 }
 
 type NotificationService struct {
@@ -130,20 +133,14 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 		return basePath + "comment_vote.txt"
 	case constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY:
 		return basePath + "comment_reply.txt"
-	case constant.NOTIFICATION_ACTION_POST_APPROVED:
-		return basePath + "post_approved.txt"
-	case constant.NOTIFICATION_ACTION_POST_REJECTED:
-		return basePath + "post_rejected.txt"
+	case constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED:
+		return basePath + "post_status_updated.txt"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted.txt"
 	case constant.NOTIFICATION_ACTION_COMMENT_DELETED:
 		return basePath + "comment_deleted.txt"
-	case constant.NOTIFICATION_ACTION_POST_REPORTED:
-		return basePath + "post_reported.txt"
-	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
-		return basePath + "subscription_approved.txt"
-	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
-		return basePath + "subscription_rejected.txt"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED:
+		return basePath + "subscription_status_updated.txt"
 	case constant.NOTIFICATION_ACTION_USER_BANNED:
 		return basePath + "user_banned.txt"
 	default:
@@ -152,7 +149,7 @@ func (s *NotificationService) getNotificationTemplatePath(action string) string 
 }
 
 func (s *NotificationService) getNotificationEmailTemplatePath(action string) string {
-	basePath := "package/template/notification/"
+	basePath := "package/template/email/"
 	switch action {
 	case constant.NOTIFICATION_ACTION_GET_POST_VOTE:
 		return basePath + "post_vote_email.html"
@@ -162,20 +159,14 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 		return basePath + "comment_vote_email.html"
 	case constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY:
 		return basePath + "comment_reply_email.html"
-	case constant.NOTIFICATION_ACTION_POST_APPROVED:
-		return basePath + "post_approved_email.html"
-	case constant.NOTIFICATION_ACTION_POST_REJECTED:
-		return basePath + "post_rejected_email.html"
+	case constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED:
+		return basePath + "post_status_updated_email.html"
 	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		return basePath + "post_deleted_email.html"
 	case constant.NOTIFICATION_ACTION_COMMENT_DELETED:
 		return basePath + "comment_deleted_email.html"
-	case constant.NOTIFICATION_ACTION_POST_REPORTED:
-		return basePath + "post_reported_email.html"
-	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED:
-		return basePath + "subscription_approved_email.html"
-	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
-		return basePath + "subscription_rejected_email.html"
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED:
+		return basePath + "subscription_status_updated_email.html"
 	default:
 		return ""
 	}
@@ -183,6 +174,10 @@ func (s *NotificationService) getNotificationEmailTemplatePath(action string) st
 
 func (s *NotificationService) prepareTemplateData(action string, notifPayload interface{}) NotificationTemplateData {
 	data := NotificationTemplateData{}
+
+	// Get client URL from config
+	conf := config.GetConfig()
+	data.ClientURL = conf.Client.Url
 
 	switch action {
 	case constant.NOTIFICATION_ACTION_GET_POST_VOTE:
@@ -215,14 +210,12 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 			data.UserName = p.UserName
 			data.CommentID = p.CommentID
 		}
-	case constant.NOTIFICATION_ACTION_POST_REPORTED:
-		if p, ok := notifPayload.(payload.PostReportNotificationPayload); ok {
-			data.UserName = p.UserName
+	case constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED:
+		if p, ok := notifPayload.(payload.PostStatusNotificationPayload); ok {
 			data.PostID = p.PostID
+			data.Status = p.Status
 		}
-	case constant.NOTIFICATION_ACTION_POST_APPROVED,
-		constant.NOTIFICATION_ACTION_POST_REJECTED,
-		constant.NOTIFICATION_ACTION_POST_DELETED:
+	case constant.NOTIFICATION_ACTION_POST_DELETED:
 		if p, ok := notifPayload.(map[string]interface{}); ok {
 			if postID, ok := p["postId"].(uint64); ok {
 				data.PostID = postID
@@ -233,11 +226,11 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 			data.CommentID = p.CommentID
 			data.PostID = p.PostID
 		}
-	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED,
-		constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED:
-		if p, ok := notifPayload.(payload.SubscriptionNotificationPayload); ok {
+	case constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED:
+		if p, ok := notifPayload.(payload.SubscriptionStatusNotificationPayload); ok {
 			data.CommunityID = p.CommunityID
 			data.CommunityName = p.CommunityName
+			data.Status = p.Status
 		}
 	case constant.NOTIFICATION_ACTION_USER_BANNED:
 		if p, ok := notifPayload.(payload.UserBanNotificationPayload); ok {

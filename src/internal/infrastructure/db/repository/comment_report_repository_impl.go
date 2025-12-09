@@ -43,6 +43,7 @@ func (r *CommentReportRepositoryImpl) GetCommentReportsByCommunityID(communityID
 		Limit(limit).
 		Preload("Comment").
 		Preload("Comment.Author").
+		Preload("Comment.Post").
 		Preload("Reporter").
 		Find(&reports).Error
 
