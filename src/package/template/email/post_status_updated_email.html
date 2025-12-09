@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      {{if eq .Status "approved"}}Post Approved{{else}}Post Rejected{{end}}
+    </title>
+  </head>
+  <body>
+    {{if eq .Status "approved"}}
+    <h2>Post Approved</h2>
+    <p>
+      Good news! Your post has been approved by the moderators and is now
+      visible to the community.
+    </p>
+    <p>
+      <a href="{{.ClientURL}}/post/{{.PostID}}">View your post</a>
+    </p>
+    {{else}}
+    <h2>Post Rejected</h2>
+    <p>
+      Your post has been rejected by the moderators and will not be visible to
+      the community.
+    </p>
+    <p>Please review the community guidelines and try again.</p>
+    {{end}}
+  </body>
+</html>

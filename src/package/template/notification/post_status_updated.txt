@@ -1,0 +1,1 @@
+{{if eq .Status "approved"}}Your post has been approved{{else}}Your post has been rejected{{end}}

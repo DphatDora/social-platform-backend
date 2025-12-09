@@ -638,18 +638,19 @@ func (s *CommunityService) UpdatePostStatusByModerator(userID, communityID, post
 				}
 			}()
 
-			action := ""
+			statusStr := ""
 			if status == constant.POST_STATUS_APPROVED {
-				action = constant.NOTIFICATION_ACTION_POST_APPROVED
+				statusStr = "approved"
 			} else {
-				action = constant.NOTIFICATION_ACTION_POST_REJECTED
+				statusStr = "rejected"
 			}
 
-			notifPayload := map[string]interface{}{
-				"postId": postID,
+			notifPayload := payload.PostStatusNotificationPayload{
+				PostID: postID,
+				Status: statusStr,
 			}
 
-			s.notificationService.CreateNotification(authorID, action, notifPayload)
+			s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED, notifPayload)
 		}(post.AuthorID, postID, post.Title, status)
 	}
 
@@ -1042,12 +1043,13 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 
 		// Send notification to user
 		go func(targetUserID, communityID uint64, communityName string) {
-			notificationPayload := payload.SubscriptionNotificationPayload{
+			notificationPayload := payload.SubscriptionStatusNotificationPayload{
 				CommunityID:   communityID,
 				CommunityName: communityName,
+				Status:        "approved",
 			}
 
-			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_APPROVED, notificationPayload); err != nil {
+			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
 				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Approved): %v", err)
 			}
 		}(targetUserID, communityID, community.Name)
@@ -1061,12 +1063,13 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 
 		// Send notification to user
 		go func(targetUserID, communityID uint64, communityName string) {
-			notificationPayload := payload.SubscriptionNotificationPayload{
+			notificationPayload := payload.SubscriptionStatusNotificationPayload{
 				CommunityID:   communityID,
 				CommunityName: communityName,
+				Status:        "rejected",
 			}
 
-			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_REJECTED, notificationPayload); err != nil {
+			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
 				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Rejected): %v", err)
 			}
 		}(targetUserID, communityID, community.Name)

@@ -1,0 +1,1 @@
+{{if eq .Status "approved"}}Your request to join "{{.CommunityName}}" has been approved!{{else}}Your request to join "{{.CommunityName}}" has been rejected.{{end}}
