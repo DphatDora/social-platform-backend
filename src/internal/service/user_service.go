@@ -367,16 +367,16 @@ func (s *UserService) GetUserJoinedCommunities(userID uint64) ([]*response.Commu
 		return nil, fmt.Errorf("failed to get joined communities")
 	}
 
-	communityResponses := make([]*response.CommunityListResponse, len(subscriptions))
-	for i, subscription := range subscriptions {
+	communityResponses := make([]*response.CommunityListResponse, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
 		if subscription.Community != nil {
 			resp := response.NewCommunityListResponse(subscription.Community)
 			resp.TotalMembers = subscription.Community.MemberCount
-			// Add user role if available
+
 			if subscription.ModeratorRole != nil {
 				resp.UserRole = subscription.ModeratorRole
 			}
-			communityResponses[i] = resp
+			communityResponses = append(communityResponses, resp)
 		}
 	}
 

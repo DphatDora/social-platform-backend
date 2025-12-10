@@ -106,17 +106,60 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 func (r *SubscriptionRepositoryImpl) GetCommunitiesByUserID(userID uint64) ([]*model.Subscription, error) {
 	var subscriptions []*model.Subscription
 
-	err := r.db.Table("subscriptions").
-		Select("subscriptions.*, community_moderators.role as moderator_role").
-		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
-		Where("subscriptions.user_id = ? AND subscriptions.status = ?", userID, constant.SUBSCRIPTION_STATUS_APPROVED).
-		Preload("Community").
-		Order("CASE WHEN community_moderators.role = 'super_admin' THEN 1 WHEN community_moderators.role = 'admin' THEN 2 ELSE 3 END").
-		Order("subscriptions.subscribed_at DESC").
-		Find(&subscriptions).Error
+	err := r.db.Raw(`
+		SELECT 
+			user_id,
+			community_id,
+			subscribed_at,
+			status,
+			moderator_role
+		FROM (
+			SELECT DISTINCT ON (COALESCE(s.community_id, cm.community_id))
+				COALESCE(s.user_id, cm.user_id) as user_id,
+				COALESCE(s.community_id, cm.community_id) as community_id,
+				COALESCE(s.subscribed_at, NOW()) as subscribed_at,
+				COALESCE(s.status, ?) as status,
+				cm.role as moderator_role,
+				CASE 
+					WHEN cm.role = 'super_admin' THEN 1 
+					WHEN cm.role = 'admin' THEN 2 
+					ELSE 3 
+				END as role_order
+			FROM community_moderators cm
+			FULL OUTER JOIN subscriptions s 
+				ON cm.user_id = s.user_id AND cm.community_id = s.community_id
+			WHERE (cm.user_id = ? OR (s.user_id = ? AND s.status = ?))
+			ORDER BY COALESCE(s.community_id, cm.community_id), role_order
+		) subquery
+		ORDER BY role_order, subscribed_at DESC
+	`, constant.SUBSCRIPTION_STATUS_APPROVED, userID, userID, constant.SUBSCRIPTION_STATUS_APPROVED).
+		Scan(&subscriptions).Error
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Preload Community data
+	if len(subscriptions) > 0 {
+		communityIDs := make([]uint64, len(subscriptions))
+		for i, sub := range subscriptions {
+			communityIDs[i] = sub.CommunityID
+		}
+
+		var communities []*model.Community
+		if err := r.db.Where("id IN ?", communityIDs).Find(&communities).Error; err != nil {
+			return nil, err
+		}
+
+		// Map communities to subscriptions
+		communityMap := make(map[uint64]*model.Community)
+		for _, community := range communities {
+			communityMap[community.ID] = community
+		}
+
+		for _, sub := range subscriptions {
+			sub.Community = communityMap[sub.CommunityID]
+		}
 	}
 
 	return subscriptions, nil
