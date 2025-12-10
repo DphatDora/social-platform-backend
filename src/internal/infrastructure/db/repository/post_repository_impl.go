@@ -52,7 +52,7 @@ func (r *PostRepositoryImpl) GetPostDetailByID(id uint64, userID *uint64) (*mode
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	if userID == nil {
@@ -179,7 +179,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 
 	// Count total APPROVED posts with tag filter and private community access check
 	countQuery := r.db.Table("posts").
-		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Where("posts.status = ?", constant.POST_STATUS_APPROVED)
 
 	if userID == nil {
@@ -213,7 +213,7 @@ func (r *PostRepositoryImpl) GetAllPosts(sortBy string, page, limit int, tags []
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	if userID == nil {
@@ -259,8 +259,9 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 	var total int64
 
 	// Count total APPROVED posts in community with tag filter
-	countQuery := r.db.Model(&model.Post{}).
-		Where("community_id = ? AND status = ?", communityID, constant.POST_STATUS_APPROVED)
+	countQuery := r.db.Table("posts").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
+		Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED)
 
 	if len(tags) > 0 {
 		countQuery = countQuery.Where("tags && ?", pq.StringArray(tags))
@@ -284,6 +285,7 @@ func (r *PostRepositoryImpl) GetPostsByCommunityID(communityID uint64, sortBy st
 
 	query := r.db.Table("posts").
 		Select(selectFields).
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	query = query.Where("posts.community_id = ? AND posts.status = ?", communityID, constant.POST_STATUS_APPROVED)
@@ -327,7 +329,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	// Count total APPROVED posts matching title with tag filter and private community access check
 	countQuery := r.db.Table("posts").
-		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Where("posts.status = ?", constant.POST_STATUS_APPROVED)
 
 	if userID == nil {
@@ -363,7 +365,7 @@ func (r *PostRepositoryImpl) SearchPostsByTitle(title, sortBy string, page, limi
 
 	query := r.db.Table("posts").
 		Select(selectFields).
-		Joins("INNER JOIN communities ON posts.community_id = communities.id").
+		Joins("INNER JOIN communities ON posts.community_id = communities.id AND communities.deleted_at IS NULL").
 		Joins("LEFT JOIN comments ON posts.id = comments.post_id AND comments.deleted_at IS NULL")
 
 	if userID == nil {
