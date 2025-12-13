@@ -147,7 +147,13 @@ func (r *SubscriptionRepositoryImpl) GetCommunitiesByUserID(userID uint64) ([]*m
 		}
 
 		var communities []*model.Community
-		if err := r.db.Where("id IN ?", communityIDs).Find(&communities).Error; err != nil {
+		err := r.db.Table("communities").
+			Select("communities.*, COALESCE(COUNT(DISTINCT subscriptions.user_id), 0) as member_count").
+			Joins("LEFT JOIN subscriptions ON subscriptions.community_id = communities.id AND subscriptions.status = ?", constant.SUBSCRIPTION_STATUS_APPROVED).
+			Where("communities.id IN ?", communityIDs).
+			Group("communities.id").
+			Find(&communities).Error
+		if err != nil {
 			return nil, err
 		}
 
