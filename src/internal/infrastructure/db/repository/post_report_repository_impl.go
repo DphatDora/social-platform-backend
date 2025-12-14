@@ -26,8 +26,9 @@ func (r *PostReportRepositoryImpl) GetPostReportsByCommunityID(communityID uint6
 	offset := (page - 1) * limit
 
 	if err := r.db.Table("post_reports").
+		Select("COUNT(DISTINCT post_reports.post_id)").
 		Joins("JOIN posts ON post_reports.post_id = posts.id").
-		Where("posts.community_id = ?", communityID).
+		Where("posts.community_id = ? AND posts.deleted_at IS NULL", communityID).
 		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -36,7 +37,7 @@ func (r *PostReportRepositoryImpl) GetPostReportsByCommunityID(communityID uint6
 	err := r.db.Table("post_reports").
 		Select("post_reports.*").
 		Joins("JOIN posts ON post_reports.post_id = posts.id").
-		Where("posts.community_id = ?", communityID).
+		Where("posts.community_id = ? AND posts.deleted_at IS NULL", communityID).
 		Order("post_reports.created_at DESC").
 		Offset(offset).
 		Limit(limit).
@@ -60,10 +61,6 @@ func (r *PostReportRepositoryImpl) DeletePostReport(id uint64) error {
 	}
 
 	return r.db.Where("post_id = ?", report.PostID).Delete(&model.PostReport{}).Error
-}
-
-func (r *PostReportRepositoryImpl) DeletePostReportsByPostID(postID uint64) error {
-	return r.db.Where("post_id = ?", postID).Delete(&model.PostReport{}).Error
 }
 
 func (r *PostReportRepositoryImpl) IsUserReportedPost(userID, postID uint64) (bool, error) {

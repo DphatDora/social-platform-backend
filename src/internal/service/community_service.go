@@ -686,11 +686,7 @@ func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uin
 		return fmt.Errorf("post not found in this community")
 	}
 
-	// Delete all reports for this post
-	if err := s.postReportRepo.DeletePostReportsByPostID(postID); err != nil {
-		log.Printf("[Warning] Error deleting post reports in CommunityService.DeletePostByModerator: %v", err)
-	}
-
+	// Delete post
 	if err := s.postRepo.DeletePost(postID); err != nil {
 		log.Printf("[Err] Error deleting post in CommunityService.DeletePostByModerator: %v", err)
 		return fmt.Errorf("failed to delete post")
@@ -745,11 +741,6 @@ func (s *CommunityService) DeleteCommentByModerator(userID, communityID, comment
 	if post.CommunityID != communityID {
 		log.Printf("[Err] Comment does not belong to community in CommunityService.DeleteCommentByModerator: commentID=%d, communityID=%d", commentID, communityID)
 		return fmt.Errorf("comment not found in this community")
-	}
-
-	// Delete all reports for this comment
-	if err := s.commentReportRepo.DeleteCommentReportsByCommentID(commentID); err != nil {
-		log.Printf("[Warning] Error deleting comment reports in CommunityService.DeleteCommentByModerator: %v", err)
 	}
 
 	if err := s.commentRepo.DeleteComment(commentID, comment.ParentCommentID); err != nil {
