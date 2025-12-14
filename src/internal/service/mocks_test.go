@@ -563,6 +563,11 @@ func (m *MockCommentReportRepository) DeleteCommentReport(id uint64) error {
 	return args.Error(0)
 }
 
+func (m *MockCommentReportRepository) DeleteCommentReportsByCommentID(commentID uint64) error {
+	args := m.Called(commentID)
+	return args.Error(0)
+}
+
 func (m *MockCommentReportRepository) IsUserReportedComment(userID, commentID uint64) (bool, error) {
 	args := m.Called(userID, commentID)
 	return args.Bool(0), args.Error(1)

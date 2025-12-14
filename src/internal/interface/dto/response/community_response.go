@@ -68,24 +68,26 @@ func NewCommunityListResponse(community *model.Community) *CommunityListResponse
 }
 
 type MemberListResponse struct {
-	UserID       uint64    `json:"userId"`
-	Username     string    `json:"username"`
-	Avatar       *string   `json:"avatar,omitempty"`
-	Karma        uint64    `json:"karma"`
-	Role         string    `json:"role"`
-	SubscribedAt time.Time `json:"subscribedAt"`
-	Status       string    `json:"status"`
+	UserID         uint64    `json:"userId"`
+	Username       string    `json:"username"`
+	Avatar         *string   `json:"avatar,omitempty"`
+	Karma          uint64    `json:"karma"`
+	Role           string    `json:"role"`
+	SubscribedAt   time.Time `json:"subscribedAt"`
+	Status         string    `json:"status"`
+	IsBannedBefore bool      `json:"isBannedBefore"`
 }
 
-func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string, status string) *MemberListResponse {
+func NewMemberListResponse(user *model.User, subscribedAt time.Time, role string, status string, isBannedBefore bool) *MemberListResponse {
 	return &MemberListResponse{
-		UserID:       user.ID,
-		Username:     user.Username,
-		Avatar:       user.Avatar,
-		Karma:        user.Karma,
-		Role:         role,
-		SubscribedAt: subscribedAt,
-		Status:       status,
+		UserID:         user.ID,
+		Username:       user.Username,
+		Avatar:         user.Avatar,
+		Karma:          user.Karma,
+		Role:           role,
+		SubscribedAt:   subscribedAt,
+		Status:         status,
+		IsBannedBefore: isBannedBefore,
 	}
 }
 

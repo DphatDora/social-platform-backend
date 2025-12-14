@@ -49,7 +49,14 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 	}
 
 	query := r.db.Table("subscriptions").
-		Select("subscriptions.*, community_moderators.role as moderator_role").
+		Select(`subscriptions.*, 
+			community_moderators.role as moderator_role,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM user_restrictions 
+				WHERE user_restrictions.user_id = subscriptions.user_id 
+				AND user_restrictions.community_id = subscriptions.community_id 
+				AND user_restrictions.restriction_type IN ('temporary_ban', 'permanent_ban')
+			) THEN true ELSE false END as is_banned_before`).
 		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
 		Where("subscriptions.community_id = ? AND subscriptions.status = ?", communityID, status)
 
@@ -68,7 +75,14 @@ func (r *SubscriptionRepositoryImpl) GetCommunityMembers(communityID uint64, sor
 
 	// Reset query for actual data fetch with sorting
 	query = r.db.Table("subscriptions").
-		Select("subscriptions.*, community_moderators.role as moderator_role").
+		Select(`subscriptions.*, 
+			community_moderators.role as moderator_role,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM user_restrictions 
+				WHERE user_restrictions.user_id = subscriptions.user_id 
+				AND user_restrictions.community_id = subscriptions.community_id 
+				AND user_restrictions.restriction_type IN ('temporary_ban', 'permanent_ban')
+			) THEN true ELSE false END as is_banned_before`).
 		Joins("LEFT JOIN community_moderators ON subscriptions.user_id = community_moderators.user_id AND subscriptions.community_id = community_moderators.community_id").
 		Where("subscriptions.community_id = ? AND subscriptions.status = ?", communityID, status).
 		Preload("User")

@@ -62,6 +62,10 @@ func (r *PostReportRepositoryImpl) DeletePostReport(id uint64) error {
 	return r.db.Where("post_id = ?", report.PostID).Delete(&model.PostReport{}).Error
 }
 
+func (r *PostReportRepositoryImpl) DeletePostReportsByPostID(postID uint64) error {
+	return r.db.Where("post_id = ?", postID).Delete(&model.PostReport{}).Error
+}
+
 func (r *PostReportRepositoryImpl) IsUserReportedPost(userID, postID uint64) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.PostReport{}).
