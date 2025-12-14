@@ -11,6 +11,8 @@ type Subscription struct {
 	// Role in community
 	ModeratorRole *string `gorm:"column:moderator_role;<-:false"`
 
+	IsBannedBefore bool `gorm:"column:is_banned_before;<-:false"`
+
 	// relation
 	User      *User      `gorm:"foreignKey:UserID;references:ID"`
 	Community *Community `gorm:"foreignKey:CommunityID;references:ID"`

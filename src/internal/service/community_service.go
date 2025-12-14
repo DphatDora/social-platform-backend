@@ -424,7 +424,8 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 		if subscription.ModeratorRole != nil && *subscription.ModeratorRole != "" {
 			role = *subscription.ModeratorRole
 		}
-		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt, role, subscription.Status)
+
+		memberResponses[i] = response.NewMemberListResponse(subscription.User, subscription.SubscribedAt, role, subscription.Status, subscription.IsBannedBefore)
 	}
 
 	// Set pagination
@@ -685,6 +686,11 @@ func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uin
 		return fmt.Errorf("post not found in this community")
 	}
 
+	// Delete all reports for this post
+	if err := s.postReportRepo.DeletePostReportsByPostID(postID); err != nil {
+		log.Printf("[Warning] Error deleting post reports in CommunityService.DeletePostByModerator: %v", err)
+	}
+
 	if err := s.postRepo.DeletePost(postID); err != nil {
 		log.Printf("[Err] Error deleting post in CommunityService.DeletePostByModerator: %v", err)
 		return fmt.Errorf("failed to delete post")
@@ -741,6 +747,11 @@ func (s *CommunityService) DeleteCommentByModerator(userID, communityID, comment
 		return fmt.Errorf("comment not found in this community")
 	}
 
+	// Delete all reports for this comment
+	if err := s.commentReportRepo.DeleteCommentReportsByCommentID(commentID); err != nil {
+		log.Printf("[Warning] Error deleting comment reports in CommunityService.DeleteCommentByModerator: %v", err)
+	}
+
 	if err := s.commentRepo.DeleteComment(commentID, comment.ParentCommentID); err != nil {
 		log.Printf("[Err] Error deleting comment in CommunityService.DeleteCommentByModerator: %v", err)
 		return fmt.Errorf("failed to delete comment")
@@ -789,6 +800,12 @@ func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, p
 	// Group reports by post
 	reportMap := make(map[uint64]*response.PostReportResponse)
 	for _, report := range reports {
+		// Skip reports where post is nil (shouldn't happen but safety check)
+		if report.Post == nil {
+			log.Printf("[Warning] Post is nil for report ID %d, PostID %d", report.ID, report.PostID)
+			continue
+		}
+
 		if reportMap[report.PostID] == nil {
 			reportMap[report.PostID] = response.NewPostReportResponse(
 				report.Post.ID,

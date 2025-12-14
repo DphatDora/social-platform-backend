@@ -63,6 +63,10 @@ func (r *CommentReportRepositoryImpl) DeleteCommentReport(id uint64) error {
 	return r.db.Where("comment_id = ?", report.CommentID).Delete(&model.CommentReport{}).Error
 }
 
+func (r *CommentReportRepositoryImpl) DeleteCommentReportsByCommentID(commentID uint64) error {
+	return r.db.Where("comment_id = ?", commentID).Delete(&model.CommentReport{}).Error
+}
+
 func (r *CommentReportRepositoryImpl) IsUserReportedComment(userID, commentID uint64) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.CommentReport{}).
