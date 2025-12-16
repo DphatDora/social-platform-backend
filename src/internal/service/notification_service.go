@@ -115,7 +115,8 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 		if err != nil {
 			log.Printf("[Err] Failed to render notification email body: %v", err)
 		} else {
-			go s.sendEmailNotification(user.Email, action, emailBody)
+			emailSubject := constant.EmailSubjectMap[action]
+			go s.sendEmailNotification(user.Email, emailSubject, emailBody)
 		}
 	}
 
