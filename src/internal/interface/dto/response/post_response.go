@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/package/template/payload"
 	"time"
@@ -47,6 +48,7 @@ func convertPollDataToResponse(pollDataRaw *json.RawMessage) *PollDataResponse {
 
 	var pollData payload.PollData
 	if err := json.Unmarshal(*pollDataRaw, &pollData); err != nil {
+		log.Printf("[Err] Error unmarshalling poll data in convertPollDataToResponse: %v, raw data: %s", err, string(*pollDataRaw))
 		return nil
 	}
 

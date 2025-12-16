@@ -1,1 +1,1 @@
-You have been banned from "{{.CommunityName}}". Reason: {{.Reason}}{{if .ExpiresAt}} (Expires: {{.ExpiresAt}}){{end}}
+{{if eq .RestrictionType "warning"}}You have received a warning in "{{.CommunityName}}". Reason: {{.Reason}}{{else}}You have been banned from "{{.CommunityName}}". Reason: {{.Reason}}{{if .ExpiresAt}} (Expires: {{.ExpiresAt}}){{end}}{{end}}

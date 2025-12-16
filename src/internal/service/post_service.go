@@ -84,6 +84,26 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 			log.Printf("[Err] Poll data is required for poll post in PostService.CreatePost")
 			return fmt.Errorf("poll_data is required for poll post")
 		}
+		// Validate poll data structure
+		var pollData payload.PollData
+		if err := json.Unmarshal(*req.PollData, &pollData); err != nil {
+			log.Printf("[Err] Invalid poll data format in PostService.CreatePost: %v", err)
+			return fmt.Errorf("invalid poll data format")
+		}
+		if pollData.Question == "" {
+			log.Printf("[Err] Poll question is required in PostService.CreatePost")
+			return fmt.Errorf("poll question is required")
+		}
+		if len(pollData.Options) < 2 {
+			log.Printf("[Err] Poll must have at least 2 options in PostService.CreatePost")
+			return fmt.Errorf("poll must have at least 2 options")
+		}
+		for i, option := range pollData.Options {
+			if option.Text == "" {
+				log.Printf("[Err] Poll option %d text is required in PostService.CreatePost", i)
+				return fmt.Errorf("poll option text is required")
+			}
+		}
 	default:
 		log.Printf("[Err] Invalid post type in PostService.CreatePost: %s", req.Type)
 		return fmt.Errorf("invalid post type")
