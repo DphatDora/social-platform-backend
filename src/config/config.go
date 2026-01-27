@@ -22,6 +22,7 @@ type Config struct {
 	Client   Client
 	Server   Server
 	Gemini   Gemini
+	Ollama   Ollama
 	Redis    Redis
 }
 
@@ -86,6 +87,11 @@ func bindEnvs() {
 
 	// Gemini
 	_ = viper.BindEnv("gemini.apiKey", "GEMINI_API_KEY")
+
+	// Ollama
+	_ = viper.BindEnv("ollama.baseURL", "OLLAMA_BASE_URL")
+	_ = viper.BindEnv("ollama.model", "OLLAMA_MODEL")
+	_ = viper.BindEnv("ollama.timeout", "OLLAMA_TIMEOUT")
 
 	// Redis
 	_ = viper.BindEnv("redis.host", "REDIS_HOST")

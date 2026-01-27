@@ -46,6 +46,11 @@ auth:
 gemini:
   apiKey:
 
+ollama:
+  baseURL:
+  model:
+  timeout:
+
 redis:
   host:
   port:
