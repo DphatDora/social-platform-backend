@@ -22,6 +22,7 @@ type AppHandler struct {
 	messageHandler      *handler.MessageHandler
 	notificationHandler *handler.NotificationHandler
 	sseHandler          *handler.SSEHandler
+	chatbotHandler      *handler.ChatbotHandler
 }
 
 func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *gin.Engine {
@@ -65,6 +66,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	postService := service.NewPostService(postRepo, communityRepo, subscriptionRepo, postVoteRepo, postReportRepo, botTaskRepo, userRepo, tagRepo, notificationService, botTaskService, recommendService)
 	commentService := service.NewCommentService(commentRepo, postRepo, commentVoteRepo, commentReportRepo, botTaskRepo, userRepo, userSavedPostRepo, notificationService, botTaskService)
 	communityService := service.NewCommunityService(communityRepo, subscriptionRepo, communityModeratorRepo, postRepo, postReportRepo, commentRepo, commentReportRepo, topicRepo, userRestrictionRepo, notificationService, botTaskService)
+	chatbotService := service.NewChatbotService(conf)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -75,7 +77,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	messageHandler := handler.NewMessageHandler(messageService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	sseHandler := handler.NewSSEHandler(sseService)
-
+	chatbotHandler := handler.NewChatbotHandler(chatbotService)
 	appHandler := &AppHandler{
 		userHandler:         userHandler,
 		communityHandler:    communityHandler,
@@ -85,6 +87,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 		messageHandler:      messageHandler,
 		notificationHandler: notificationHandler,
 		sseHandler:          sseHandler,
+		chatbotHandler:      chatbotHandler,
 	}
 
 	// Setup route groups
@@ -244,6 +247,12 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *con
 		{
 			sse.GET("/stream", appHandler.sseHandler.Stream)
 			sse.GET("/conversations/:conversationId", appHandler.sseHandler.StreamConversationMessages)
+		}
+
+		chatbot := protected.Group("/chatbot")
+		chatbot.Use(middleware.APIRateLimitMiddleware(redisClient))
+		{
+			chatbot.POST("/stream", appHandler.chatbotHandler.StreamChat)
 		}
 	}
 }
