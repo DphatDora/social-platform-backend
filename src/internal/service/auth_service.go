@@ -72,7 +72,6 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		Email:        req.Email,
 		Password:     &hashedPassword,
 		IsActive:     false,
-		Role:         constant.ROLE_USER,
 		Karma:        0,
 		AuthProvider: "email",
 	}
@@ -571,7 +570,6 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		GoogleID:     &googleUserInfo.GoogleID,
 		AuthProvider: constant.ACCOUNT_TYPE_GOOGLE,
 		IsActive:     true,
-		Role:         constant.ROLE_USER,
 		Karma:        0,
 		Avatar:       avatar,
 	}

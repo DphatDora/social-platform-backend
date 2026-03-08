@@ -8,7 +8,6 @@ import (
 
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/interface/dto/request"
-	"social-platform-backend/package/constant"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -263,7 +262,6 @@ func TestAuthService_Login_Success(t *testing.T) {
 		Password:     &hashedPassword,
 		IsActive:     true,
 		AuthProvider: "email",
-		Role:         constant.ROLE_USER,
 	}
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(user, nil)

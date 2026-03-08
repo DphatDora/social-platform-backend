@@ -6,7 +6,6 @@ import (
 
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/interface/dto/request"
-	"social-platform-backend/package/constant"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -32,7 +31,6 @@ func TestUserService_GetUserProfile_Success(t *testing.T) {
 		Username:     "testuser",
 		Email:        "test@example.com",
 		IsActive:     true,
-		Role:         constant.ROLE_USER,
 		Karma:        100,
 		AuthProvider: "email",
 	}
@@ -394,7 +392,6 @@ func TestUserService_GetUserConfig_Success(t *testing.T) {
 		Username: "testuser",
 		Email:    "test@example.com",
 		IsActive: true,
-		Role:     constant.ROLE_USER,
 	}
 
 	moderators := []*model.CommunityModerator{}
