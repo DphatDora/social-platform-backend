@@ -77,6 +77,18 @@ func (r *UserRepositoryImpl) UpdateUserProfile(id uint64, updateUser *request.Up
 	if updateUser.Bio != nil {
 		updates["bio"] = *updateUser.Bio
 	}
+	if updateUser.DateOfBirth != nil {
+		updates["date_of_birth"] = *updateUser.DateOfBirth
+	}
+	if updateUser.Gender != nil {
+		updates["gender"] = *updateUser.Gender
+	}
+	if updateUser.Phone != nil {
+		updates["phone"] = *updateUser.Phone
+	}
+	if updateUser.Address != nil {
+		updates["address"] = *updateUser.Address
+	}
 	if updateUser.Avatar != nil {
 		updates["avatar"] = *updateUser.Avatar
 	}
