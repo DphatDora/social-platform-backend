@@ -13,20 +13,16 @@ func CORSMiddleware(whitelist []string) gin.HandlerFunc {
 
 		// Check if origin is in whitelist
 		allowed := false
-		if len(whitelist) == 0 {
-			allowed = true
-			origin = "*"
-		} else {
-			for _, allowedOrigin := range whitelist {
-				if strings.TrimSpace(allowedOrigin) == origin {
-					allowed = true
-					break
-				}
+		for _, allowedOrigin := range whitelist {
+			if strings.TrimSpace(allowedOrigin) == origin {
+				allowed = true
+				break
 			}
 		}
 
-		if allowed {
+		if allowed && origin != "" {
 			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, Authorization, X-Requested-With")
 			c.Header("Access-Control-Expose-Headers", "Content-Length, Authorization")
@@ -35,7 +31,11 @@ func CORSMiddleware(whitelist []string) gin.HandlerFunc {
 		}
 
 		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
+			if allowed {
+				c.AbortWithStatus(http.StatusNoContent)
+			} else {
+				c.AbortWithStatus(http.StatusForbidden)
+			}
 			return
 		}
 

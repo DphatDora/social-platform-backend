@@ -8,6 +8,7 @@ import (
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
+	"social-platform-backend/package/util"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -125,10 +126,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Set refresh token as HTTP-only cookie
+	util.SetRefreshTokenCookie(c, loginResponse.RefreshToken)
+
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Login successful",
-		Data:    loginResponse,
+		Data: response.LoginResponse{
+			AccessToken: loginResponse.AccessToken,
+		},
 	})
 }
 
@@ -360,9 +366,83 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 		return
 	}
 
+	// Set refresh token as HTTP-only cookie
+	util.SetRefreshTokenCookie(c, loginResponse.RefreshToken)
+
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Google login successful",
-		Data:    loginResponse,
+		Data: response.LoginResponse{
+			AccessToken: loginResponse.AccessToken,
+		},
+	})
+}
+
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// Get refresh token from HTTP-only cookie
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil || refreshToken == "" {
+		log.Printf("[Err] Missing refresh token cookie in AuthHandler.RefreshToken: %v", err)
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Missing refresh token",
+		})
+		return
+	}
+
+	refreshResponse, err := h.authService.RefreshToken(refreshToken)
+	if err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.RefreshToken: %v", err)
+		util.ClearRefreshTokenCookie(c)
+		c.JSON(http.StatusUnauthorized, response.APIResponse{
+			Success: false,
+			Message: "Invalid or expired refresh token",
+		})
+		return
+	}
+
+	// Set new refresh token as HTTP-only cookie
+	util.SetRefreshTokenCookie(c, refreshResponse.RefreshToken)
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Token refreshed successfully",
+		Data: response.RefreshTokenResponse{
+			AccessToken: refreshResponse.AccessToken,
+		},
+	})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// Get refresh token from HTTP-only cookie
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil || refreshToken == "" {
+		log.Printf("[Err] Missing refresh token cookie in AuthHandler.Logout: %v", err)
+		// Still clear the cookie and return success
+		util.ClearRefreshTokenCookie(c)
+		c.JSON(http.StatusOK, response.APIResponse{
+			Success: true,
+			Message: "Logout successful",
+		})
+		return
+	}
+
+	if err := h.authService.Logout(refreshToken); err != nil {
+		log.Printf("[Err] Error in service layer AuthHandler.Logout: %v", err)
+		// Still clear the cookie even if service fails
+		util.ClearRefreshTokenCookie(c)
+		c.JSON(http.StatusInternalServerError, response.APIResponse{
+			Success: false,
+			Message: "Failed to logout",
+		})
+		return
+	}
+
+	// Clear the refresh token cookie
+	util.ClearRefreshTokenCookie(c)
+
+	c.JSON(http.StatusOK, response.APIResponse{
+		Success: true,
+		Message: "Logout successful",
 	})
 }
