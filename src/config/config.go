@@ -63,6 +63,7 @@ func bindEnvs() {
 	_ = viper.BindEnv("app.name", "APP_NAME")
 	_ = viper.BindEnv("app.host", "HOST")
 	_ = viper.BindEnv("app.port", "PORT")
+	_ = viper.BindEnv("app.debug", "DEBUG")
 
 	// Database
 	_ = viper.BindEnv("database.username", "DB_USER")

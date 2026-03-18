@@ -20,6 +20,7 @@ type AuthService struct {
 	userRepo                repository.UserRepository
 	verificationRepo        repository.UserVerificationRepository
 	passwordResetRepo       repository.PasswordResetRepository
+	refreshTokenRepo        repository.RefreshTokenRepository
 	botTaskRepo             repository.BotTaskRepository
 	communityModeratorRepo  repository.CommunityModeratorRepository
 	notificationSettingRepo repository.NotificationSettingRepository
@@ -31,6 +32,7 @@ func NewAuthService(
 	userRepo repository.UserRepository,
 	verificationRepo repository.UserVerificationRepository,
 	passwordResetRepo repository.PasswordResetRepository,
+	refreshTokenRepo repository.RefreshTokenRepository,
 	botTaskRepo repository.BotTaskRepository,
 	communityModeratorRepo repository.CommunityModeratorRepository,
 	notificationSettingRepo repository.NotificationSettingRepository,
@@ -41,6 +43,7 @@ func NewAuthService(
 		userRepo:                userRepo,
 		verificationRepo:        verificationRepo,
 		passwordResetRepo:       passwordResetRepo,
+		refreshTokenRepo:        refreshTokenRepo,
 		botTaskRepo:             botTaskRepo,
 		communityModeratorRepo:  communityModeratorRepo,
 		notificationSettingRepo: notificationSettingRepo,
@@ -214,15 +217,33 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 		user.ID,
 		conf.Auth.AccessTokenExpirationMinutes,
 		conf.Auth.JWTSecret,
-		user.PasswordChangedAt,
 	)
 	if err != nil {
 		log.Printf("[Err] Error generating JWT token in AuthService.Login: %v", err)
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
+	refreshTokenString, err := util.GenerateToken(64)
+	if err != nil {
+		log.Printf("[Err] Error generating refresh token in AuthService.Login: %v", err)
+		return nil, fmt.Errorf("failed to generate refresh token")
+	}
+
+	refreshToken := &model.RefreshToken{
+		UserID:    user.ID,
+		Token:     refreshTokenString,
+		ExpiredAt: time.Now().Add(time.Duration(conf.Auth.RefreshTokenExpirationDays) * 24 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
+		log.Printf("[Err] Error storing refresh token in AuthService.Login: %v", err)
+		return nil, fmt.Errorf("failed to store refresh token")
+	}
+
 	loginResponse := &response.LoginResponse{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenString,
 	}
 
 	return loginResponse, nil
@@ -501,15 +522,33 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 			existingUser.ID,
 			conf.Auth.AccessTokenExpirationMinutes,
 			conf.Auth.JWTSecret,
-			existingUser.PasswordChangedAt,
 		)
 		if err != nil {
 			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate access token")
 		}
 
+		refreshTokenString, err := util.GenerateToken(64)
+		if err != nil {
+			log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to generate refresh token")
+		}
+
+		refreshToken := &model.RefreshToken{
+			UserID:    existingUser.ID,
+			Token:     refreshTokenString,
+			ExpiredAt: time.Now().Add(time.Duration(conf.Auth.RefreshTokenExpirationDays) * 24 * time.Hour),
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
+			log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to store refresh token")
+		}
+
 		return &response.LoginResponse{
-			AccessToken: accessToken,
+			AccessToken:  accessToken,
+			RefreshToken: refreshTokenString,
 		}, nil
 	}
 
@@ -541,15 +580,33 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 			existingUser.ID,
 			conf.Auth.AccessTokenExpirationMinutes,
 			conf.Auth.JWTSecret,
-			existingUser.PasswordChangedAt,
 		)
 		if err != nil {
 			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate access token")
 		}
 
+		refreshTokenString, err := util.GenerateToken(64)
+		if err != nil {
+			log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to generate refresh token")
+		}
+
+		refreshToken := &model.RefreshToken{
+			UserID:    existingUser.ID,
+			Token:     refreshTokenString,
+			ExpiredAt: time.Now().Add(time.Duration(conf.Auth.RefreshTokenExpirationDays) * 24 * time.Hour),
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
+			log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+			return nil, fmt.Errorf("failed to store refresh token")
+		}
+
 		return &response.LoginResponse{
-			AccessToken: accessToken,
+			AccessToken:  accessToken,
+			RefreshToken: refreshTokenString,
 		}, nil
 	}
 
@@ -618,14 +675,100 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		newUser.ID,
 		conf.Auth.AccessTokenExpirationMinutes,
 		conf.Auth.JWTSecret,
-		newUser.PasswordChangedAt,
 	)
 	if err != nil {
 		log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
+	refreshTokenString, err := util.GenerateToken(64)
+	if err != nil {
+		log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+		return nil, fmt.Errorf("failed to generate refresh token")
+	}
+
+	refreshToken := &model.RefreshToken{
+		UserID:    newUser.ID,
+		Token:     refreshTokenString,
+		ExpiredAt: time.Now().Add(time.Duration(conf.Auth.RefreshTokenExpirationDays) * 24 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
+		log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+		return nil, fmt.Errorf("failed to store refresh token")
+	}
+
 	return &response.LoginResponse{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenString,
 	}, nil
+}
+
+func (s *AuthService) RefreshToken(refreshToken string) (*response.RefreshTokenResponse, error) {
+	// Verify Refresh Token exists and not expired
+	storedToken, err := s.refreshTokenRepo.GetRefreshTokenByToken(refreshToken)
+	if err != nil {
+		log.Printf("[Err] Invalid refresh token in AuthService.RefreshToken: %v", err)
+		return nil, fmt.Errorf("invalid or expired refresh token")
+	}
+
+	user, err := s.userRepo.GetUserByID(storedToken.UserID)
+	if err != nil {
+		log.Printf("[Err] User not found in AuthService.RefreshToken: %v", err)
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if !user.IsActive {
+		log.Printf("[Err] User %d is not active in AuthService.RefreshToken", user.ID)
+		return nil, fmt.Errorf("user account is inactive")
+	}
+
+	conf := config.GetConfig()
+
+	newAccessToken, err := util.GenerateJWT(
+		user.ID,
+		conf.Auth.AccessTokenExpirationMinutes,
+		conf.Auth.JWTSecret,
+	)
+	if err != nil {
+		log.Printf("[Err] Error generating new access token in AuthService.RefreshToken: %v", err)
+		return nil, fmt.Errorf("failed to generate access token")
+	}
+
+	newRefreshTokenString, err := util.GenerateToken(64)
+	if err != nil {
+		log.Printf("[Err] Error generating new refresh token in AuthService.RefreshToken: %v", err)
+		return nil, fmt.Errorf("failed to generate refresh token")
+	}
+
+	if err := s.refreshTokenRepo.DeleteRefreshToken(storedToken.ID); err != nil {
+		log.Printf("[Err] Error deleting old refresh token in AuthService.RefreshToken: %v", err)
+	}
+
+	newRefreshToken := &model.RefreshToken{
+		UserID:    user.ID,
+		Token:     newRefreshTokenString,
+		ExpiredAt: time.Now().Add(time.Duration(conf.Auth.RefreshTokenExpirationDays) * 24 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.refreshTokenRepo.CreateRefreshToken(newRefreshToken); err != nil {
+		log.Printf("[Err] Error storing new refresh token in AuthService.RefreshToken: %v", err)
+		return nil, fmt.Errorf("failed to store refresh token")
+	}
+
+	return &response.RefreshTokenResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshTokenString,
+	}, nil
+}
+
+func (s *AuthService) Logout(refreshToken string) error {
+	if err := s.refreshTokenRepo.DeleteRefreshTokenByToken(refreshToken); err != nil {
+		log.Printf("[Err] Error deleting refresh token in AuthService.Logout: %v", err)
+		return fmt.Errorf("failed to logout")
+	}
+
+	return nil
 }
