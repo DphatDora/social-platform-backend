@@ -20,6 +20,7 @@ type UserService struct {
 	subscriptionRepo       repository.SubscriptionRepository
 	userSavedPostRepo      repository.UserSavedPostRepository
 	postRepo               repository.PostRepository
+	refreshTokenRepo       repository.RefreshTokenRepository
 	botTaskService         *BotTaskService
 	redisClient            *redis.Client
 }
@@ -31,6 +32,7 @@ func NewUserService(
 	subscriptionRepo repository.SubscriptionRepository,
 	userSavedPostRepo repository.UserSavedPostRepository,
 	postRepo repository.PostRepository,
+	refreshTokenRepo repository.RefreshTokenRepository,
 	botTaskService *BotTaskService,
 	redisClient *redis.Client,
 ) *UserService {
@@ -41,6 +43,7 @@ func NewUserService(
 		subscriptionRepo:       subscriptionRepo,
 		userSavedPostRepo:      userSavedPostRepo,
 		postRepo:               postRepo,
+		refreshTokenRepo:       refreshTokenRepo,
 		botTaskService:         botTaskService,
 		redisClient:            redisClient,
 	}
@@ -128,6 +131,11 @@ func (s *UserService) ChangePassword(userID uint64, changePasswordReq *request.C
 		if err := util.InvalidatePasswordCache(s.redisClient, userID); err != nil {
 			log.Printf("[Warn] Error invalidating password cache for user %d: %v", userID, err)
 		}
+	}
+
+	// Delete all Refresh Tokens to force re-login on all devices
+	if err := s.refreshTokenRepo.DeleteAllRefreshTokensByUserID(userID); err != nil {
+		log.Printf("[Err] Error deleting refresh tokens for user %d: %v", userID, err)
 	}
 
 	return nil

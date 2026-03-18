@@ -8,7 +8,7 @@ app:
   name:
   host:
   port:
-  debug: true
+  debug:
   readTimeout: 10
   writeTimeout: 30
   whitelist:
@@ -36,7 +36,8 @@ log:
 
 auth:
   verifyTokenExpirationMinutes: 10
-  accessTokenExpirationMinutes: 60
+  accessTokenExpirationMinutes: 5
+  refreshTokenExpirationDays: 7
   resetTokenExpirationMinutes: 10
   jwtSecret:
   googleClientId:

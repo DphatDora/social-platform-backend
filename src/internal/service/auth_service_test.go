@@ -30,6 +30,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 		mockUserRepo,
 		mockVerificationRepo,
 		mockPasswordResetRepo,
+		nil,
 		mockBotTaskRepo,
 		nil,
 		mockNotificationSettingRepo,
@@ -67,6 +68,7 @@ func TestAuthService_Register_EmailAlreadyExists(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	req := &request.RegisterRequest{
@@ -89,6 +91,7 @@ func TestAuthService_Register_CheckEmailError(t *testing.T) {
 
 	authService := NewAuthService(
 		mockUserRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -126,6 +129,7 @@ func TestAuthService_Register_CreateUserError(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	req := &request.RegisterRequest{
@@ -151,6 +155,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	authService := NewAuthService(
 		mockUserRepo,
 		mockVerificationRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -191,6 +196,7 @@ func TestAuthService_VerifyEmail_InvalidToken(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	token := "invalid-token"
@@ -209,6 +215,7 @@ func TestAuthService_VerifyEmail_ExpiredToken(t *testing.T) {
 	authService := NewAuthService(
 		nil,
 		mockVerificationRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -241,6 +248,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	authService := NewAuthService(
 		mockUserRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -286,6 +294,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	req := &request.LoginRequest{
@@ -308,6 +317,7 @@ func TestAuthService_Login_UserNotActive(t *testing.T) {
 
 	authService := NewAuthService(
 		mockUserRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -353,6 +363,7 @@ func TestAuthService_Login_NoPassword(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	req := &request.LoginRequest{
@@ -383,6 +394,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 
 	authService := NewAuthService(
 		mockUserRepo,
+		nil,
 		nil,
 		nil,
 		nil,

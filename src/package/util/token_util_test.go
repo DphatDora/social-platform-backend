@@ -53,9 +53,8 @@ func TestGenerateJWT_Success(t *testing.T) {
 	userID := uint64(12345)
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
-	now := time.Now()
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, &now)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, token)
@@ -66,7 +65,7 @@ func TestGenerateJWT_WithoutPasswordChangedAt(t *testing.T) {
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, nil)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, token)
@@ -76,8 +75,8 @@ func TestGenerateJWT_DifferentUserIDs(t *testing.T) {
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
 
-	token1, err1 := GenerateJWT(1, expirationMinutes, secret, nil)
-	token2, err2 := GenerateJWT(2, expirationMinutes, secret, nil)
+	token1, err1 := GenerateJWT(1, expirationMinutes, secret)
+	token2, err2 := GenerateJWT(2, expirationMinutes, secret)
 
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
@@ -88,17 +87,16 @@ func TestVerifyJWT_Success(t *testing.T) {
 	userID := uint64(12345)
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
-	now := time.Now()
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, &now)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 	assert.NoError(t, err)
 
 	claims, err := VerifyJWT(token, secret)
 	assert.NoError(t, err)
 	assert.NotNil(t, claims)
 	assert.Equal(t, userID, claims.UserID)
-	assert.NotNil(t, claims.PasswordChangedAt)
-	assert.Equal(t, now.Unix(), *claims.PasswordChangedAt)
+	assert.NotNil(t, claims.ExpiresAt)
+	assert.NotNil(t, claims.IssuedAt)
 }
 
 func TestVerifyJWT_WrongSecret(t *testing.T) {
@@ -107,7 +105,7 @@ func TestVerifyJWT_WrongSecret(t *testing.T) {
 	secret := "test-secret-key-12345"
 	wrongSecret := "wrong-secret-key"
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, nil)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 	assert.NoError(t, err)
 
 	claims, err := VerifyJWT(token, wrongSecret)
@@ -129,7 +127,7 @@ func TestVerifyJWT_ExpiredToken(t *testing.T) {
 	expirationMinutes := -1
 	secret := "test-secret-key-12345"
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, nil)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 	assert.NoError(t, err)
 
 	time.Sleep(2 * time.Second)
@@ -147,30 +145,30 @@ func TestVerifyJWT_EmptyToken(t *testing.T) {
 	assert.Nil(t, claims)
 }
 
-func TestJWTClaims_PasswordChangedAt(t *testing.T) {
+func TestJWTClaims_BackwardCompatiblePasswordChangedAtParam(t *testing.T) {
 	userID := uint64(12345)
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
-	passwordChangedAt := time.Now().Add(-24 * time.Hour)
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, &passwordChangedAt)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 	assert.NoError(t, err)
 
 	claims, err := VerifyJWT(token, secret)
 	assert.NoError(t, err)
-	assert.NotNil(t, claims.PasswordChangedAt)
-	assert.Equal(t, passwordChangedAt.Unix(), *claims.PasswordChangedAt)
+	assert.NotNil(t, claims)
+	assert.Equal(t, userID, claims.UserID)
 }
 
-func TestJWTClaims_NoPasswordChangedAt(t *testing.T) {
+func TestJWTClaims_NoPasswordChangedAtParam(t *testing.T) {
 	userID := uint64(12345)
 	expirationMinutes := 60
 	secret := "test-secret-key-12345"
 
-	token, err := GenerateJWT(userID, expirationMinutes, secret, nil)
+	token, err := GenerateJWT(userID, expirationMinutes, secret)
 	assert.NoError(t, err)
 
 	claims, err := VerifyJWT(token, secret)
 	assert.NoError(t, err)
-	assert.Nil(t, claims.PasswordChangedAt)
+	assert.NotNil(t, claims)
+	assert.Equal(t, userID, claims.UserID)
 }
