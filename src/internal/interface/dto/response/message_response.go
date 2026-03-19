@@ -68,16 +68,25 @@ type SenderInfo struct {
 	Avatar   *string `json:"avatar,omitempty"`
 }
 
+type MetaDataResponse struct {
+	ID        uint64   `json:"id"`
+	Title     string   `json:"title"`
+	Tags      []string `json:"tags"`
+	Content   string   `json:"content"`
+	MediaURLs []string `json:"mediaUrls"`
+}
+
 type MessageResponse struct {
-	ID             uint64     `json:"id"`
-	ConversationID uint64     `json:"conversationId"`
-	Sender         SenderInfo `json:"sender"`
-	Content        string     `json:"content"`
-	IsRead         bool       `json:"isRead"`
-	ReadAt         *time.Time `json:"readAt,omitempty"`
-	Attachments    []string   `json:"attachments,omitempty"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	IsDeleted      bool       `json:"isDeleted"`
+	ID             uint64            `json:"id"`
+	ConversationID uint64            `json:"conversationId"`
+	Sender         SenderInfo        `json:"sender"`
+	Content        string            `json:"content"`
+	IsRead         bool              `json:"isRead"`
+	ReadAt         *time.Time        `json:"readAt,omitempty"`
+	Attachments    []string          `json:"attachments,omitempty"`
+	MetaData       *MetaDataResponse `json:"metadata,omitempty"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	IsDeleted      bool              `json:"isDeleted"`
 }
 
 func NewMessageResponse(message *model.Message) *MessageResponse {
@@ -88,11 +97,19 @@ func NewMessageResponse(message *model.Message) *MessageResponse {
 		ReadAt:         message.ReadAt,
 		CreatedAt:      message.CreatedAt,
 		IsDeleted:      message.DeletedAt.Valid,
+		MetaData: &MetaDataResponse{
+			ID:        message.MetaData.ID,
+			Title:     message.MetaData.Title,
+			Tags:      message.MetaData.Tags,
+			Content:   message.MetaData.Content,
+			MediaURLs: message.MetaData.MediaURLs,
+		},
 	}
 
 	if message.DeletedAt.Valid {
 		resp.Content = "This message has been deleted"
 		resp.Attachments = nil
+		resp.MetaData = nil
 	} else {
 		resp.Content = message.Content
 
