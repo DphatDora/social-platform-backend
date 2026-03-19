@@ -23,7 +23,7 @@ type Message struct {
 	IsRead         bool           `gorm:"column:is_read"`
 	ReadAt         *time.Time     `gorm:"column:read_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at"`
-	MetaData       *MetaData      `gorm:"column:meta_data"`
+	MetaData       *MetaData      `gorm:"column:meta_data;type:jsonb;serializer:json"`
 	// relation
 	Sender       *User               `gorm:"foreignKey:SenderID;references:ID"`
 	Conversation *Conversation       `gorm:"foreignKey:ConversationID;references:ID"`
