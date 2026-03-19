@@ -6,6 +6,14 @@ import (
 	"gorm.io/gorm"
 )
 
+type MetaData struct {
+	ID        uint64   `json:"id"`
+	Title     string   `json:"title"`
+	Tags      []string `json:"tags"`
+	Content   string   `json:"content"`
+	MediaURLs []string `json:"mediaUrls"`
+}
+
 type Message struct {
 	ID             uint64         `gorm:"column:id;primaryKey"`
 	ConversationID uint64         `gorm:"column:conversation_id"`
@@ -15,7 +23,7 @@ type Message struct {
 	IsRead         bool           `gorm:"column:is_read"`
 	ReadAt         *time.Time     `gorm:"column:read_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at"`
-
+	MetaData       *MetaData      `gorm:"column:meta_data"`
 	// relation
 	Sender       *User               `gorm:"foreignKey:SenderID;references:ID"`
 	Conversation *Conversation       `gorm:"foreignKey:ConversationID;references:ID"`
