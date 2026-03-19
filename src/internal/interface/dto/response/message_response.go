@@ -97,13 +97,16 @@ func NewMessageResponse(message *model.Message) *MessageResponse {
 		ReadAt:         message.ReadAt,
 		CreatedAt:      message.CreatedAt,
 		IsDeleted:      message.DeletedAt.Valid,
-		MetaData: &MetaDataResponse{
+	}
+
+	if message.MetaData != nil {
+		resp.MetaData = &MetaDataResponse{
 			ID:        message.MetaData.ID,
 			Title:     message.MetaData.Title,
 			Tags:      message.MetaData.Tags,
 			Content:   message.MetaData.Content,
 			MediaURLs: message.MetaData.MediaURLs,
-		},
+		}
 	}
 
 	if message.DeletedAt.Valid {
