@@ -47,11 +47,23 @@ func (s *MessageService) SendMessage(senderID uint64, req *request.SendMessageRe
 		return nil, fmt.Errorf("failed to create conversation")
 	}
 
+	var metaData *model.MetaData
+	if req.MetaData != nil {
+		metaData = &model.MetaData{
+			ID:        req.MetaData.ID,
+			Title:     req.MetaData.Title,
+			Tags:      req.MetaData.Tags,
+			Content:   req.MetaData.Content,
+			MediaURLs: req.MetaData.MediaURLs,
+		}
+	}
+
 	message := &model.Message{
 		ConversationID: conversation.ID,
 		SenderID:       senderID,
 		Content:        req.Content,
 		IsRead:         false,
+		MetaData:       metaData,
 	}
 
 	if err := s.messageRepo.CreateMessage(message); err != nil {
