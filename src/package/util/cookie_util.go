@@ -11,6 +11,12 @@ func SetRefreshTokenCookie(c *gin.Context, refreshToken string) {
 	conf := config.GetConfig()
 	maxAge := conf.Auth.RefreshTokenExpirationDays * 24 * 60 * 60
 
+	if conf.App.Debug {
+		c.SetSameSite(http.SameSiteLaxMode)
+	} else {
+		c.SetSameSite(http.SameSiteNoneMode)
+	}
+
 	c.SetCookie(
 		"refreshToken",          // name
 		refreshToken,            // value
@@ -20,16 +26,16 @@ func SetRefreshTokenCookie(c *gin.Context, refreshToken string) {
 		conf.App.Debug == false, // secure (HTTPS only in production)
 		true,                    // httpOnly
 	)
+}
+
+func ClearRefreshTokenCookie(c *gin.Context) {
+	conf := config.GetConfig()
 
 	if conf.App.Debug {
 		c.SetSameSite(http.SameSiteLaxMode)
 	} else {
 		c.SetSameSite(http.SameSiteNoneMode)
 	}
-}
-
-func ClearRefreshTokenCookie(c *gin.Context) {
-	conf := config.GetConfig()
 
 	c.SetCookie(
 		"refreshToken",
@@ -40,10 +46,4 @@ func ClearRefreshTokenCookie(c *gin.Context) {
 		conf.App.Debug == false,
 		true,
 	)
-
-	if conf.App.Debug {
-		c.SetSameSite(http.SameSiteLaxMode)
-	} else {
-		c.SetSameSite(http.SameSiteNoneMode)
-	}
 }
