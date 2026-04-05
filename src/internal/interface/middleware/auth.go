@@ -90,13 +90,17 @@ import (
 // }
 
 func resolveToken(c *gin.Context, conf *config.Config) error {
+	newCtx := logger.ContextWithClientIP(c.Request.Context(), c.ClientIP())
+
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		return errors.New("missing Authorization header")
+		c.Request = c.Request.WithContext(newCtx)
+		return nil
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" {
+		c.Request = c.Request.WithContext(newCtx)
 		return errors.New("invalid Authorization header format, expected 'Bearer <token>'")
 	}
 
@@ -104,14 +108,13 @@ func resolveToken(c *gin.Context, conf *config.Config) error {
 
 	claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
 	if err != nil {
+		c.Request = c.Request.WithContext(newCtx)
 		return err
 	}
 
 	c.Set("userID", claims.UserID)
 
-	// Inject userID and clientIP into request context for logger with context
-	newCtx := logger.ContextWithUserID(c.Request.Context(), claims.UserID)
-	newCtx = logger.ContextWithClientIP(newCtx, c.ClientIP())
+	newCtx = logger.ContextWithUserID(newCtx, claims.UserID)
 	newCtx = logger.ContextWithToken(newCtx, tokenString)
 	c.Request = c.Request.WithContext(newCtx)
 
