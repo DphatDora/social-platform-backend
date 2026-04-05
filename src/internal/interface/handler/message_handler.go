@@ -54,7 +54,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	message, err := h.messageService.SendMessage(userID, &req)
+	message, err := h.messageService.SendMessage(ctx, userID, &req)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error sending message in MessageHandler.SendMessage: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -95,7 +95,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.messageService.MarkMessageAsRead(userID, messageID); err != nil {
+	if err := h.messageService.MarkMessageAsRead(ctx, userID, messageID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error marking message as read in MessageHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -134,7 +134,7 @@ func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.messageService.MarkConversationAsRead(userID, conversationID); err != nil {
+	if err := h.messageService.MarkConversationAsRead(ctx, userID, conversationID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error marking conversation as read in MessageHandler.MarkConversationAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -172,7 +172,7 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	conversations, pagination, err := h.messageService.GetConversations(userID, page, limit)
+	conversations, pagination, err := h.messageService.GetConversations(ctx, userID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting conversations in MessageHandler.GetConversations: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -224,7 +224,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	messages, pagination, err := h.messageService.GetMessages(userID, conversationID, page, limit)
+	messages, pagination, err := h.messageService.GetMessages(ctx, userID, conversationID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting messages in MessageHandler.GetMessages: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -266,7 +266,7 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 		return
 	}
 
-	if err := h.messageService.DeleteMessage(userID, messageID); err != nil {
+	if err := h.messageService.DeleteMessage(ctx, userID, messageID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting message in MessageHandler.DeleteMessage: %v", err)
 
 		// Check if it's a specific error type

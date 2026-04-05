@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestUserService_GetUserProfile_Success(t *testing.T) {
 	mockUserRepo.On("GetUserPostCount", userID).Return(uint64(10), nil)
 	mockUserRepo.On("GetUserCommentCount", userID).Return(uint64(25), nil)
 
-	profile, err := userService.GetUserProfile(userID)
+	profile, err := userService.GetUserProfile(context.Background(), userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, profile)
@@ -79,7 +80,7 @@ func TestUserService_GetUserProfile_UserNotFound(t *testing.T) {
 	userID := uint64(999)
 	mockUserRepo.On("GetUserByID", userID).Return(nil, errors.New("not found"))
 
-	profile, err := userService.GetUserProfile(userID)
+	profile, err := userService.GetUserProfile(context.Background(), userID)
 
 	assert.Error(t, err)
 	assert.Nil(t, profile)
@@ -116,7 +117,7 @@ func TestUserService_GetUserProfile_NoBadge(t *testing.T) {
 	mockUserRepo.On("GetUserPostCount", userID).Return(uint64(0), nil)
 	mockUserRepo.On("GetUserCommentCount", userID).Return(uint64(0), nil)
 
-	profile, err := userService.GetUserProfile(userID)
+	profile, err := userService.GetUserProfile(context.Background(), userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, profile)
@@ -150,7 +151,7 @@ func TestUserService_UpdateUserProfile_Success(t *testing.T) {
 
 	mockUserRepo.On("UpdateUserProfile", userID, updateReq).Return(nil)
 
-	err := userService.UpdateUserProfile(userID, updateReq)
+	err := userService.UpdateUserProfile(context.Background(), userID, updateReq)
 
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -179,7 +180,7 @@ func TestUserService_UpdateUserProfile_Error(t *testing.T) {
 
 	mockUserRepo.On("UpdateUserProfile", userID, updateReq).Return(errors.New("database error"))
 
-	err := userService.UpdateUserProfile(userID, updateReq)
+	err := userService.UpdateUserProfile(context.Background(), userID, updateReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to update user profile")
@@ -222,7 +223,7 @@ func TestUserService_ChangePassword_Success(t *testing.T) {
 	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
 	mockUserRepo.On("UpdatePasswordAndSetChangedAt", userID, mock.AnythingOfType("string")).Return(nil)
 
-	err := userService.ChangePassword(userID, changePasswordReq)
+	err := userService.ChangePassword(context.Background(), userID, changePasswordReq)
 
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -251,7 +252,7 @@ func TestUserService_ChangePassword_UserNotFound(t *testing.T) {
 
 	mockUserRepo.On("GetUserByID", userID).Return(nil, errors.New("not found"))
 
-	err := userService.ChangePassword(userID, changePasswordReq)
+	err := userService.ChangePassword(context.Background(), userID, changePasswordReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user not found")
@@ -289,7 +290,7 @@ func TestUserService_ChangePassword_GoogleUser(t *testing.T) {
 
 	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
 
-	err := userService.ChangePassword(userID, changePasswordReq)
+	err := userService.ChangePassword(context.Background(), userID, changePasswordReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "registered with Google")
@@ -331,7 +332,7 @@ func TestUserService_ChangePassword_WrongOldPassword(t *testing.T) {
 
 	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
 
-	err := userService.ChangePassword(userID, changePasswordReq)
+	err := userService.ChangePassword(context.Background(), userID, changePasswordReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "old password is incorrect")
@@ -374,7 +375,7 @@ func TestUserService_ChangePassword_UpdateError(t *testing.T) {
 	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
 	mockUserRepo.On("UpdatePasswordAndSetChangedAt", userID, mock.AnythingOfType("string")).Return(errors.New("database error"))
 
-	err := userService.ChangePassword(userID, changePasswordReq)
+	err := userService.ChangePassword(context.Background(), userID, changePasswordReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to update password")
@@ -410,7 +411,7 @@ func TestUserService_GetUserConfig_Success(t *testing.T) {
 	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
 	mockCommunityModeratorRepo.On("GetModeratorCommunitiesByUserID", userID).Return(moderators, nil)
 
-	config, err := userService.GetUserConfig(userID)
+	config, err := userService.GetUserConfig(context.Background(), userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, config)
@@ -437,7 +438,7 @@ func TestUserService_GetUserConfig_UserNotFound(t *testing.T) {
 	userID := uint64(999)
 	mockUserRepo.On("GetUserByID", userID).Return(nil, errors.New("not found"))
 
-	config, err := userService.GetUserConfig(userID)
+	config, err := userService.GetUserConfig(context.Background(), userID)
 
 	assert.Error(t, err)
 	assert.Nil(t, config)

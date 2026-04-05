@@ -46,7 +46,7 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.CreateComment(userID, &req); err != nil {
+	if err := h.commentService.CreateComment(ctx, userID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error creating comment in CommentHandler.CreateComment: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -89,7 +89,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 		limit = 12
 	}
 
-	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, sortBy, page, limit, userID)
+	comments, pagination, err := h.commentService.GetCommentsByPostID(ctx, postID, sortBy, page, limit, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting comments in CommentHandler.GetCommentsByPostID: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -141,7 +141,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.UpdateComment(userID, commentID, &req); err != nil {
+	if err := h.commentService.UpdateComment(ctx, userID, commentID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating comment in CommentHandler.UpdateComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "permission denied" {
@@ -186,7 +186,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.DeleteComment(userID, commentID); err != nil {
+	if err := h.commentService.DeleteComment(ctx, userID, commentID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment in CommentHandler.DeleteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "permission denied" {
@@ -241,7 +241,7 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.VoteComment(userID, commentID, req.Vote); err != nil {
+	if err := h.commentService.VoteComment(ctx, userID, commentID, req.Vote); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error voting comment in CommentHandler.VoteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {
@@ -284,7 +284,7 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.UnvoteComment(userID, commentID); err != nil {
+	if err := h.commentService.UnvoteComment(ctx, userID, commentID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting comment in CommentHandler.UnvoteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {
@@ -331,7 +331,7 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	comments, pagination, err := h.commentService.GetCommentsByUserID(userID, sortBy, page, limit, requestUserID)
+	comments, pagination, err := h.commentService.GetCommentsByUserID(ctx, userID, sortBy, page, limit, requestUserID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -391,7 +391,7 @@ func (h *CommentHandler) ReportComment(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.ReportComment(userID, commentID, &req); err != nil {
+	if err := h.commentService.ReportComment(ctx, userID, commentID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error reporting comment in CommentHandler.ReportComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {

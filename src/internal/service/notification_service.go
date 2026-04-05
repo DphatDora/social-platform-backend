@@ -1,14 +1,15 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"social-platform-backend/config"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
 	"social-platform-backend/package/util"
 	"time"
@@ -55,12 +56,12 @@ func NewNotificationService(
 	}
 }
 
-func (s *NotificationService) CreateNotification(userID uint64, action string, notifPayload interface{}) error {
+func (s *NotificationService) CreateNotification(ctx context.Context, userID uint64, action string, notifPayload interface{}) error {
 	// Check notification settings for this action
 	setting, err := s.notificationSettingRepo.GetUserNotificationSetting(userID, action)
 	if err != nil {
 		// If no setting found, use default settings
-		log.Printf("[Info] No notification setting found for user %d and action %s, using defaults", userID, action)
+		logger.InfofWithCtx(ctx, "[Info] No notification setting found for user %d and action %s, using defaults", userID, action)
 		setting = &model.NotificationSetting{
 			UserID:     userID,
 			Action:     action,
@@ -71,7 +72,7 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 
 	user, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] Failed to get user for notification: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Failed to get user for notification: %v", err)
 		return fmt.Errorf("failed to get user")
 	}
 
@@ -81,13 +82,13 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 		templatePath := s.getNotificationTemplatePath(action)
 		body, err := util.RenderTemplate(templatePath, templateData)
 		if err != nil {
-			log.Printf("[Err] Failed to render notification body: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Failed to render notification body: %v", err)
 			return err
 		}
 
 		payloadBytes, err := json.Marshal(notifPayload)
 		if err != nil {
-			log.Printf("[Err] Failed to marshal notification payload: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Failed to marshal notification payload: %v", err)
 			return err
 		}
 
@@ -102,21 +103,21 @@ func (s *NotificationService) CreateNotification(userID uint64, action string, n
 		}
 
 		if err := s.notificationRepo.CreateNotification(notification); err != nil {
-			log.Printf("[Err] Failed to create notification: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Failed to create notification: %v", err)
 			return err
 		}
 
-		go s.broadcastNewNotification(userID, notification)
+		go s.broadcastNewNotification(ctx, userID, notification)
 	}
 
 	if setting.IsSendMail {
 		emailTemplatePath := s.getNotificationEmailTemplatePath(action)
 		emailBody, err := util.RenderTemplate(emailTemplatePath, templateData)
 		if err != nil {
-			log.Printf("[Err] Failed to render notification email body: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Failed to render notification email body: %v", err)
 		} else {
 			emailSubject := constant.EmailSubjectMap[action]
-			go s.sendEmailNotification(user.Email, emailSubject, emailBody)
+			go s.sendEmailNotification(ctx, user.Email, emailSubject, emailBody)
 		}
 	}
 
@@ -268,7 +269,7 @@ func (s *NotificationService) prepareTemplateData(action string, notifPayload in
 	return data
 }
 
-func (s *NotificationService) broadcastNewNotification(userID uint64, notification *model.Notification) {
+func (s *NotificationService) broadcastNewNotification(ctx context.Context, userID uint64, notification *model.Notification) {
 	unreadCount, _ := s.notificationRepo.GetUnreadCount(userID)
 
 	event := &response.SSEEvent{
@@ -278,19 +279,19 @@ func (s *NotificationService) broadcastNewNotification(userID uint64, notificati
 			UnreadCount:  unreadCount,
 		},
 	}
-	s.sseService.BroadcastToUser(userID, event)
+	s.sseService.BroadcastToUser(ctx, userID, event)
 }
 
-func (s *NotificationService) sendEmailNotification(email, subject, body string) {
+func (s *NotificationService) sendEmailNotification(ctx context.Context, email, subject, body string) {
 	if s.botTaskService != nil {
 		fullSubject := fmt.Sprintf("Notification: %s", subject)
-		if err := s.botTaskService.CreateEmailTask(email, fullSubject, body); err != nil {
-			log.Printf("[Err] Failed to create email bot task: %v", err)
+		if err := s.botTaskService.CreateEmailTask(ctx, email, fullSubject, body); err != nil {
+			logger.ErrorfWithCtx(ctx, "[Err] Failed to create email bot task: %v", err)
 		}
 	}
 }
 
-func (s *NotificationService) GetUserNotifications(userID uint64, page, limit int) ([]*response.NotificationResponse, *response.Pagination, error) {
+func (s *NotificationService) GetUserNotifications(ctx context.Context, userID uint64, page, limit int) ([]*response.NotificationResponse, *response.Pagination, error) {
 	if page < 1 {
 		page = constant.DEFAULT_PAGE
 	}
@@ -302,7 +303,7 @@ func (s *NotificationService) GetUserNotifications(userID uint64, page, limit in
 
 	notifications, total, err := s.notificationRepo.GetUserNotifications(userID, limit, offset)
 	if err != nil {
-		log.Printf("[Err] Failed to get user notifications: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Failed to get user notifications: %v", err)
 		return nil, nil, fmt.Errorf("failed to get notifications")
 	}
 
@@ -324,10 +325,10 @@ func (s *NotificationService) GetUserNotifications(userID uint64, page, limit in
 	return notifResponses, pagination, nil
 }
 
-func (s *NotificationService) MarkAsRead(userID, notificationID uint64) error {
+func (s *NotificationService) MarkAsRead(ctx context.Context, userID, notificationID uint64) error {
 	notification, err := s.notificationRepo.GetNotificationByID(notificationID)
 	if err != nil {
-		log.Printf("[Err] Notification not found: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Notification not found: %v", err)
 		return fmt.Errorf("notification not found")
 	}
 
@@ -338,14 +339,15 @@ func (s *NotificationService) MarkAsRead(userID, notificationID uint64) error {
 	return s.notificationRepo.MarkAsRead(notificationID)
 }
 
-func (s *NotificationService) MarkAllAsRead(userID uint64) error {
+func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID uint64) error {
+	_ = ctx
 	return s.notificationRepo.MarkAllAsRead(userID)
 }
 
-func (s *NotificationService) DeleteNotification(userID, notificationID uint64) error {
+func (s *NotificationService) DeleteNotification(ctx context.Context, userID, notificationID uint64) error {
 	notification, err := s.notificationRepo.GetNotificationByID(notificationID)
 	if err != nil {
-		log.Printf("[Err] Notification not found: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Notification not found: %v", err)
 		return fmt.Errorf("notification not found")
 	}
 
@@ -356,14 +358,15 @@ func (s *NotificationService) DeleteNotification(userID, notificationID uint64) 
 	return s.notificationRepo.DeleteNotification(notificationID)
 }
 
-func (s *NotificationService) GetUnreadCount(userID uint64) (int64, error) {
+func (s *NotificationService) GetUnreadCount(ctx context.Context, userID uint64) (int64, error) {
+	_ = ctx
 	return s.notificationRepo.GetUnreadCount(userID)
 }
 
-func (s *NotificationService) GetUserNotificationSettings(userID uint64) ([]*response.NotificationSettingResponse, error) {
+func (s *NotificationService) GetUserNotificationSettings(ctx context.Context, userID uint64) ([]*response.NotificationSettingResponse, error) {
 	settings, err := s.notificationSettingRepo.GetUserNotificationSettings(userID)
 	if err != nil {
-		log.Printf("[Err] Failed to get user notification settings: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Failed to get user notification settings: %v", err)
 		return nil, fmt.Errorf("failed to get notification settings")
 	}
 
@@ -375,7 +378,7 @@ func (s *NotificationService) GetUserNotificationSettings(userID uint64) ([]*res
 	return settingResponses, nil
 }
 
-func (s *NotificationService) UpdateNotificationSetting(userID uint64, action string, isPush, isSendMail *bool) error {
+func (s *NotificationService) UpdateNotificationSetting(ctx context.Context, userID uint64, action string, isPush, isSendMail *bool) error {
 	// Get existing setting
 	setting, err := s.notificationSettingRepo.GetUserNotificationSetting(userID, action)
 	if err != nil {
@@ -397,7 +400,7 @@ func (s *NotificationService) UpdateNotificationSetting(userID uint64, action st
 
 	// Upsert the setting
 	if err := s.notificationSettingRepo.UpsertNotificationSetting(setting); err != nil {
-		log.Printf("[Err] Failed to update notification setting: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Failed to update notification setting: %v", err)
 		return fmt.Errorf("failed to update notification setting")
 	}
 

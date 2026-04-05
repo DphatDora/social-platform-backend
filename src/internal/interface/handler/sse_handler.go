@@ -43,8 +43,8 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
 	// Register SSE client
-	client := h.sseService.RegisterClient(userID)
-	defer h.sseService.UnregisterClient(userID, client)
+	client := h.sseService.RegisterClient(ctx, userID)
+	defer h.sseService.UnregisterClient(ctx, userID, client)
 
 	logger.InfofWithCtx(ctx, "[Info] SSE stream started for user %d", userID)
 
@@ -117,8 +117,8 @@ func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
 	// Register SSE client
-	client := h.sseService.RegisterClient(userID)
-	defer h.sseService.UnregisterClient(userID, client)
+	client := h.sseService.RegisterClient(ctx, userID)
+	defer h.sseService.UnregisterClient(ctx, userID, client)
 
 	logger.InfofWithCtx(ctx, "[Info] SSE conversation stream started for user %d in conversation %d", userID, conversationID)
 

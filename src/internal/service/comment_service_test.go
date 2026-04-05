@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestCommentService_CreateComment_Success(t *testing.T) {
 	mockPostRepo.On("GetPostByID", req.PostID).Return(post, nil)
 	mockCommentRepo.On("CreateComment", mock.AnythingOfType("*model.Comment")).Return(nil)
 
-	err := commentService.CreateComment(userID, req)
+	err := commentService.CreateComment(context.Background(), userID, req)
 
 	assert.NoError(t, err)
 	mockPostRepo.AssertExpectations(t)
@@ -58,7 +59,7 @@ func TestCommentService_CreateComment_PostNotFound(t *testing.T) {
 
 	mockPostRepo.On("GetPostByID", req.PostID).Return(nil, errors.New("not found"))
 
-	err := commentService.CreateComment(123, req)
+	err := commentService.CreateComment(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "post not found")
@@ -98,7 +99,7 @@ func TestCommentService_CreateComment_WithParent(t *testing.T) {
 	mockCommentRepo.On("GetCommentByID", parentCommentID).Return(parentComment, nil)
 	mockCommentRepo.On("CreateComment", mock.AnythingOfType("*model.Comment")).Return(nil)
 
-	err := commentService.CreateComment(userID, req)
+	err := commentService.CreateComment(context.Background(), userID, req)
 
 	assert.NoError(t, err)
 	mockPostRepo.AssertExpectations(t)
@@ -127,7 +128,7 @@ func TestCommentService_CreateComment_ParentNotFound(t *testing.T) {
 	mockPostRepo.On("GetPostByID", req.PostID).Return(post, nil)
 	mockCommentRepo.On("GetCommentByID", parentCommentID).Return(nil, errors.New("not found"))
 
-	err := commentService.CreateComment(123, req)
+	err := commentService.CreateComment(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "parent comment not found")
@@ -161,7 +162,7 @@ func TestCommentService_CreateComment_ParentDifferentPost(t *testing.T) {
 	mockPostRepo.On("GetPostByID", req.PostID).Return(post, nil)
 	mockCommentRepo.On("GetCommentByID", parentCommentID).Return(parentComment, nil)
 
-	err := commentService.CreateComment(123, req)
+	err := commentService.CreateComment(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "parent comment does not belong to this post")
@@ -191,7 +192,7 @@ func TestCommentService_UpdateComment_Success(t *testing.T) {
 	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
 	mockCommentRepo.On("UpdateComment", commentID, req.Content, req.MediaURL).Return(nil)
 
-	err := commentService.UpdateComment(userID, commentID, req)
+	err := commentService.UpdateComment(context.Background(), userID, commentID, req)
 
 	assert.NoError(t, err)
 	mockCommentRepo.AssertExpectations(t)
@@ -218,7 +219,7 @@ func TestCommentService_UpdateComment_NotAuthor(t *testing.T) {
 
 	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
 
-	err := commentService.UpdateComment(userID, commentID, req)
+	err := commentService.UpdateComment(context.Background(), userID, commentID, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -245,7 +246,7 @@ func TestCommentService_DeleteComment_Success(t *testing.T) {
 	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
 	mockCommentRepo.On("DeleteComment", commentID, comment.ParentCommentID).Return(nil)
 
-	err := commentService.DeleteComment(userID, commentID)
+	err := commentService.DeleteComment(context.Background(), userID, commentID)
 
 	assert.NoError(t, err)
 	mockCommentRepo.AssertExpectations(t)
@@ -262,7 +263,7 @@ func TestCommentService_DeleteComment_NotFound(t *testing.T) {
 	commentID := uint64(999)
 	mockCommentRepo.On("GetCommentByID", commentID).Return(nil, errors.New("not found"))
 
-	err := commentService.DeleteComment(123, commentID)
+	err := commentService.DeleteComment(context.Background(), 123, commentID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "comment not found")
@@ -306,7 +307,7 @@ func TestCommentService_ReportComment_Success(t *testing.T) {
 			*report.Note == noteText
 	})).Return(nil)
 
-	err := commentService.ReportComment(userID, commentID, req)
+	err := commentService.ReportComment(context.Background(), userID, commentID, req)
 
 	assert.NoError(t, err)
 	mockCommentRepo.AssertExpectations(t)
@@ -333,7 +334,7 @@ func TestCommentService_ReportComment_CommentNotFound(t *testing.T) {
 
 	mockCommentRepo.On("GetCommentByID", commentID).Return(nil, errors.New("not found"))
 
-	err := commentService.ReportComment(userID, commentID, req)
+	err := commentService.ReportComment(context.Background(), userID, commentID, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "comment not found")
@@ -366,7 +367,7 @@ func TestCommentService_ReportComment_AlreadyReported(t *testing.T) {
 	mockCommentRepo.On("GetCommentByID", commentID).Return(comment, nil)
 	mockCommentReportRepo.On("IsUserReportedComment", userID, commentID).Return(true, nil)
 
-	err := commentService.ReportComment(userID, commentID, req)
+	err := commentService.ReportComment(context.Background(), userID, commentID, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already reported")

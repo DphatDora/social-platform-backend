@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
 	"time"
 )
@@ -21,7 +22,7 @@ func NewBotTaskService(botTaskRepo repository.BotTaskRepository) *BotTaskService
 	}
 }
 
-func (s *BotTaskService) CreateInterestScoreTask(userID, communityID uint64, action string, postID *uint64) error {
+func (s *BotTaskService) CreateInterestScoreTask(ctx context.Context, userID, communityID uint64, action string, postID *uint64) error {
 	scorePayload := payload.UpdateInterestScorePayload{
 		UserID:      userID,
 		CommunityID: communityID,
@@ -32,7 +33,7 @@ func (s *BotTaskService) CreateInterestScoreTask(userID, communityID uint64, act
 
 	payloadBytes, err := json.Marshal(scorePayload)
 	if err != nil {
-		log.Printf("[Err] Error marshaling interest score payload: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marshaling interest score payload: %v", err)
 		return fmt.Errorf("failed to marshal payload")
 	}
 
@@ -46,15 +47,15 @@ func (s *BotTaskService) CreateInterestScoreTask(userID, communityID uint64, act
 	}
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating bot task for interest score: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating bot task for interest score: %v", err)
 		return fmt.Errorf("failed to create bot task")
 	}
 
-	log.Printf("[Info] Created interest score task for user %d, community %d, action: %s", userID, communityID, action)
+	logger.InfofWithCtx(ctx, "[Info] Created interest score task for user %d, community %d, action: %s", userID, communityID, action)
 	return nil
 }
 
-func (s *BotTaskService) CreateKarmaTask(userID uint64, targetID *uint64, action string) error {
+func (s *BotTaskService) CreateKarmaTask(ctx context.Context, userID uint64, targetID *uint64, action string) error {
 	karmaPayload := payload.UpdateUserKarmaPayload{
 		UserId:    userID,
 		TargetId:  targetID,
@@ -64,7 +65,7 @@ func (s *BotTaskService) CreateKarmaTask(userID uint64, targetID *uint64, action
 
 	payloadBytes, err := json.Marshal(karmaPayload)
 	if err != nil {
-		log.Printf("[Err] Error marshaling karma payload: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marshaling karma payload: %v", err)
 		return fmt.Errorf("failed to marshal karma payload")
 	}
 
@@ -78,15 +79,15 @@ func (s *BotTaskService) CreateKarmaTask(userID uint64, targetID *uint64, action
 	}
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating karma bot task: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating karma bot task: %v", err)
 		return fmt.Errorf("failed to create karma task")
 	}
 
-	log.Printf("[Info] Created karma task for user %d, action: %s", userID, action)
+	logger.InfofWithCtx(ctx, "[Info] Created karma task for user %d, action: %s", userID, action)
 	return nil
 }
 
-func (s *BotTaskService) CreateEmailTask(recipientEmail, subject, body string) error {
+func (s *BotTaskService) CreateEmailTask(ctx context.Context, recipientEmail, subject, body string) error {
 	emailPayload := payload.EmailPayload{
 		To:      recipientEmail,
 		Subject: subject,
@@ -95,7 +96,7 @@ func (s *BotTaskService) CreateEmailTask(recipientEmail, subject, body string) e
 
 	payloadBytes, err := json.Marshal(emailPayload)
 	if err != nil {
-		log.Printf("[Err] Error marshaling email payload: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marshaling email payload: %v", err)
 		return fmt.Errorf("failed to marshal email payload")
 	}
 
@@ -109,10 +110,10 @@ func (s *BotTaskService) CreateEmailTask(recipientEmail, subject, body string) e
 	}
 
 	if err := s.botTaskRepo.CreateBotTask(botTask); err != nil {
-		log.Printf("[Err] Error creating email bot task: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating email bot task: %v", err)
 		return fmt.Errorf("failed to create email task")
 	}
 
-	log.Printf("[Info] Created email task for recipient: %s", recipientEmail)
+	logger.InfofWithCtx(ctx, "[Info] Created email task for recipient: %s", recipientEmail)
 	return nil
 }

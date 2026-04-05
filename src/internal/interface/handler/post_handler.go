@@ -46,7 +46,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.CreatePost(userID, &req); err != nil {
+	if err := h.postService.CreatePost(ctx, userID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error creating post in PostHandler.CreatePost: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -133,7 +133,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.UpdatePost(userID, postID, postType, reqBody); err != nil {
+	if err := h.postService.UpdatePost(ctx, userID, postID, postType, reqBody); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating post in PostHandler.UpdatePost: %v", err)
 
 		if err.Error() == "post not found" {
@@ -197,7 +197,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.DeletePost(userID, postID); err != nil {
+	if err := h.postService.DeletePost(ctx, userID, postID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post in PostHandler.DeletePost: %v", err)
 
 		if err.Error() == "post not found" {
@@ -257,7 +257,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit, tags, userID)
+	posts, pagination, err := h.postService.GetAllPosts(ctx, sortBy, page, limit, tags, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting all posts in PostHandler.GetAllPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -292,7 +292,7 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 		return
 	}
 
-	post, err := h.postService.GetPostDetailByID(postID, userID)
+	post, err := h.postService.GetPostDetailByID(ctx, postID, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting post detail in PostHandler.GetPostDetail: %v", err)
 
@@ -357,7 +357,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit, tags, userID)
+	posts, pagination, err := h.postService.GetPostsByCommunityID(ctx, communityID, sortBy, page, limit, tags, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by community in PostHandler.GetPostsByCommunity: %v", err)
 
@@ -421,7 +421,7 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, tags, userID)
+	posts, pagination, err := h.postService.SearchPostsByTitle(ctx, searchQuery, sortBy, page, limit, tags, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -473,7 +473,7 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.VotePost(userID, postID, req.Vote); err != nil {
+	if err := h.postService.VotePost(ctx, userID, postID, req.Vote); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error voting post in PostHandler.VotePost: %v", err)
 
 		if err.Error() == "post not found" {
@@ -521,7 +521,7 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.UnvotePost(userID, postID); err != nil {
+	if err := h.postService.UnvotePost(ctx, userID, postID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting post in PostHandler.UnvotePost: %v", err)
 
 		if err.Error() == "post not found" {
@@ -579,7 +579,7 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.VotePoll(userID, postID, &req); err != nil {
+	if err := h.postService.VotePoll(ctx, userID, postID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error voting poll in PostHandler.VotePoll: %v", err)
 
 		if err.Error() == "post not found" {
@@ -646,7 +646,7 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.UnvotePoll(userID, postID, &req); err != nil {
+	if err := h.postService.UnvotePoll(ctx, userID, postID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting poll in PostHandler.UnvotePoll: %v", err)
 
 		if err.Error() == "post not found" {
@@ -704,7 +704,7 @@ func (h *PostHandler) GetPostsByUser(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.postService.GetPostsByUserID(userID, sortBy, page, limit)
+	posts, pagination, err := h.postService.GetPostsByUserID(ctx, userID, sortBy, page, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -764,7 +764,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 		return
 	}
 
-	if err := h.postService.ReportPost(userID, postID, &req); err != nil {
+	if err := h.postService.ReportPost(ctx, userID, postID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error reporting post in PostHandler.ReportPost: %v", err)
 
 		if strings.Contains(err.Error(), "not found") {
@@ -805,7 +805,7 @@ func (h *PostHandler) GetAllTags(c *gin.Context) {
 		search = &searchQuery
 	}
 
-	tags, err := h.postService.GetAllTags(search)
+	tags, err := h.postService.GetAllTags(ctx, search)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting tags in PostHandler.GetAllTags: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{

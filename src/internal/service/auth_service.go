@@ -1,15 +1,16 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"html/template"
-	"log"
 	"social-platform-backend/config"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"time"
 
@@ -52,11 +53,11 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(req *request.RegisterRequest) error {
+func (s *AuthService) Register(ctx context.Context, req *request.RegisterRequest) error {
 	// Check if email exists
 	exists, err := s.userRepo.IsEmailExisted(req.Email)
 	if err != nil {
-		log.Printf("[Err] Error checking email existence in AuthService.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking email existence in AuthService.Register: %v", err)
 		return fmt.Errorf("failed to check email existence: %w", err)
 	}
 	if exists {
@@ -66,7 +67,7 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	// Hash password
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
-		log.Printf("[Err] Error hashing password in AuthService.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error hashing password in AuthService.Register: %v", err)
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
@@ -80,14 +81,14 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	}
 
 	if err := s.userRepo.CreateUser(user); err != nil {
-		log.Printf("[Err] Error creating user in AuthService.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating user in AuthService.Register: %v", err)
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Generate verification token
 	token, err := util.GenerateToken(32)
 	if err != nil {
-		log.Printf("[Err] Error generating token in AuthService.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating token in AuthService.Register: %v", err)
 		return fmt.Errorf("failed to generate token: %w", err)
 	}
 
@@ -100,14 +101,14 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	}
 
 	if err := s.verificationRepo.CreateVerification(verification); err != nil {
-		log.Printf("[Err] Error creating verification in AuthService.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating verification in AuthService.Register: %v", err)
 		return fmt.Errorf("failed to create verification: %w", err)
 	}
 
 	go func(userID uint64, userEmail string, token string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in AuthService.Register background tasks: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in AuthService.Register background tasks: %v", r)
 			}
 		}()
 
@@ -134,7 +135,7 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		}
 
 		if err := s.notificationSettingRepo.CreateNotificationSettings(settings); err != nil {
-			log.Printf("[Err] Error creating notification settings in AuthService.Register: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating notification settings in AuthService.Register: %v", err)
 		}
 
 		// Send verification email
@@ -145,13 +146,13 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 		})
 
 		if err != nil {
-			log.Printf("[Err] Error rendering email template in AuthService.Register: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error rendering email template in AuthService.Register: %v", err)
 			return
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateEmailTask(userEmail, "Verify Your Account", body); err != nil {
-				log.Printf("[Err] Error creating email task in AuthService.Register: %v", err)
+			if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Verify Your Account", body); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.Register: %v", err)
 			}
 		}
 	}(user.ID, user.Email, token)
@@ -159,55 +160,55 @@ func (s *AuthService) Register(req *request.RegisterRequest) error {
 	return nil
 }
 
-func (s *AuthService) VerifyEmail(token string) error {
+func (s *AuthService) VerifyEmail(ctx context.Context, token string) error {
 	verification, err := s.verificationRepo.GetVerificationByToken(token)
 	if err != nil {
-		log.Printf("[Err] Error getting verification by token in AuthService.VerifyEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting verification by token in AuthService.VerifyEmail: %v", err)
 		return fmt.Errorf("invalid or expired token")
 	}
 
 	// Check if token is expired
 	if time.Now().After(verification.ExpiredAt) {
-		log.Printf("[Err] Token expired in AuthService.VerifyEmail for user %d", verification.UserID)
+		logger.ErrorfWithCtx(ctx, "[Err] Token expired in AuthService.VerifyEmail for user %d", verification.UserID)
 		return fmt.Errorf("token has expired")
 	}
 
 	// Activate user
 	if err := s.userRepo.ActivateUser(verification.UserID); err != nil {
-		log.Printf("[Err] Error activating user in AuthService.VerifyEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error activating user in AuthService.VerifyEmail: %v", err)
 		return fmt.Errorf("failed to activate user: %w", err)
 	}
 
 	// Delete verification record
 	if err := s.verificationRepo.DeleteVerification(verification.ID); err != nil {
-		log.Printf("[Err] Error deleting verification in AuthService.VerifyEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting verification in AuthService.VerifyEmail: %v", err)
 	}
 
 	return nil
 }
 
-func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse, error) {
+func (s *AuthService) Login(ctx context.Context, req *request.LoginRequest) (*response.LoginResponse, error) {
 	// Get user by email
 	user, err := s.userRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		log.Printf("[Err] Error getting user by email in AuthService.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by email in AuthService.Login: %v", err)
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
 	// Check if user is active
 	if !user.IsActive {
-		log.Printf("[Err] User %s is not active in AuthService.Login", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] User %s is not active in AuthService.Login", req.Email)
 		return nil, fmt.Errorf("email not verified. Please verify your email first")
 	}
 
 	// Check if user has password (email/password login)
 	if user.Password == nil {
-		log.Printf("[Err] User %s registered with Google, no password set", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] User %s registered with Google, no password set", req.Email)
 		return nil, fmt.Errorf("this account is registered with Google. Please use Google Sign-In")
 	}
 
 	if err := util.ComparePassword(*user.Password, req.Password); err != nil {
-		log.Printf("[Err] Invalid password for user %s in AuthService.Login", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid password for user %s in AuthService.Login", req.Email)
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
@@ -219,13 +220,13 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 		conf.Auth.JWTSecret,
 	)
 	if err != nil {
-		log.Printf("[Err] Error generating JWT token in AuthService.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating JWT token in AuthService.Login: %v", err)
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
 	refreshTokenString, err := util.GenerateToken(64)
 	if err != nil {
-		log.Printf("[Err] Error generating refresh token in AuthService.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating refresh token in AuthService.Login: %v", err)
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
@@ -237,7 +238,7 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 	}
 
 	if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
-		log.Printf("[Err] Error storing refresh token in AuthService.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error storing refresh token in AuthService.Login: %v", err)
 		return nil, fmt.Errorf("failed to store refresh token")
 	}
 
@@ -249,28 +250,28 @@ func (s *AuthService) Login(req *request.LoginRequest) (*response.LoginResponse,
 	return loginResponse, nil
 }
 
-func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
+func (s *AuthService) ForgotPassword(ctx context.Context, req *request.ForgotPasswordRequest) error {
 	// Check if email exists
 	user, err := s.userRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		log.Printf("[Err] Error getting user by email in AuthService.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by email in AuthService.ForgotPassword: %v", err)
 		return fmt.Errorf("if your email is registered, you will receive a password reset link")
 	}
 
 	// Check if user is active
 	if !user.IsActive {
-		log.Printf("[Err] User %s is not active in AuthService.ForgotPassword", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] User %s is not active in AuthService.ForgotPassword", req.Email)
 		return fmt.Errorf("email not verified. Please verify your email first")
 	}
 
 	if err := s.passwordResetRepo.DeletePasswordResetByUserID(user.ID); err != nil {
-		log.Printf("[Err] Error deleting existing password reset in AuthService.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting existing password reset in AuthService.ForgotPassword: %v", err)
 	}
 
 	// Generate reset token
 	token, err := util.GenerateToken(32)
 	if err != nil {
-		log.Printf("[Err] Error generating token in AuthService.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating token in AuthService.ForgotPassword: %v", err)
 		return fmt.Errorf("failed to generate reset token")
 	}
 
@@ -283,14 +284,14 @@ func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
 	}
 
 	if err := s.passwordResetRepo.CreatePasswordReset(passwordReset); err != nil {
-		log.Printf("[Err] Error creating password reset in AuthService.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating password reset in AuthService.ForgotPassword: %v", err)
 		return fmt.Errorf("failed to create password reset")
 	}
 
 	go func(userEmail string, token string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in AuthService.ForgotPassword bot task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in AuthService.ForgotPassword bot task: %v", r)
 			}
 		}()
 
@@ -301,97 +302,97 @@ func (s *AuthService) ForgotPassword(req *request.ForgotPasswordRequest) error {
 		})
 
 		if err != nil {
-			log.Printf("[Err] Error rendering email template in AuthService.ForgotPassword: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error rendering email template in AuthService.ForgotPassword: %v", err)
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Reset Your Password", body); err != nil {
-			log.Printf("[Err] Error creating email task in AuthService.ForgotPassword: %v", err)
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Reset Your Password", body); err != nil {
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ForgotPassword: %v", err)
 		}
 	}(user.Email, token)
 
 	return nil
 }
 
-func (s *AuthService) VerifyResetToken(token string) (string, error) {
+func (s *AuthService) VerifyResetToken(ctx context.Context, token string) (string, error) {
 	passwordReset, err := s.passwordResetRepo.GetPasswordResetByToken(token)
 	if err != nil {
-		log.Printf("[Err] Error getting password reset by token in AuthService.VerifyResetToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting password reset by token in AuthService.VerifyResetToken: %v", err)
 		return "", fmt.Errorf("invalid or expired token")
 	}
 
 	// Check if token is expired
 	if time.Now().After(passwordReset.ExpiredAt) {
-		log.Printf("[Err] Token expired in AuthService.VerifyResetToken for user %d", passwordReset.UserID)
+		logger.ErrorfWithCtx(ctx, "[Err] Token expired in AuthService.VerifyResetToken for user %d", passwordReset.UserID)
 		return "", fmt.Errorf("token has expired")
 	}
 
 	return token, nil
 }
 
-func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
+func (s *AuthService) ResetPassword(ctx context.Context, req *request.ResetPasswordRequest) error {
 	// Verify token
 	passwordReset, err := s.passwordResetRepo.GetPasswordResetByToken(req.Token)
 	if err != nil {
-		log.Printf("[Err] Error getting password reset by token in AuthService.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting password reset by token in AuthService.ResetPassword: %v", err)
 		return fmt.Errorf("invalid or expired token")
 	}
 
 	// Check if token is expired
 	if time.Now().After(passwordReset.ExpiredAt) {
-		log.Printf("[Err] Token expired in AuthService.ResetPassword for user %d", passwordReset.UserID)
+		logger.ErrorfWithCtx(ctx, "[Err] Token expired in AuthService.ResetPassword for user %d", passwordReset.UserID)
 		return fmt.Errorf("token has expired")
 	}
 
 	// Hash new password
 	hashedPassword, err := util.HashPassword(req.NewPassword)
 	if err != nil {
-		log.Printf("[Err] Error hashing password in AuthService.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error hashing password in AuthService.ResetPassword: %v", err)
 		return fmt.Errorf("failed to hash password")
 	}
 
 	if err := s.userRepo.UpdatePasswordAndSetChangedAt(passwordReset.UserID, hashedPassword); err != nil {
-		log.Printf("[Err] Error updating password in AuthService.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating password in AuthService.ResetPassword: %v", err)
 		return fmt.Errorf("failed to update password")
 	}
 
 	// Invalidate password cache after successful password reset
 	if s.redisClient != nil {
 		if err := util.InvalidatePasswordCache(s.redisClient, passwordReset.UserID); err != nil {
-			log.Printf("[Warn] Error invalidating password cache for user %d: %v", passwordReset.UserID, err)
+			logger.WarnfWithCtx(ctx, "[Warn] Error invalidating password cache for user %d: %v", passwordReset.UserID, err)
 		}
 	}
 
 	if err := s.passwordResetRepo.DeletePasswordReset(passwordReset.ID); err != nil {
-		log.Printf("[Err] Error deleting password reset in AuthService.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting password reset in AuthService.ResetPassword: %v", err)
 	}
 
 	return nil
 }
 
-func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationRequest) error {
+func (s *AuthService) ResendVerificationEmail(ctx context.Context, req *request.ResendVerificationRequest) error {
 	// Check if email exists
 	user, err := s.userRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		log.Printf("[Err] Error getting user by email in AuthService.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by email in AuthService.ResendVerificationEmail: %v", err)
 		return fmt.Errorf("email not found")
 	}
 
 	// Check if user is already active
 	if user.IsActive {
-		log.Printf("[Err] User %s is already active in AuthService.ResendVerificationEmail", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] User %s is already active in AuthService.ResendVerificationEmail", req.Email)
 		return fmt.Errorf("email is already verified")
 	}
 
 	// Delete existed verification tokens
 	if err := s.verificationRepo.DeleteVerificationByUserID(user.ID); err != nil {
-		log.Printf("[Err] Error deleting existing verification in AuthService.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting existing verification in AuthService.ResendVerificationEmail: %v", err)
 	}
 
 	// Generate new token
 	token, err := util.GenerateToken(32)
 	if err != nil {
-		log.Printf("[Err] Error generating token in AuthService.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating token in AuthService.ResendVerificationEmail: %v", err)
 		return fmt.Errorf("failed to generate token")
 	}
 
@@ -404,7 +405,7 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 	}
 
 	if err := s.verificationRepo.CreateVerification(verification); err != nil {
-		log.Printf("[Err] Error creating verification in AuthService.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating verification in AuthService.ResendVerificationEmail: %v", err)
 		return fmt.Errorf("failed to create verification")
 	}
 
@@ -412,7 +413,7 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 	go func(userEmail string, token string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in AuthService.ResendVerificationEmail bot task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in AuthService.ResendVerificationEmail bot task: %v", r)
 			}
 		}()
 
@@ -423,41 +424,41 @@ func (s *AuthService) ResendVerificationEmail(req *request.ResendVerificationReq
 		})
 
 		if err != nil {
-			log.Printf("[Err] Error rendering email template in AuthService.ResendVerificationEmail: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error rendering email template in AuthService.ResendVerificationEmail: %v", err)
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Verify Your Account", body); err != nil {
-			log.Printf("[Err] Error creating email task in AuthService.ResendVerificationEmail: %v", err)
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Verify Your Account", body); err != nil {
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ResendVerificationEmail: %v", err)
 		}
 	}(user.Email, token)
 
 	return nil
 }
 
-func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRequest) error {
+func (s *AuthService) ResendResetPasswordEmail(ctx context.Context, req *request.ResendVerificationRequest) error {
 	// Check if email exists
 	user, err := s.userRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		log.Printf("[Err] Error getting user by email in AuthService.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by email in AuthService.ResendResetPasswordEmail: %v", err)
 		return fmt.Errorf("email not found")
 	}
 
 	// Check if user is active
 	if !user.IsActive {
-		log.Printf("[Err] User %s is not active in AuthService.ResendResetPasswordEmail", req.Email)
+		logger.ErrorfWithCtx(ctx, "[Err] User %s is not active in AuthService.ResendResetPasswordEmail", req.Email)
 		return fmt.Errorf("email not verified. Please verify your email first")
 	}
 
 	// Delete any existing password reset tokens for this user
 	if err := s.passwordResetRepo.DeletePasswordResetByUserID(user.ID); err != nil {
-		log.Printf("[Err] Error deleting existing password reset in AuthService.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting existing password reset in AuthService.ResendResetPasswordEmail: %v", err)
 	}
 
 	// Generate reset token
 	token, err := util.GenerateToken(32)
 	if err != nil {
-		log.Printf("[Err] Error generating token in AuthService.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating token in AuthService.ResendResetPasswordEmail: %v", err)
 		return fmt.Errorf("failed to generate reset token")
 	}
 
@@ -470,7 +471,7 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 	}
 
 	if err := s.passwordResetRepo.CreatePasswordReset(passwordReset); err != nil {
-		log.Printf("[Err] Error creating password reset in AuthService.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating password reset in AuthService.ResendResetPasswordEmail: %v", err)
 		return fmt.Errorf("failed to create password reset")
 	}
 
@@ -478,7 +479,7 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 	go func(userEmail string, token string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in AuthService.ResendResetPasswordEmail bot task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in AuthService.ResendResetPasswordEmail bot task: %v", r)
 			}
 		}()
 
@@ -489,25 +490,25 @@ func (s *AuthService) ResendResetPasswordEmail(req *request.ResendVerificationRe
 		})
 
 		if err != nil {
-			log.Printf("[Err] Error rendering email template in AuthService.ResendResetPasswordEmail: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error rendering email template in AuthService.ResendResetPasswordEmail: %v", err)
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Reset Your Password", body); err != nil {
-			log.Printf("[Err] Error creating email task in AuthService.ResendResetPasswordEmail: %v", err)
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Reset Your Password", body); err != nil {
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ResendResetPasswordEmail: %v", err)
 		}
 	}(user.Email, token)
 
 	return nil
 }
 
-func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.LoginResponse, error) {
+func (s *AuthService) GoogleLogin(ctx context.Context, req *request.GoogleLoginRequest) (*response.LoginResponse, error) {
 	conf := config.GetConfig()
 
 	// Verify Google ID Token
 	googleUserInfo, err := util.VerifyGoogleIDToken(req.IDToken, conf.Auth.GoogleClientID)
 	if err != nil {
-		log.Printf("[Err] Error verifying Google ID token in AuthService.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error verifying Google ID token in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("invalid Google ID token: %w", err)
 	}
 
@@ -515,7 +516,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	existingUser, err := s.userRepo.GetUserByGoogleID(googleUserInfo.GoogleID)
 	if err == nil && existingUser != nil {
 		// User already logged in with Google before
-		log.Printf("[Info] User %s already exists with Google ID", googleUserInfo.Email)
+		logger.InfofWithCtx(ctx, "[Info] User %s already exists with Google ID", googleUserInfo.Email)
 
 		// Generate JWT token
 		accessToken, err := util.GenerateJWT(
@@ -524,13 +525,13 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 			conf.Auth.JWTSecret,
 		)
 		if err != nil {
-			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate access token")
 		}
 
 		refreshTokenString, err := util.GenerateToken(64)
 		if err != nil {
-			log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate refresh token")
 		}
 
@@ -542,7 +543,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		}
 
 		if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
-			log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to store refresh token")
 		}
 
@@ -555,7 +556,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	// Check if user exists by email
 	existingUser, err = s.userRepo.GetUserByEmail(googleUserInfo.Email)
 	if err == nil && existingUser != nil {
-		log.Printf("[Info] Linking Google account for user %s", googleUserInfo.Email)
+		logger.InfofWithCtx(ctx, "[Info] Linking Google account for user %s", googleUserInfo.Email)
 
 		// set new auth provider
 		newProvider := constant.ACCOUNT_TYPE_BOTH
@@ -565,14 +566,14 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 
 		// Link Google account
 		if err := s.userRepo.LinkGoogleAccount(existingUser.ID, googleUserInfo.GoogleID, newProvider); err != nil {
-			log.Printf("[Err] Error linking Google account in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error linking Google account in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to link Google account: %w", err)
 		}
 
 		// Activate user if not already active
 		if !existingUser.IsActive {
 			if err := s.userRepo.ActivateUser(existingUser.ID); err != nil {
-				log.Printf("[Err] Error activating user in AuthService.GoogleLogin: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error activating user in AuthService.GoogleLogin: %v", err)
 			}
 		}
 
@@ -582,13 +583,13 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 			conf.Auth.JWTSecret,
 		)
 		if err != nil {
-			log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate access token")
 		}
 
 		refreshTokenString, err := util.GenerateToken(64)
 		if err != nil {
-			log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to generate refresh token")
 		}
 
@@ -600,7 +601,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		}
 
 		if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
-			log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
 			return nil, fmt.Errorf("failed to store refresh token")
 		}
 
@@ -632,7 +633,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	}
 
 	if err := s.userRepo.CreateUser(newUser); err != nil {
-		log.Printf("[Err] Error creating user in AuthService.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating user in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -640,7 +641,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	go func(userID uint64) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Err] Panic in goroutine AuthService.GoogleLogin: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Err] Panic in goroutine AuthService.GoogleLogin: %v", r)
 			}
 		}()
 
@@ -667,7 +668,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		}
 
 		if err := s.notificationSettingRepo.CreateNotificationSettings(settings); err != nil {
-			log.Printf("[Err] Error creating notification settings in AuthService.GoogleLogin: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating notification settings in AuthService.GoogleLogin: %v", err)
 		}
 	}(newUser.ID)
 
@@ -677,13 +678,13 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 		conf.Auth.JWTSecret,
 	)
 	if err != nil {
-		log.Printf("[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating JWT token in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
 	refreshTokenString, err := util.GenerateToken(64)
 	if err != nil {
-		log.Printf("[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating refresh token in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
@@ -695,7 +696,7 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	}
 
 	if err := s.refreshTokenRepo.CreateRefreshToken(refreshToken); err != nil {
-		log.Printf("[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error storing refresh token in AuthService.GoogleLogin: %v", err)
 		return nil, fmt.Errorf("failed to store refresh token")
 	}
 
@@ -705,22 +706,22 @@ func (s *AuthService) GoogleLogin(req *request.GoogleLoginRequest) (*response.Lo
 	}, nil
 }
 
-func (s *AuthService) RefreshToken(refreshToken string) (*response.RefreshTokenResponse, error) {
+func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*response.RefreshTokenResponse, error) {
 	// Verify Refresh Token exists and not expired
 	storedToken, err := s.refreshTokenRepo.GetRefreshTokenByToken(refreshToken)
 	if err != nil {
-		log.Printf("[Err] Invalid refresh token in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid refresh token in AuthService.RefreshToken: %v", err)
 		return nil, fmt.Errorf("invalid or expired refresh token")
 	}
 
 	user, err := s.userRepo.GetUserByID(storedToken.UserID)
 	if err != nil {
-		log.Printf("[Err] User not found in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] User not found in AuthService.RefreshToken: %v", err)
 		return nil, fmt.Errorf("user not found")
 	}
 
 	if !user.IsActive {
-		log.Printf("[Err] User %d is not active in AuthService.RefreshToken", user.ID)
+		logger.ErrorfWithCtx(ctx, "[Err] User %d is not active in AuthService.RefreshToken", user.ID)
 		return nil, fmt.Errorf("user account is inactive")
 	}
 
@@ -732,18 +733,18 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.RefreshTokenR
 		conf.Auth.JWTSecret,
 	)
 	if err != nil {
-		log.Printf("[Err] Error generating new access token in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating new access token in AuthService.RefreshToken: %v", err)
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
 	newRefreshTokenString, err := util.GenerateToken(64)
 	if err != nil {
-		log.Printf("[Err] Error generating new refresh token in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error generating new refresh token in AuthService.RefreshToken: %v", err)
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
 	if err := s.refreshTokenRepo.DeleteRefreshToken(storedToken.ID); err != nil {
-		log.Printf("[Err] Error deleting old refresh token in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting old refresh token in AuthService.RefreshToken: %v", err)
 	}
 
 	newRefreshToken := &model.RefreshToken{
@@ -754,7 +755,7 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.RefreshTokenR
 	}
 
 	if err := s.refreshTokenRepo.CreateRefreshToken(newRefreshToken); err != nil {
-		log.Printf("[Err] Error storing new refresh token in AuthService.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error storing new refresh token in AuthService.RefreshToken: %v", err)
 		return nil, fmt.Errorf("failed to store refresh token")
 	}
 
@@ -764,9 +765,9 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.RefreshTokenR
 	}, nil
 }
 
-func (s *AuthService) Logout(refreshToken string) error {
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	if err := s.refreshTokenRepo.DeleteRefreshTokenByToken(refreshToken); err != nil {
-		log.Printf("[Err] Error deleting refresh token in AuthService.Logout: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting refresh token in AuthService.Logout: %v", err)
 		return fmt.Errorf("failed to logout")
 	}
 

@@ -46,7 +46,7 @@ func (h *CommunityHandler) CreateCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.CreateCommunity(userID, &req); err != nil {
+	if err := h.communityService.CreateCommunity(ctx, userID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error creating community in CommunityHandler.CreateCommunity: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -78,7 +78,7 @@ func (h *CommunityHandler) GetCommunityByID(c *gin.Context) {
 	// Get userID from context (if exists)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	community, err := h.communityService.GetCommunityByID(id, userID)
+	community, err := h.communityService.GetCommunityByID(ctx, id, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting community in CommunityHandler.GetCommunityByID: %v", err)
 		c.JSON(http.StatusNotFound, response.APIResponse{
@@ -129,7 +129,7 @@ func (h *CommunityHandler) UpdateCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateCommunity(userID, id, &req); err != nil {
+	if err := h.communityService.UpdateCommunity(ctx, userID, id, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating community in CommunityHandler.UpdateCommunity: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -185,7 +185,7 @@ func (h *CommunityHandler) DeleteCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeleteCommunity(userID, id); err != nil {
+	if err := h.communityService.DeleteCommunity(ctx, userID, id); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting community in CommunityHandler.DeleteCommunity: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -241,7 +241,7 @@ func (h *CommunityHandler) JoinCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.JoinCommunity(userID, communityID); err != nil {
+	if err := h.communityService.JoinCommunity(ctx, userID, communityID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error joining community in CommunityHandler.JoinCommunity: %v", err)
 
 		if strings.Contains(err.Error(), "already joined") {
@@ -297,7 +297,7 @@ func (h *CommunityHandler) UnjoinCommunity(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UnjoinCommunity(userID, communityID); err != nil {
+	if err := h.communityService.UnjoinCommunity(ctx, userID, communityID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error leaving community in CommunityHandler.UnjoinCommunity: %v", err)
 
 		if strings.Contains(err.Error(), "not subscribed") {
@@ -345,7 +345,7 @@ func (h *CommunityHandler) GetCommunities(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	communities, pagination, err := h.communityService.GetCommunities(page, limit, userID)
+	communities, pagination, err := h.communityService.GetCommunities(ctx, page, limit, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting communities in CommunityHandler.GetCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -389,7 +389,7 @@ func (h *CommunityHandler) SearchCommunities(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	communities, pagination, err := h.communityService.SearchCommunitiesByName(name, sortBy, page, limit, userID)
+	communities, pagination, err := h.communityService.SearchCommunitiesByName(ctx, name, sortBy, page, limit, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error searching communities in CommunityHandler.SearchCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -441,7 +441,7 @@ func (h *CommunityHandler) FilterCommunities(c *gin.Context) {
 	// Get userID from context (set by OptionalAuthMiddleware)
 	userID := util.GetOptionalUserIDFromContext(c)
 
-	communities, pagination, err := h.communityService.FilterCommunities(sortBy, isPrivate, topics, page, limit, userID)
+	communities, pagination, err := h.communityService.FilterCommunities(ctx, sortBy, isPrivate, topics, page, limit, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error filtering communities in CommunityHandler.FilterCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -496,7 +496,7 @@ func (h *CommunityHandler) GetCommunityMembers(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	members, pagination, err := h.communityService.GetCommunityMembers(userID, communityID, sortBy, searchName, status, page, limit)
+	members, pagination, err := h.communityService.GetCommunityMembers(ctx, userID, communityID, sortBy, searchName, status, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting community members in CommunityHandler.GetCommunityMembers: %v", err)
 
@@ -576,7 +576,7 @@ func (h *CommunityHandler) UpdateMemberRole(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateMemberRole(userID, communityID, targetUserID, req.Role); err != nil {
+	if err := h.communityService.UpdateMemberRole(ctx, userID, communityID, targetUserID, req.Role); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating member role in CommunityHandler.UpdateMemberRole: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -651,7 +651,7 @@ func (h *CommunityHandler) RemoveMember(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.RemoveMember(userID, communityID, memberID); err != nil {
+	if err := h.communityService.RemoveMember(ctx, userID, communityID, memberID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error removing member in CommunityHandler.RemoveMember: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -715,7 +715,7 @@ func (h *CommunityHandler) GetUserRoleInCommunity(c *gin.Context) {
 		return
 	}
 
-	role, err := h.communityService.GetUserRoleInCommunity(userID, communityID)
+	role, err := h.communityService.GetUserRoleInCommunity(ctx, userID, communityID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user role in CommunityHandler.GetUserRoleInCommunity: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -745,7 +745,7 @@ func (h *CommunityHandler) VerifyCommunityName(c *gin.Context) {
 		return
 	}
 
-	isUnique, err := h.communityService.VerifyCommunityName(req.Name)
+	isUnique, err := h.communityService.VerifyCommunityName(ctx, req.Name)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error verifying community name in CommunityHandler.VerifyCommunityName: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -798,7 +798,7 @@ func (h *CommunityHandler) GetCommunityPostsForModerator(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	posts, pagination, err := h.communityService.GetCommunityPostsForModerator(userID, communityID, status, searchTitle, page, limit)
+	posts, pagination, err := h.communityService.GetCommunityPostsForModerator(ctx, userID, communityID, status, searchTitle, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting community posts for moderator in CommunityHandler.GetCommunityPostsForModerator: %v", err)
 
@@ -878,7 +878,7 @@ func (h *CommunityHandler) UpdatePostStatusByModerator(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdatePostStatusByModerator(userID, communityID, postID, req.Status); err != nil {
+	if err := h.communityService.UpdatePostStatusByModerator(ctx, userID, communityID, postID, req.Status); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating post status in CommunityHandler.UpdatePostStatusByModerator: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -953,7 +953,7 @@ func (h *CommunityHandler) DeletePostByModerator(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeletePostByModerator(userID, communityID, postID); err != nil {
+	if err := h.communityService.DeletePostByModerator(ctx, userID, communityID, postID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post in CommunityHandler.DeletePostByModerator: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1020,7 +1020,7 @@ func (h *CommunityHandler) DeleteCommentByModerator(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeleteCommentByModerator(userID, communityID, commentID); err != nil {
+	if err := h.communityService.DeleteCommentByModerator(ctx, userID, communityID, commentID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment in CommunityHandler.DeleteCommentByModerator: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1086,7 +1086,7 @@ func (h *CommunityHandler) GetCommunityPostReports(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	reports, pagination, err := h.communityService.GetCommunityPostReports(userID, communityID, page, limit)
+	reports, pagination, err := h.communityService.GetCommunityPostReports(ctx, userID, communityID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting community post reports in CommunityHandler.GetCommunityPostReports: %v", err)
 
@@ -1156,7 +1156,7 @@ func (h *CommunityHandler) DeletePostReport(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeletePostReport(userID, communityID, reportID); err != nil {
+	if err := h.communityService.DeletePostReport(ctx, userID, communityID, reportID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post report in CommunityHandler.DeletePostReport: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1214,7 +1214,7 @@ func (h *CommunityHandler) GetCommunityCommentReports(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	reports, pagination, err := h.communityService.GetCommunityCommentReports(userID, communityID, page, limit)
+	reports, pagination, err := h.communityService.GetCommunityCommentReports(ctx, userID, communityID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting community comment reports in CommunityHandler.GetCommunityCommentReports: %v", err)
 
@@ -1284,7 +1284,7 @@ func (h *CommunityHandler) DeleteCommentReport(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.DeleteCommentReport(userID, communityID, reportID); err != nil {
+	if err := h.communityService.DeleteCommentReport(ctx, userID, communityID, reportID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment report in CommunityHandler.DeleteCommentReport: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1342,7 +1342,7 @@ func (h *CommunityHandler) BanUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.BanUser(moderatorID, communityID, &req); err != nil {
+	if err := h.communityService.BanUser(ctx, moderatorID, communityID, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error banning user in CommunityHandler.BanUser: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1419,7 +1419,7 @@ func (h *CommunityHandler) GetUserRestrictionHistory(c *gin.Context) {
 		limit = 10
 	}
 
-	restrictions, pagination, err := h.communityService.GetUserRestrictionHistory(moderatorID, communityID, targetUserID, page, limit)
+	restrictions, pagination, err := h.communityService.GetUserRestrictionHistory(ctx, moderatorID, communityID, targetUserID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user restriction history in CommunityHandler.GetUserRestrictionHistory: %v", err)
 
@@ -1489,7 +1489,7 @@ func (h *CommunityHandler) RemoveUserRestriction(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.RemoveUserRestriction(moderatorID, communityID, restrictionID); err != nil {
+	if err := h.communityService.RemoveUserRestriction(ctx, moderatorID, communityID, restrictionID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error removing user restriction in CommunityHandler.RemoveUserRestriction: %v", err)
 
 		if strings.Contains(err.Error(), "permission denied") {
@@ -1530,7 +1530,7 @@ func (h *CommunityHandler) GetAllTopics(c *gin.Context) {
 		search = &searchQuery
 	}
 
-	topics, err := h.communityService.GetAllTopics(search)
+	topics, err := h.communityService.GetAllTopics(ctx, search)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting topics in CommunityHandler.GetAllTopics: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -1581,7 +1581,7 @@ func (h *CommunityHandler) UpdateRequiresPostApproval(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateRequiresPostApproval(userID, id, &req); err != nil {
+	if err := h.communityService.UpdateRequiresPostApproval(ctx, userID, id, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating requires post approval in CommunityHandler.UpdateRequiresPostApproval: %v", err)
 
 		if err.Error() == "community not found" {
@@ -1647,7 +1647,7 @@ func (h *CommunityHandler) UpdateRequiresMemberApproval(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateRequiresMemberApproval(userID, id, &req); err != nil {
+	if err := h.communityService.UpdateRequiresMemberApproval(ctx, userID, id, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating requires member approval in CommunityHandler.UpdateRequiresMemberApproval: %v", err)
 
 		if err.Error() == "community not found" {
@@ -1724,7 +1724,7 @@ func (h *CommunityHandler) UpdateSubscriptionStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.communityService.UpdateSubscriptionStatus(moderatorUserID, communityID, targetUserID, req.Status); err != nil {
+	if err := h.communityService.UpdateSubscriptionStatus(ctx, moderatorUserID, communityID, targetUserID, req.Status); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating subscription status in CommunityHandler.UpdateSubscriptionStatus: %v", err)
 
 		if err.Error() == "community not found" {

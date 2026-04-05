@@ -1,13 +1,14 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
 	"social-platform-backend/package/util"
 	"time"
@@ -49,11 +50,11 @@ func NewCommentService(
 	}
 }
 
-func (s *CommentService) CreateComment(userID uint64, req *request.CreateCommentRequest) error {
+func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *request.CreateCommentRequest) error {
 	// Check if post exists
 	post, err := s.postRepo.GetPostByID(req.PostID)
 	if err != nil {
-		log.Printf("[Err] Post not found in CommentService.CreateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in CommentService.CreateComment: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
@@ -62,11 +63,11 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 	if req.ParentCommentID != nil {
 		parentComment, err = s.commentRepo.GetCommentByID(*req.ParentCommentID)
 		if err != nil {
-			log.Printf("[Err] Parent comment not found in CommentService.CreateComment: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Parent comment not found in CommentService.CreateComment: %v", err)
 			return fmt.Errorf("parent comment not found")
 		}
 		if parentComment.PostID != req.PostID {
-			log.Printf("[Err] Parent comment does not belong to the same post in CommentService.CreateComment")
+			logger.ErrorfWithCtx(ctx, "[Err] Parent comment does not belong to the same post in CommentService.CreateComment")
 			return fmt.Errorf("parent comment does not belong to this post")
 		}
 	}
@@ -80,14 +81,14 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 	}
 
 	if err := s.commentRepo.CreateComment(comment); err != nil {
-		log.Printf("[Err] Error creating comment in CommentService.CreateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating comment in CommentService.CreateComment: %v", err)
 		return fmt.Errorf("failed to create comment")
 	}
 
 	go func(userID uint64, post *model.Post, parentComment *model.Comment, comment *model.Comment) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in CommentService background task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommentService background task: %v", r)
 			}
 		}()
 
@@ -97,7 +98,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		violationCategory := ""
 
 		if textViolation, err := util.CheckTextContent(comment.Content); err != nil {
-			log.Printf("[Err] Error checking text content in CommentService.CreateComment: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in CommentService.CreateComment: %v", err)
 		} else if textViolation.IsViolation {
 			violation = true
 			violationReason = textViolation.Reason
@@ -106,7 +107,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 
 		if !violation && comment.MediaURL != nil && *comment.MediaURL != "" {
 			if imageViolation, err := util.CheckImageContent(*comment.MediaURL); err != nil {
-				log.Printf("[Err] Error checking image content in CommentService.CreateComment: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in CommentService.CreateComment: %v", err)
 			} else if imageViolation.IsViolation {
 				violation = true
 				violationReason = imageViolation.Reason
@@ -115,10 +116,10 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		}
 
 		if violation {
-			log.Printf("[Info] Content violation detected for comment %d: %s", comment.ID, violationReason)
+			logger.InfofWithCtx(ctx, "[Info] Content violation detected for comment %d: %s", comment.ID, violationReason)
 
 			if err := s.commentRepo.DeleteComment(comment.ID, comment.ParentCommentID); err != nil {
-				log.Printf("[Err] Error deleting comment for violation: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment for violation: %v", err)
 			}
 
 			if s.notificationService != nil {
@@ -128,8 +129,8 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 					Reason:    violationReason,
 					Category:  violationCategory,
 				}
-				if err := s.notificationService.CreateNotification(userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT, notifPayload); err != nil {
-					log.Printf("[Err] Error sending content violation notification: %v", err)
+				if err := s.notificationService.CreateNotification(ctx, userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT, notifPayload); err != nil {
+					logger.ErrorfWithCtx(ctx, "[Err] Error sending content violation notification: %v", err)
 				}
 			}
 
@@ -137,15 +138,15 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
-				log.Printf("[Err] Error creating karma task in CommentService.CreateComment: %v", err)
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in CommentService.CreateComment: %v", err)
 			}
 		}
 
 		// Send notifications
 		commenter, err := s.userRepo.GetUserByID(userID)
 		if err != nil {
-			log.Printf("[Err] Error getting commenter in CommentService.CreateComment: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error getting commenter in CommentService.CreateComment: %v", err)
 			return
 		}
 
@@ -156,6 +157,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 				UserName:  commenter.Username,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				parentComment.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY,
 				notifPayload,
@@ -169,6 +171,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 				UserName: commenter.Username,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				post.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
 				notifPayload,
@@ -179,13 +182,13 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[Panic] Recovered in CommentService.CreateComment followers notification: %v", r)
+					logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommentService.CreateComment followers notification: %v", r)
 				}
 			}()
 
 			followerIDs, err := s.userSavedPostRepo.GetFollowersByPostID(post.ID)
 			if err != nil {
-				log.Printf("[Err] Error getting followers in CommentService.CreateComment: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error getting followers in CommentService.CreateComment: %v", err)
 				return
 			}
 
@@ -197,11 +200,12 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 			for _, followerID := range followerIDs {
 				if followerID != post.AuthorID && followerID != userID {
 					if err := s.notificationService.CreateNotification(
+						ctx,
 						followerID,
 						constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
 						notifPayload,
 					); err != nil {
-						log.Printf("[Err] Failed to send notification to follower %d: %v", followerID, err)
+						logger.ErrorfWithCtx(ctx, "[Err] Failed to send notification to follower %d: %v", followerID, err)
 					}
 				}
 			}
@@ -211,7 +215,7 @@ func (s *CommentService) CreateComment(userID uint64, req *request.CreateComment
 	return nil
 }
 
-func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page, limit int, userID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
+func (s *CommentService) GetCommentsByPostID(ctx context.Context, postID uint64, sortBy string, page, limit int, userID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
 	// Validate pagination
 	if page <= 0 {
 		page = constant.DEFAULT_PAGE
@@ -229,7 +233,7 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 	// Get top-level comments
 	comments, total, err := s.commentRepo.GetCommentsByPostID(postID, sortBy, limit, offset, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting comments in CommentService.GetCommentsByPostID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting comments in CommentService.GetCommentsByPostID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comments")
 	}
 
@@ -239,9 +243,9 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 		commentResp := response.NewCommentResponse(comment)
 
 		// Get all replies for this comment
-		replies, err := s.loadRepliesRecursively(comment.ID, userID)
+		replies, err := s.loadRepliesRecursively(ctx, comment.ID, userID)
 		if err != nil {
-			log.Printf("[Err] Error loading replies in CommentService.GetCommentsByPostID: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error loading replies in CommentService.GetCommentsByPostID: %v", err)
 			// Continue without replies rather than failing entirely
 			replies = []*response.CommentResponse{}
 		}
@@ -263,7 +267,7 @@ func (s *CommentService) GetCommentsByPostID(postID uint64, sortBy string, page,
 	return commentResponses, pagination, nil
 }
 
-func (s *CommentService) loadRepliesRecursively(parentID uint64, userID *uint64) ([]*response.CommentResponse, error) {
+func (s *CommentService) loadRepliesRecursively(ctx context.Context, parentID uint64, userID *uint64) ([]*response.CommentResponse, error) {
 	replies, err := s.commentRepo.GetRepliesByParentID(parentID, userID)
 	if err != nil {
 		return nil, err
@@ -274,9 +278,9 @@ func (s *CommentService) loadRepliesRecursively(parentID uint64, userID *uint64)
 		replyResp := response.NewCommentResponse(reply)
 
 		// Load child replies
-		nestedReplies, err := s.loadRepliesRecursively(reply.ID, userID)
+		nestedReplies, err := s.loadRepliesRecursively(ctx, reply.ID, userID)
 		if err != nil {
-			log.Printf("[Err] Error loading nested replies: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error loading nested replies: %v", err)
 			nestedReplies = []*response.CommentResponse{}
 		}
 		replyResp.Replies = nestedReplies
@@ -287,54 +291,54 @@ func (s *CommentService) loadRepliesRecursively(parentID uint64, userID *uint64)
 	return replyResponses, nil
 }
 
-func (s *CommentService) UpdateComment(userID, commentID uint64, req *request.UpdateCommentRequest) error {
+func (s *CommentService) UpdateComment(ctx context.Context, userID, commentID uint64, req *request.UpdateCommentRequest) error {
 	comment, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommentService.UpdateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommentService.UpdateComment: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
 	// Check if user is the author
 	if comment.AuthorID != userID {
-		log.Printf("[Err] User does not have permission to update comment in CommentService.UpdateComment: userID=%d, commentID=%d", userID, commentID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission to update comment in CommentService.UpdateComment: userID=%d, commentID=%d", userID, commentID)
 		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.commentRepo.UpdateComment(commentID, req.Content, req.MediaURL); err != nil {
-		log.Printf("[Err] Error updating comment in CommentService.UpdateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating comment in CommentService.UpdateComment: %v", err)
 		return fmt.Errorf("failed to update comment")
 	}
 
 	return nil
 }
 
-func (s *CommentService) DeleteComment(userID, commentID uint64) error {
+func (s *CommentService) DeleteComment(ctx context.Context, userID, commentID uint64) error {
 	comment, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommentService.DeleteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommentService.DeleteComment: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
 	// Check if user is the author
 	if comment.AuthorID != userID {
-		log.Printf("[Err] User does not have permission to delete comment in CommentService.DeleteComment: userID=%d, commentID=%d", userID, commentID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission to delete comment in CommentService.DeleteComment: userID=%d, commentID=%d", userID, commentID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Delete comment with transaction (updates replies' parent_comment_id, then deletes the comment)
 	if err := s.commentRepo.DeleteComment(commentID, comment.ParentCommentID); err != nil {
-		log.Printf("[Err] Error deleting comment in CommentService.DeleteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment in CommentService.DeleteComment: %v", err)
 		return fmt.Errorf("failed to delete comment")
 	}
 
 	return nil
 }
 
-func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error {
+func (s *CommentService) VoteComment(ctx context.Context, userID, commentID uint64, vote bool) error {
 	// Check if comment exists
 	comment, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommentService.VoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommentService.VoteComment: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
@@ -345,7 +349,7 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 	}
 
 	if err := s.commentVoteRepo.UpsertCommentVote(commentVote); err != nil {
-		log.Printf("[Err] Error voting comment in CommentService.VoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error voting comment in CommentService.VoteComment: %v", err)
 		return fmt.Errorf("failed to vote comment")
 	}
 
@@ -353,7 +357,7 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 	go func(userID uint64, comment *model.Comment, vote bool) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in CommentService.VoteComment background task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommentService.VoteComment background task: %v", r)
 			}
 		}()
 
@@ -366,8 +370,8 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, &comment.AuthorID, action); err != nil {
-				log.Printf("[Err] Error creating karma task in CommentService.VoteComment: %v", err)
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, &comment.AuthorID, action); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in CommentService.VoteComment: %v", err)
 			}
 		}
 
@@ -375,7 +379,7 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 		if userID != comment.AuthorID {
 			voter, err := s.userRepo.GetUserByID(userID)
 			if err != nil {
-				log.Printf("[Err] Error getting voter in CommentService.VoteComment: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error getting voter in CommentService.VoteComment: %v", err)
 				return
 			}
 
@@ -385,6 +389,7 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 				VoteType:  vote,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				comment.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_COMMENT_VOTE,
 				notifPayload,
@@ -395,34 +400,34 @@ func (s *CommentService) VoteComment(userID, commentID uint64, vote bool) error 
 	return nil
 }
 
-func (s *CommentService) UnvoteComment(userID, commentID uint64) error {
+func (s *CommentService) UnvoteComment(ctx context.Context, userID, commentID uint64) error {
 	// Check if comment exists
 	_, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommentService.UnvoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommentService.UnvoteComment: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
 	// Delete vote
 	if err := s.commentVoteRepo.DeleteCommentVote(userID, commentID); err != nil {
-		log.Printf("[Err] Error unvoting comment in CommentService.UnvoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting comment in CommentService.UnvoteComment: %v", err)
 		return fmt.Errorf("failed to unvote comment")
 	}
 
 	return nil
 }
 
-func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page, limit int, requestUserID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
+func (s *CommentService) GetCommentsByUserID(ctx context.Context, userID uint64, sortBy string, page, limit int, requestUserID *uint64) ([]*response.CommentResponse, *response.Pagination, error) {
 	// Check if user exists
 	_, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] User not found in CommentService.GetCommentsByUserID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] User not found in CommentService.GetCommentsByUserID: %v", err)
 		return nil, nil, fmt.Errorf("user not found")
 	}
 
 	comments, total, err := s.commentRepo.GetCommentsByUserID(userID, sortBy, page, limit, requestUserID)
 	if err != nil {
-		log.Printf("[Err] Error getting comments by user ID in CommentService.GetCommentsByUserID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting comments by user ID in CommentService.GetCommentsByUserID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comments")
 	}
 
@@ -440,18 +445,18 @@ func (s *CommentService) GetCommentsByUserID(userID uint64, sortBy string, page,
 	return commentResponses, pagination, nil
 }
 
-func (s *CommentService) ReportComment(userID, commentID uint64, req *request.ReportCommentRequest) error {
+func (s *CommentService) ReportComment(ctx context.Context, userID, commentID uint64, req *request.ReportCommentRequest) error {
 	// Check if comment exists
 	_, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommentService.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommentService.ReportComment: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
 	// Check if user already reported this comment
 	alreadyReported, err := s.commentReportRepo.IsUserReportedComment(userID, commentID)
 	if err != nil {
-		log.Printf("[Err] Error checking if user reported comment in CommentService.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking if user reported comment in CommentService.ReportComment: %v", err)
 		return fmt.Errorf("failed to check report status")
 	}
 	if alreadyReported {
@@ -468,7 +473,7 @@ func (s *CommentService) ReportComment(userID, commentID uint64, req *request.Re
 	}
 
 	if err := s.commentReportRepo.CreateCommentReport(report); err != nil {
-		log.Printf("[Err] Error creating comment report in CommentService.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating comment report in CommentService.ReportComment: %v", err)
 		return fmt.Errorf("failed to report comment")
 	}
 

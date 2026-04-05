@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -39,7 +40,7 @@ func TestPostService_CreatePost_TextSuccess(t *testing.T) {
 	mockCommunityRepo.On("GetCommunityByID", req.CommunityID).Return(community, nil)
 	mockPostRepo.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(nil)
 
-	err := postService.CreatePost(userID, req)
+	err := postService.CreatePost(context.Background(), userID, req)
 
 	assert.NoError(t, err)
 	mockCommunityRepo.AssertExpectations(t)
@@ -63,7 +64,7 @@ func TestPostService_CreatePost_CommunityNotFound(t *testing.T) {
 
 	mockCommunityRepo.On("GetCommunityByID", req.CommunityID).Return(nil, errors.New("not found"))
 
-	err := postService.CreatePost(123, req)
+	err := postService.CreatePost(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "community not found")
@@ -89,7 +90,7 @@ func TestPostService_CreatePost_LinkWithoutURL(t *testing.T) {
 	community := &model.Community{ID: 1}
 	mockCommunityRepo.On("GetCommunityByID", req.CommunityID).Return(community, nil)
 
-	err := postService.CreatePost(123, req)
+	err := postService.CreatePost(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "url is required")
@@ -115,7 +116,7 @@ func TestPostService_CreatePost_MediaWithoutURLs(t *testing.T) {
 	community := &model.Community{ID: 1}
 	mockCommunityRepo.On("GetCommunityByID", req.CommunityID).Return(community, nil)
 
-	err := postService.CreatePost(123, req)
+	err := postService.CreatePost(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "media_urls are required")
@@ -140,7 +141,7 @@ func TestPostService_CreatePost_InvalidType(t *testing.T) {
 	community := &model.Community{ID: 1}
 	mockCommunityRepo.On("GetCommunityByID", req.CommunityID).Return(community, nil)
 
-	err := postService.CreatePost(123, req)
+	err := postService.CreatePost(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid post type")
@@ -171,7 +172,7 @@ func TestPostService_UpdatePost_Success(t *testing.T) {
 	mockPostRepo.On("GetPostByID", postID).Return(post, nil)
 	mockPostRepo.On("UpdatePostText", postID, updateReq).Return(nil)
 
-	err := postService.UpdatePost(userID, postID, constant.PostTypeText, updateReq)
+	err := postService.UpdatePost(context.Background(), userID, postID, constant.PostTypeText, updateReq)
 
 	assert.NoError(t, err)
 	mockPostRepo.AssertExpectations(t)
@@ -199,7 +200,7 @@ func TestPostService_UpdatePost_NotAuthor(t *testing.T) {
 
 	mockPostRepo.On("GetPostByID", postID).Return(post, nil)
 
-	err := postService.UpdatePost(userID, postID, constant.PostTypeText, updateReq)
+	err := postService.UpdatePost(context.Background(), userID, postID, constant.PostTypeText, updateReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -228,7 +229,7 @@ func TestPostService_UpdatePost_TypeMismatch(t *testing.T) {
 
 	mockPostRepo.On("GetPostByID", postID).Return(post, nil)
 
-	err := postService.UpdatePost(userID, postID, constant.PostTypeText, updateReq)
+	err := postService.UpdatePost(context.Background(), userID, postID, constant.PostTypeText, updateReq)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "post type mismatch")
@@ -254,7 +255,7 @@ func TestPostService_DeletePost_Success(t *testing.T) {
 	mockPostRepo.On("GetPostByID", postID).Return(post, nil)
 	mockPostRepo.On("DeletePost", postID).Return(nil)
 
-	err := postService.DeletePost(userID, postID)
+	err := postService.DeletePost(context.Background(), userID, postID)
 
 	assert.NoError(t, err)
 	mockPostRepo.AssertExpectations(t)
@@ -271,7 +272,7 @@ func TestPostService_DeletePost_NotFound(t *testing.T) {
 	postID := uint64(999)
 	mockPostRepo.On("GetPostByID", postID).Return(nil, errors.New("not found"))
 
-	err := postService.DeletePost(123, postID)
+	err := postService.DeletePost(context.Background(), 123, postID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "post not found")
