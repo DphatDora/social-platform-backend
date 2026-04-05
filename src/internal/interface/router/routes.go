@@ -29,7 +29,6 @@ type AppHandler struct {
 func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware(conf.App.Whitelist))
-	router.Use(middleware.RequestMetricsMiddleware())
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
@@ -96,6 +95,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 	// Setup route groups
 	api := router.Group("/api/v1")
 	{
+		api.Use(middleware.RequestMetricsMiddleware())
 		setupPublicRoutes(api, appHandler, conf, redisClient)
 		setupProtectedRoutes(api, appHandler, conf, redisClient, userRepo, userRestrictionRepo, postRepo)
 	}
@@ -117,6 +117,7 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 
 func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client) {
 	// Health check
+	rg.Use(middleware.OptionalAuthMiddleware(conf))
 	rg.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
@@ -137,7 +138,6 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 
 	communities := rg.Group("/communities")
-	communities.Use(middleware.OptionalAuthMiddleware(conf))
 	{
 		communities.GET("", appHandler.communityHandler.GetCommunities)
 		communities.GET("/search", appHandler.communityHandler.SearchCommunities)
@@ -149,7 +149,6 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 	}
 
 	posts := rg.Group("/posts")
-	posts.Use(middleware.OptionalAuthMiddleware(conf))
 	{
 		posts.GET("", appHandler.postHandler.GetAllPosts)
 		posts.GET("/search", appHandler.postHandler.SearchPosts)
