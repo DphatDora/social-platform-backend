@@ -40,7 +40,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Register user
-	if err := h.authService.Register(&req); err != nil {
+	if err := h.authService.Register(ctx, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Register: %v", err)
 
 		// Check for specific error types
@@ -79,7 +79,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	}
 
 	// Verify token
-	if err := h.authService.VerifyEmail(token); err != nil {
+	if err := h.authService.VerifyEmail(ctx, token); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error verifying email in AuthHandler.VerifyEmail: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
@@ -113,7 +113,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Login user
-	loginResponse, err := h.authService.Login(&req)
+	loginResponse, err := h.authService.Login(ctx, &req)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Login: %v", err)
 		if strings.Contains(err.Error(), "not verified") {
@@ -159,7 +159,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	// Process forgot password
-	if err := h.authService.ForgotPassword(&req); err != nil {
+	if err := h.authService.ForgotPassword(ctx, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ForgotPassword: %v", err)
 
 		if strings.Contains(err.Error(), "not verified") {
@@ -197,7 +197,7 @@ func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
 	}
 
 	// Verify token
-	validToken, err := h.authService.VerifyResetToken(token)
+	validToken, err := h.authService.VerifyResetToken(ctx, token)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error verifying reset token in AuthHandler.VerifyResetToken: %v", err)
 
@@ -232,7 +232,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	// Reset password
-	if err := h.authService.ResetPassword(&req); err != nil {
+	if err := h.authService.ResetPassword(ctx, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResetPassword: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
@@ -271,7 +271,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 	}
 
 	// Resend verification email
-	if err := h.authService.ResendVerificationEmail(&req); err != nil {
+	if err := h.authService.ResendVerificationEmail(ctx, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResendVerificationEmail: %v", err)
 		if strings.Contains(err.Error(), "already verified") {
 			c.JSON(http.StatusBadRequest, response.APIResponse{
@@ -318,7 +318,7 @@ func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
 	}
 
 	// Resend reset password email
-	if err := h.authService.ResendResetPasswordEmail(&req); err != nil {
+	if err := h.authService.ResendResetPasswordEmail(ctx, &req); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResendResetPasswordEmail: %v", err)
 		if strings.Contains(err.Error(), "not verified") {
 			c.JSON(http.StatusForbidden, response.APIResponse{
@@ -363,7 +363,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 		return
 	}
 
-	loginResponse, err := h.authService.GoogleLogin(&req)
+	loginResponse, err := h.authService.GoogleLogin(ctx, &req)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.GoogleLogin: %v", err)
 
@@ -408,7 +408,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	refreshResponse, err := h.authService.RefreshToken(refreshToken)
+	refreshResponse, err := h.authService.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.RefreshToken: %v", err)
 		util.ClearRefreshTokenCookie(c)
@@ -448,7 +448,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Logout(refreshToken); err != nil {
+	if err := h.authService.Logout(ctx, refreshToken); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Logout: %v", err)
 		// Still clear the cookie even if service fails
 		util.ClearRefreshTokenCookie(c)

@@ -60,7 +60,7 @@ func (h *ChatbotHandler) StreamChat(c *gin.Context) {
 	chunkChan := make(chan response.ChatStreamChunk, 10)
 	errorChan := make(chan error, 1)
 
-	go h.chatbotService.StreamChat(c.Request.Context(), &req, chunkChan, errorChan)
+	go h.chatbotService.StreamChat(ctx, &req, chunkChan, errorChan)
 
 	for {
 		select {

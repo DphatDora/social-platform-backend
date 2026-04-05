@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"social-platform-backend/config"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"time"
 )
 
@@ -129,7 +129,7 @@ func (s *ChatbotService) StreamChat(ctx context.Context, req *request.ChatReques
 			var ollamaResp response.OllamaResponse
 
 			if err := json.Unmarshal(line, &ollamaResp); err != nil {
-				log.Printf("[Warn] Failed to parse Ollama response chunk: %v", err)
+				logger.WarnfWithCtx(ctx, "[Warn] Failed to parse Ollama response chunk: %v", err)
 				continue
 			}
 
