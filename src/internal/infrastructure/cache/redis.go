@@ -3,8 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
-	"log"
 	"social-platform-backend/config"
+	"social-platform-backend/package/logger"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -33,7 +33,7 @@ func NewRedisClient(conf *config.Config) (*redis.Client, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	log.Printf("[Info] Redis connected successfully to %s:%s", conf.Redis.Host, conf.Redis.Port)
+	logger.Infof("[INFO] Redis connected successfully to %s:%s", conf.Redis.Host, conf.Redis.Port)
 	redisClient = client
 	return client, nil
 }
@@ -44,7 +44,7 @@ func GetRedisClient() *redis.Client {
 
 func CloseRedis() error {
 	if redisClient != nil {
-		log.Println("[Info] Closing Redis connection...")
+		logger.Infof("[INFO] Closing Redis connection...")
 		return redisClient.Close()
 	}
 	return nil

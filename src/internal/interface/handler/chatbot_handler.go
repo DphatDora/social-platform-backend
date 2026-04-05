@@ -2,11 +2,11 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"time"
 
@@ -24,9 +24,10 @@ func NewChatbotHandler(chatbotService *service.ChatbotService) *ChatbotHandler {
 }
 
 func (h *ChatbotHandler) StreamChat(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] Invalid user ID in ChatbotHandler.StreamChat, %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid user ID in ChatbotHandler.StreamChat, %v", err)
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -36,7 +37,7 @@ func (h *ChatbotHandler) StreamChat(c *gin.Context) {
 
 	var req request.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in ChatbotHandler.StreamChat, %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in ChatbotHandler.StreamChat, %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload" + err.Error(),
@@ -50,7 +51,7 @@ func (h *ChatbotHandler) StreamChat(c *gin.Context) {
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
-	log.Printf("[Info] Chatbot stream started for user %d", userID)
+	logger.InfofWithCtx(ctx, "[Info] Chatbot stream started for user %d", userID)
 
 	c.SSEvent("connected", "stream started")
 	c.Writer.Flush()
@@ -64,12 +65,12 @@ func (h *ChatbotHandler) StreamChat(c *gin.Context) {
 	for {
 		select {
 		case <-c.Request.Context().Done():
-			log.Printf("[Info] Client disconnected for user %d", userID)
+			logger.InfofWithCtx(ctx, "[Info] Client disconnected for user %d", userID)
 			return
 
 		case err := <-errorChan:
 			if err != nil {
-				log.Printf("[Err] Chatbot error for user %d: %v", userID, err)
+				logger.ErrorfWithCtx(ctx, "[Err] Chatbot error for user %d: %v", userID, err)
 
 				errorEvent := response.SSEEvent{
 					Event: "error",
@@ -100,7 +101,7 @@ func (h *ChatbotHandler) StreamChat(c *gin.Context) {
 				c.SSEvent(completeEvent.Event, string(eventData))
 				c.Writer.Flush()
 
-				log.Printf("[Info] Chatbot stream completed for user %d", userID)
+				logger.InfofWithCtx(ctx, "[Info] Chatbot stream completed for user %d", userID)
 				return
 			}
 

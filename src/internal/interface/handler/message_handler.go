@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strconv"
 
@@ -24,9 +24,10 @@ func NewMessageHandler(messageService *service.MessageService) *MessageHandler {
 }
 
 func (h *MessageHandler) SendMessage(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.SendMessage", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.SendMessage", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -36,7 +37,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 
 	var req request.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Invalid request in MessageHandler.SendMessage: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid request in MessageHandler.SendMessage: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request",
@@ -55,7 +56,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 
 	message, err := h.messageService.SendMessage(userID, &req)
 	if err != nil {
-		log.Printf("[Err] Error sending message in MessageHandler.SendMessage: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error sending message in MessageHandler.SendMessage: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -63,6 +64,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Message sent successfully")
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Message sent successfully",
@@ -71,9 +73,10 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 }
 
 func (h *MessageHandler) MarkAsRead(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.MarkAsRead", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.MarkAsRead", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -84,7 +87,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	messageIDParam := c.Param("messageId")
 	messageID, err := strconv.ParseUint(messageIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid message ID in MessageHandler.MarkAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid message ID in MessageHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid message ID",
@@ -93,7 +96,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	}
 
 	if err := h.messageService.MarkMessageAsRead(userID, messageID); err != nil {
-		log.Printf("[Err] Error marking message as read in MessageHandler.MarkAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marking message as read in MessageHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -101,6 +104,7 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Message marked as read successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Message marked as read",
@@ -108,9 +112,10 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 }
 
 func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.MarkConversationAsRead", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.MarkConversationAsRead", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -121,7 +126,7 @@ func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
 	conversationIDParam := c.Param("conversationId")
 	conversationID, err := strconv.ParseUint(conversationIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid conversation ID in MessageHandler.MarkConversationAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid conversation ID in MessageHandler.MarkConversationAsRead: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid conversation ID",
@@ -130,7 +135,7 @@ func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
 	}
 
 	if err := h.messageService.MarkConversationAsRead(userID, conversationID); err != nil {
-		log.Printf("[Err] Error marking conversation as read in MessageHandler.MarkConversationAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marking conversation as read in MessageHandler.MarkConversationAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -138,6 +143,7 @@ func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Conversation marked as read successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Conversation marked as read",
@@ -145,9 +151,10 @@ func (h *MessageHandler) MarkConversationAsRead(c *gin.Context) {
 }
 
 func (h *MessageHandler) GetConversations(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.GetConversations", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.GetConversations", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -167,7 +174,7 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 
 	conversations, pagination, err := h.messageService.GetConversations(userID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting conversations in MessageHandler.GetConversations: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting conversations in MessageHandler.GetConversations: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get conversations",
@@ -175,6 +182,7 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Conversations retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Conversations retrieved successfully",
@@ -184,9 +192,10 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 }
 
 func (h *MessageHandler) GetMessages(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.GetMessages", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.GetMessages", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -197,7 +206,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 	conversationIDParam := c.Param("conversationId")
 	conversationID, err := strconv.ParseUint(conversationIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid conversation ID in MessageHandler.GetMessages: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid conversation ID in MessageHandler.GetMessages: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid conversation ID",
@@ -217,7 +226,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 
 	messages, pagination, err := h.messageService.GetMessages(userID, conversationID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting messages in MessageHandler.GetMessages: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting messages in MessageHandler.GetMessages: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -225,6 +234,7 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Messages retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Messages retrieved successfully",
@@ -234,9 +244,10 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 }
 
 func (h *MessageHandler) DeleteMessage(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in MessageHandler.DeleteMessage", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in MessageHandler.DeleteMessage", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -247,7 +258,7 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 	messageIDParam := c.Param("messageId")
 	messageID, err := strconv.ParseUint(messageIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid message ID in MessageHandler.DeleteMessage: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid message ID in MessageHandler.DeleteMessage: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid message ID",
@@ -256,7 +267,7 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 	}
 
 	if err := h.messageService.DeleteMessage(userID, messageID); err != nil {
-		log.Printf("[Err] Error deleting message in MessageHandler.DeleteMessage: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting message in MessageHandler.DeleteMessage: %v", err)
 
 		// Check if it's a specific error type
 		statusCode := http.StatusInternalServerError
@@ -275,6 +286,7 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Message deleted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Message deleted successfully",

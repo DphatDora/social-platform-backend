@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strconv"
 	"strings"
@@ -25,9 +25,10 @@ func NewPostHandler(postService *service.PostService) *PostHandler {
 }
 
 func (h *PostHandler) CreatePost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.CreatePost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.CreatePost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -37,7 +38,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 
 	var req request.CreatePostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in PostHandler.CreatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in PostHandler.CreatePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -46,7 +47,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	}
 
 	if err := h.postService.CreatePost(userID, &req); err != nil {
-		log.Printf("[Err] Error creating post in PostHandler.CreatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating post in PostHandler.CreatePost: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -54,6 +55,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post created successfully")
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Post created successfully",
@@ -61,9 +63,10 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 }
 
 func (h *PostHandler) UpdatePost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.UpdatePost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.UpdatePost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -74,7 +77,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.UpdatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.UpdatePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -84,7 +87,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 
 	postType := c.Query("type")
 	if postType == "" {
-		log.Printf("[Err] Post type is required in PostHandler.UpdatePost")
+		logger.ErrorfWithCtx(ctx, "[Err] Post type is required in PostHandler.UpdatePost")
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Post type is required",
@@ -113,7 +116,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 		bindErr = c.ShouldBindJSON(&req)
 		reqBody = &req
 	default:
-		log.Printf("[Err] Invalid post type in PostHandler.UpdatePost: %s", postType)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post type in PostHandler.UpdatePost: %s", postType)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post type",
@@ -122,7 +125,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 	}
 
 	if bindErr != nil {
-		log.Printf("[Err] Error binding JSON in PostHandler.UpdatePost: %v", bindErr)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in PostHandler.UpdatePost: %v", bindErr)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + bindErr.Error(),
@@ -131,7 +134,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 	}
 
 	if err := h.postService.UpdatePost(userID, postID, postType, reqBody); err != nil {
-		log.Printf("[Err] Error updating post in PostHandler.UpdatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating post in PostHandler.UpdatePost: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -164,6 +167,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post updated successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post updated successfully",
@@ -171,9 +175,10 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 }
 
 func (h *PostHandler) DeletePost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.DeletePost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.DeletePost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -184,7 +189,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.DeletePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.DeletePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -193,7 +198,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	}
 
 	if err := h.postService.DeletePost(userID, postID); err != nil {
-		log.Printf("[Err] Error deleting post in PostHandler.DeletePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post in PostHandler.DeletePost: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -218,6 +223,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post deleted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post deleted successfully",
@@ -225,6 +231,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 }
 
 func (h *PostHandler) GetAllPosts(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get userID from context (if exists)
 	userID := util.GetOptionalUserIDFromContext(c)
 
@@ -252,7 +259,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 
 	posts, pagination, err := h.postService.GetAllPosts(sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting all posts in PostHandler.GetAllPosts: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting all posts in PostHandler.GetAllPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get posts",
@@ -260,6 +267,7 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Posts retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Posts retrieved successfully",
@@ -269,13 +277,14 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 }
 
 func (h *PostHandler) GetPostDetail(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get userID from context (if exists)
 	userID := util.GetOptionalUserIDFromContext(c)
 
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.GetPostDetail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.GetPostDetail: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -285,7 +294,7 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 
 	post, err := h.postService.GetPostDetailByID(postID, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting post detail in PostHandler.GetPostDetail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting post detail in PostHandler.GetPostDetail: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -302,6 +311,7 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post detail retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post detail retrieved successfully",
@@ -310,13 +320,14 @@ func (h *PostHandler) GetPostDetail(c *gin.Context) {
 }
 
 func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get userID from context (if exists)
 	userID := util.GetOptionalUserIDFromContext(c)
 
 	idParam := c.Param("id")
 	communityID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid community ID in PostHandler.GetPostsByCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid community ID in PostHandler.GetPostsByCommunity: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid community ID",
@@ -348,7 +359,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 
 	posts, pagination, err := h.postService.GetPostsByCommunityID(communityID, sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting posts by community in PostHandler.GetPostsByCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by community in PostHandler.GetPostsByCommunity: %v", err)
 
 		if err.Error() == "community not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -365,6 +376,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Community posts retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Posts retrieved successfully",
@@ -374,6 +386,7 @@ func (h *PostHandler) GetPostsByCommunity(c *gin.Context) {
 }
 
 func (h *PostHandler) SearchPosts(c *gin.Context) {
+	ctx := c.Request.Context()
 	searchQuery := c.Query("search")
 	if searchQuery == "" {
 		c.JSON(http.StatusBadRequest, response.APIResponse{
@@ -410,7 +423,7 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 
 	posts, pagination, err := h.postService.SearchPostsByTitle(searchQuery, sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error searching posts in PostHandler.SearchPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to search posts",
@@ -418,6 +431,7 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Posts searched successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Posts searched successfully",
@@ -427,9 +441,10 @@ func (h *PostHandler) SearchPosts(c *gin.Context) {
 }
 
 func (h *PostHandler) VotePost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.VotePost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.VotePost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -440,7 +455,7 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.VotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.VotePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -450,7 +465,7 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 
 	var req request.VotePostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in PostHandler.VotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in PostHandler.VotePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -459,7 +474,7 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 	}
 
 	if err := h.postService.VotePost(userID, postID, req.Vote); err != nil {
-		log.Printf("[Err] Error voting post in PostHandler.VotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error voting post in PostHandler.VotePost: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -476,6 +491,7 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post voted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post voted successfully",
@@ -483,9 +499,10 @@ func (h *PostHandler) VotePost(c *gin.Context) {
 }
 
 func (h *PostHandler) UnvotePost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.UnvotePost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.UnvotePost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -496,7 +513,7 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.UnvotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.UnvotePost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -505,7 +522,7 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 	}
 
 	if err := h.postService.UnvotePost(userID, postID); err != nil {
-		log.Printf("[Err] Error unvoting post in PostHandler.UnvotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting post in PostHandler.UnvotePost: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -522,6 +539,7 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post unvoted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Post unvoted successfully",
@@ -529,9 +547,10 @@ func (h *PostHandler) UnvotePost(c *gin.Context) {
 }
 
 func (h *PostHandler) VotePoll(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.VotePoll", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.VotePoll", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -542,7 +561,7 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.VotePoll: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -552,7 +571,7 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 
 	var req request.VotePollRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Invalid request in PostHandler.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid request in PostHandler.VotePoll: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request",
@@ -561,7 +580,7 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 	}
 
 	if err := h.postService.VotePoll(userID, postID, &req); err != nil {
-		log.Printf("[Err] Error voting poll in PostHandler.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error voting poll in PostHandler.VotePoll: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -587,6 +606,7 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Poll voted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Poll voted successfully",
@@ -594,9 +614,10 @@ func (h *PostHandler) VotePoll(c *gin.Context) {
 }
 
 func (h *PostHandler) UnvotePoll(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.UnvotePoll", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.UnvotePoll", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -607,7 +628,7 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.UnvotePoll: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -617,7 +638,7 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 
 	var req request.UnvotePollRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Invalid request in PostHandler.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid request in PostHandler.UnvotePoll: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request",
@@ -626,7 +647,7 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 	}
 
 	if err := h.postService.UnvotePoll(userID, postID, &req); err != nil {
-		log.Printf("[Err] Error unvoting poll in PostHandler.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting poll in PostHandler.UnvotePoll: %v", err)
 
 		if err.Error() == "post not found" {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -652,6 +673,7 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Poll vote removed successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Poll vote removed successfully",
@@ -659,10 +681,11 @@ func (h *PostHandler) UnvotePoll(c *gin.Context) {
 }
 
 func (h *PostHandler) GetPostsByUser(c *gin.Context) {
+	ctx := c.Request.Context()
 	idParam := c.Param("id")
 	userID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid user ID in PostHandler.GetPostsByUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid user ID in PostHandler.GetPostsByUser: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid user ID",
@@ -691,7 +714,7 @@ func (h *PostHandler) GetPostsByUser(c *gin.Context) {
 			return
 		}
 
-		log.Printf("[Err] Error getting posts by user in PostHandler.GetPostsByUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by user in PostHandler.GetPostsByUser: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to retrieve posts",
@@ -699,6 +722,7 @@ func (h *PostHandler) GetPostsByUser(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] User posts retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Posts retrieved successfully",
@@ -708,9 +732,10 @@ func (h *PostHandler) GetPostsByUser(c *gin.Context) {
 }
 
 func (h *PostHandler) ReportPost(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in PostHandler.ReportPost", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in PostHandler.ReportPost", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -721,7 +746,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 	idParam := c.Param("id")
 	postID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in PostHandler.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in PostHandler.ReportPost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -731,7 +756,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 
 	var req request.ReportPostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in PostHandler.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in PostHandler.ReportPost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -740,7 +765,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 	}
 
 	if err := h.postService.ReportPost(userID, postID, &req); err != nil {
-		log.Printf("[Err] Error reporting post in PostHandler.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error reporting post in PostHandler.ReportPost: %v", err)
 
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, response.APIResponse{
@@ -765,6 +790,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Post reported successfully")
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Post reported successfully",
@@ -772,6 +798,7 @@ func (h *PostHandler) ReportPost(c *gin.Context) {
 }
 
 func (h *PostHandler) GetAllTags(c *gin.Context) {
+	ctx := c.Request.Context()
 	searchQuery := c.Query("search")
 	var search *string
 	if searchQuery != "" {
@@ -780,7 +807,7 @@ func (h *PostHandler) GetAllTags(c *gin.Context) {
 
 	tags, err := h.postService.GetAllTags(search)
 	if err != nil {
-		log.Printf("[Err] Error getting tags in PostHandler.GetAllTags: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting tags in PostHandler.GetAllTags: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get tags",
@@ -788,6 +815,7 @@ func (h *PostHandler) GetAllTags(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Tags retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Tags retrieved successfully",

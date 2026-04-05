@@ -7,6 +7,7 @@ import (
 	"social-platform-backend/internal/interface/handler"
 	"social-platform-backend/internal/interface/middleware"
 	"social-platform-backend/internal/service"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -28,6 +29,7 @@ type AppHandler struct {
 func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware(conf.App.Whitelist))
+	router.Use(middleware.RequestMetricsMiddleware())
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
@@ -98,6 +100,18 @@ func SetupRoutes(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *g
 		setupProtectedRoutes(api, appHandler, conf, redisClient, userRepo, userRestrictionRepo, postRepo)
 	}
 
+	if strings.TrimSpace(conf.Log.DashboardToken) != "" {
+		dash := router.Group("")
+		dash.Use(middleware.LogDashboardAuth(conf))
+		dash.GET("/admin/logs", handler.ServeAdminLogsDashboard)
+
+		apiAdmin := router.Group("/api/v1/admin")
+		apiAdmin.Use(middleware.LogDashboardAuth(conf))
+		apiAdmin.GET("/logs/files", handler.GetAdminLogFiles)
+		apiAdmin.GET("/logs", handler.GetAdminLogs)
+		apiAdmin.GET("/metrics", handler.GetAdminMetrics)
+	}
+
 	return router
 }
 
@@ -159,7 +173,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config
 
 func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *AppHandler, conf *config.Config, redisClient *redis.Client, userRepo domainRepository.UserRepository, userRestrictionRepo domainRepository.UserRestrictionRepository, postRepo domainRepository.PostRepository) {
 	protected := rg.Group("")
-	protected.Use(middleware.AuthMiddleware(conf, redisClient, userRepo))
+	protected.Use(middleware.AuthMiddleware(conf))
 	{
 		users := protected.Group("/users")
 		{

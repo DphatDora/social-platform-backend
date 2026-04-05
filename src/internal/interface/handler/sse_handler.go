@@ -3,10 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strconv"
 	"time"
@@ -25,9 +25,10 @@ func NewSSEHandler(sseService *service.SSEService) *SSEHandler {
 }
 
 func (h *SSEHandler) Stream(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in SSEHandler.Stream", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in SSEHandler.Stream", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -45,7 +46,7 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 	client := h.sseService.RegisterClient(userID)
 	defer h.sseService.UnregisterClient(userID, client)
 
-	log.Printf("[Info] SSE stream started for user %d", userID)
+	logger.InfofWithCtx(ctx, "[Info] SSE stream started for user %d", userID)
 
 	// Send initial connection event
 	c.SSEvent("ping", "connected")
@@ -57,20 +58,20 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 
 	for {
 		select {
-		case <-c.Request.Context().Done():
-			log.Printf("[Info] SSE client disconnected for user %d", userID)
+		case <-ctx.Done():
+			logger.InfofWithCtx(ctx, "[Info] SSE client disconnected for user %d", userID)
 			return
 
 		case event, ok := <-client.Channel:
 			if !ok {
-				log.Printf("[Info] SSE channel closed for user %d", userID)
+				logger.InfofWithCtx(ctx, "[Info] SSE channel closed for user %d", userID)
 				return
 			}
 
 			// Marshal event data to JSON
 			eventData, err := json.Marshal(event.Data)
 			if err != nil {
-				log.Printf("[Err] Failed to marshal SSE event data: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Failed to marshal SSE event data: %v", err)
 				continue
 			}
 
@@ -87,9 +88,10 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 }
 
 func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in SSEHandler.StreamConversationMessages", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in SSEHandler.StreamConversationMessages", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -100,7 +102,7 @@ func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
 	conversationIDParam := c.Param("conversationId")
 	conversationID, err := strconv.ParseUint(conversationIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid conversation ID in SSEHandler.StreamConversationMessages: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid conversation ID in SSEHandler.StreamConversationMessages: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid conversation ID",
@@ -118,7 +120,7 @@ func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
 	client := h.sseService.RegisterClient(userID)
 	defer h.sseService.UnregisterClient(userID, client)
 
-	log.Printf("[Info] SSE conversation stream started for user %d in conversation %d", userID, conversationID)
+	logger.InfofWithCtx(ctx, "[Info] SSE conversation stream started for user %d in conversation %d", userID, conversationID)
 
 	// Send initial ping
 	c.SSEvent("ping", fmt.Sprintf("connected to conversation %d", conversationID))
@@ -130,13 +132,13 @@ func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
 
 	for {
 		select {
-		case <-c.Request.Context().Done():
-			log.Printf("[Info] SSE client disconnected for user %d", userID)
+		case <-ctx.Done():
+			logger.InfofWithCtx(ctx, "[Info] SSE client disconnected for user %d", userID)
 			return
 
 		case event, ok := <-client.Channel:
 			if !ok {
-				log.Printf("[Info] SSE channel closed for user %d", userID)
+				logger.InfofWithCtx(ctx, "[Info] SSE channel closed for user %d", userID)
 				return
 			}
 
@@ -151,7 +153,7 @@ func (h *SSEHandler) StreamConversationMessages(c *gin.Context) {
 
 			eventData, err := json.Marshal(event.Data)
 			if err != nil {
-				log.Printf("[Err] Error marshaling event data: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error marshaling event data: %v", err)
 				continue
 			}
 

@@ -1,91 +1,145 @@
 package middleware
 
 import (
-	"log"
+	"errors"
 	"net/http"
 	"social-platform-backend/config"
-	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
-func AuthMiddleware(conf *config.Config, redisClient *redis.Client, userRepo repository.UserRepository) gin.HandlerFunc {
+// func AuthMiddleware(conf *config.Config, redisClient *redis.Client, userRepo repository.UserRepository) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		// Get Authorization header
+// 		authHeader := c.GetHeader("Authorization")
+// 		if authHeader == "" {
+// 			log.Printf("[Err] Missing Authorization header")
+// 			c.JSON(http.StatusUnauthorized, response.APIResponse{
+// 				Success: false,
+// 				Message: "Authorization header is required",
+// 			})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		// Check if it's a Bearer token
+// 		parts := strings.SplitN(authHeader, " ", 2)
+// 		if len(parts) != 2 || parts[0] != "Bearer" {
+// 			log.Printf("[Err] Invalid Authorization header format")
+// 			c.JSON(http.StatusUnauthorized, response.APIResponse{
+// 				Success: false,
+// 				Message: "Invalid authorization header format. Expected 'Bearer <token>'",
+// 			})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		tokenString := parts[1]
+
+// 		// Verify JWT token
+// 		claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
+// 		if err != nil {
+// 			log.Printf("[Err] Invalid JWT token: %v", err)
+// 			c.JSON(http.StatusUnauthorized, response.APIResponse{
+// 				Success: false,
+// 				Message: "Invalid or expired token",
+// 			})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		// Set user information in context
+// 		c.Set("userID", claims.UserID)
+
+// 		c.Next()
+// 	}
+// }
+
+// func OptionalAuthMiddleware(conf *config.Config) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		authHeader := c.GetHeader("Authorization")
+// 		if authHeader == "" {
+// 			c.Next()
+// 			return
+// 		}
+
+// 		parts := strings.SplitN(authHeader, " ", 2)
+// 		if len(parts) != 2 || parts[0] != "Bearer" {
+// 			c.Next()
+// 			return
+// 		}
+
+// 		tokenString := parts[1]
+
+// 		// Verify JWT token
+// 		claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
+// 		if err != nil {
+// 			log.Printf("[Warn] Invalid JWT token in optional auth: %v", err)
+// 			c.Next()
+// 			return
+// 		}
+
+// 		c.Set("userID", claims.UserID)
+
+// 		c.Next()
+// 	}
+// }
+
+func resolveToken(c *gin.Context, conf *config.Config) error {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return errors.New("missing Authorization header")
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return errors.New("invalid Authorization header format, expected 'Bearer <token>'")
+	}
+
+	tokenString := parts[1]
+
+	claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
+	if err != nil {
+		return err
+	}
+
+	c.Set("userID", claims.UserID)
+
+	// Inject userID and clientIP into request context for logger with context
+	newCtx := logger.ContextWithUserID(c.Request.Context(), claims.UserID)
+	newCtx = logger.ContextWithClientIP(newCtx, c.ClientIP())
+	newCtx = logger.ContextWithToken(newCtx, tokenString)
+	c.Request = c.Request.WithContext(newCtx)
+
+	return nil
+}
+
+func AuthMiddleware(conf *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			log.Printf("[Err] Missing Authorization header")
-			c.JSON(http.StatusUnauthorized, response.APIResponse{
+		if err := resolveToken(c, conf); err != nil {
+			logger.Errorf("[Err] AuthMiddleware: %v", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, response.APIResponse{
 				Success: false,
-				Message: "Authorization header is required",
+				Message: "Unauthorized: " + err.Error(),
 			})
-			c.Abort()
 			return
 		}
-
-		// Check if it's a Bearer token
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			log.Printf("[Err] Invalid Authorization header format")
-			c.JSON(http.StatusUnauthorized, response.APIResponse{
-				Success: false,
-				Message: "Invalid authorization header format. Expected 'Bearer <token>'",
-			})
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
-
-		// Verify JWT token
-		claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
-		if err != nil {
-			log.Printf("[Err] Invalid JWT token: %v", err)
-			c.JSON(http.StatusUnauthorized, response.APIResponse{
-				Success: false,
-				Message: "Invalid or expired token",
-			})
-			c.Abort()
-			return
-		}
-
-		// Set user information in context
-		c.Set("userID", claims.UserID)
-
 		c.Next()
 	}
 }
 
 func OptionalAuthMiddleware(conf *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.Next()
-			return
+		if err := resolveToken(c, conf); err != nil {
+			// Warning if has token but invalid
+			if c.GetHeader("Authorization") != "" {
+				logger.Warnf("[Warn] OptionalAuth invalid token: %v", err)
+			}
 		}
-
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.Next()
-			return
-		}
-
-		tokenString := parts[1]
-
-		// Verify JWT token
-		claims, err := util.VerifyJWT(tokenString, conf.Auth.JWTSecret)
-		if err != nil {
-			log.Printf("[Warn] Invalid JWT token in optional auth: %v", err)
-			c.Next()
-			return
-		}
-
-		c.Set("userID", claims.UserID)
-
 		c.Next()
 	}
 }
