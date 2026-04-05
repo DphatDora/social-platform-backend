@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strconv"
 
@@ -24,9 +24,10 @@ func NewNotificationHandler(notificationService *service.NotificationService) *N
 }
 
 func (h *NotificationHandler) GetNotifications(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.GetNotifications", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.GetNotifications", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -46,7 +47,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 
 	notifications, pagination, err := h.notificationService.GetUserNotifications(userID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting notifications in NotificationHandler.GetNotifications: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting notifications in NotificationHandler.GetNotifications: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get notifications",
@@ -54,6 +55,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Notifications retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Notifications retrieved successfully",
@@ -63,9 +65,10 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.MarkAsRead", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.MarkAsRead", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -76,7 +79,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	notificationIDParam := c.Param("id")
 	notificationID, err := strconv.ParseUint(notificationIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid notification ID in NotificationHandler.MarkAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid notification ID in NotificationHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid notification ID",
@@ -85,7 +88,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	}
 
 	if err := h.notificationService.MarkAsRead(userID, notificationID); err != nil {
-		log.Printf("[Err] Error marking notification as read in NotificationHandler.MarkAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marking notification as read in NotificationHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -93,6 +96,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Notification marked as read successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Notification marked as read",
@@ -100,9 +104,10 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.MarkAllAsRead", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.MarkAllAsRead", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -111,7 +116,7 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	}
 
 	if err := h.notificationService.MarkAllAsRead(userID); err != nil {
-		log.Printf("[Err] Error marking all notifications as read in NotificationHandler.MarkAllAsRead: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marking all notifications as read in NotificationHandler.MarkAllAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to mark all notifications as read",
@@ -119,6 +124,7 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] All notifications marked as read successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "All notifications marked as read",
@@ -126,9 +132,10 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.DeleteNotification", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.DeleteNotification", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -139,7 +146,7 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 	notificationIDParam := c.Param("id")
 	notificationID, err := strconv.ParseUint(notificationIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid notification ID in NotificationHandler.DeleteNotification: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid notification ID in NotificationHandler.DeleteNotification: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid notification ID",
@@ -148,7 +155,7 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 	}
 
 	if err := h.notificationService.DeleteNotification(userID, notificationID); err != nil {
-		log.Printf("[Err] Error deleting notification in NotificationHandler.DeleteNotification: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting notification in NotificationHandler.DeleteNotification: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -156,16 +163,18 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Notification deleted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
-		Message: "Notification deleted successfully",
+		Message: "Notification deleted",
 	})
 }
 
 func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.GetUnreadCount", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.GetUnreadCount", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -175,7 +184,7 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 
 	count, err := h.notificationService.GetUnreadCount(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting unread count in NotificationHandler.GetUnreadCount: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting unread count in NotificationHandler.GetUnreadCount: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get unread count",
@@ -183,6 +192,7 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Unread count retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Unread count retrieved successfully",
@@ -193,9 +203,10 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 }
 
 func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.GetNotificationSettings", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.GetNotificationSettings", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -205,7 +216,7 @@ func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
 
 	settings, err := h.notificationService.GetUserNotificationSettings(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting notification settings in NotificationHandler.GetNotificationSettings: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting notification settings in NotificationHandler.GetNotificationSettings: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get notification settings",
@@ -213,6 +224,7 @@ func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Notification settings retrieved successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Notification settings retrieved successfully",
@@ -221,9 +233,10 @@ func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
 }
 
 func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in NotificationHandler.UpdateNotificationSetting", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in NotificationHandler.UpdateNotificationSetting", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -233,7 +246,7 @@ func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
 
 	var req request.UpdateNotificationSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Invalid request body in NotificationHandler.UpdateNotificationSetting: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid request body in NotificationHandler.UpdateNotificationSetting: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request body",
@@ -242,7 +255,7 @@ func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
 	}
 
 	if err := h.notificationService.UpdateNotificationSetting(userID, req.Action, req.IsPush, req.IsSendMail); err != nil {
-		log.Printf("[Err] Error updating notification setting in NotificationHandler.UpdateNotificationSetting: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating notification setting in NotificationHandler.UpdateNotificationSetting: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -250,6 +263,7 @@ func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Notification setting updated successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Notification setting updated successfully",

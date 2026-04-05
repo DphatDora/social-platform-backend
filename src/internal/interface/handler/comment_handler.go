@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strconv"
 	"strings"
@@ -25,9 +25,10 @@ func NewCommentHandler(commentService *service.CommentService) *CommentHandler {
 }
 
 func (h *CommentHandler) CreateComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.CreateComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.CreateComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -37,7 +38,7 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 
 	var req request.CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in CommentHandler.CreateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in CommentHandler.CreateComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -46,7 +47,7 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.CreateComment(userID, &req); err != nil {
-		log.Printf("[Err] Error creating comment in CommentHandler.CreateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating comment in CommentHandler.CreateComment: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: err.Error(),
@@ -54,6 +55,7 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment created successfully")
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Comment created successfully",
@@ -61,13 +63,14 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get userID from context (if exists)
 	userID := util.GetOptionalUserIDFromContext(c)
 
 	postIDParam := c.Param("id")
 	postID, err := strconv.ParseUint(postIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid post ID in CommentHandler.GetCommentsOnPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post ID in CommentHandler.GetCommentsOnPost: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid post ID",
@@ -88,7 +91,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 
 	comments, pagination, err := h.commentService.GetCommentsByPostID(postID, sortBy, page, limit, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting comments in CommentHandler.GetCommentsByPostID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting comments in CommentHandler.GetCommentsByPostID: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to get comments",
@@ -96,6 +99,7 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comments retrieved successfully for post %d", postID)
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Comments retrieved successfully",
@@ -105,9 +109,10 @@ func (h *CommentHandler) GetCommentsOnPost(c *gin.Context) {
 }
 
 func (h *CommentHandler) UpdateComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.UpdateComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.UpdateComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -118,7 +123,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 	commentIDParam := c.Param("id")
 	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid comment ID in CommentHandler.UpdateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid comment ID in CommentHandler.UpdateComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid comment ID",
@@ -128,7 +133,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 
 	var req request.UpdateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in CommentHandler.UpdateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in CommentHandler.UpdateComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -137,7 +142,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.UpdateComment(userID, commentID, &req); err != nil {
-		log.Printf("[Err] Error updating comment in CommentHandler.UpdateComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating comment in CommentHandler.UpdateComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "permission denied" {
 			statusCode = http.StatusForbidden
@@ -151,6 +156,7 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment updated successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment updated successfully",
@@ -158,9 +164,10 @@ func (h *CommentHandler) UpdateComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) DeleteComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.DeleteComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.DeleteComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -171,7 +178,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 	commentIDParam := c.Param("id")
 	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid comment ID in CommentHandler.DeleteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid comment ID in CommentHandler.DeleteComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid comment ID",
@@ -180,7 +187,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.DeleteComment(userID, commentID); err != nil {
-		log.Printf("[Err] Error deleting comment in CommentHandler.DeleteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment in CommentHandler.DeleteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "permission denied" {
 			statusCode = http.StatusForbidden
@@ -194,6 +201,7 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment deleted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment deleted successfully",
@@ -201,9 +209,10 @@ func (h *CommentHandler) DeleteComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) VoteComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.VoteComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.VoteComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -214,7 +223,7 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 	commentIDParam := c.Param("id")
 	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid comment ID in CommentHandler.VoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid comment ID in CommentHandler.VoteComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid comment ID",
@@ -224,7 +233,7 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 
 	var req request.VoteCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in CommentHandler.VoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in CommentHandler.VoteComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -233,7 +242,7 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.VoteComment(userID, commentID, req.Vote); err != nil {
-		log.Printf("[Err] Error voting comment in CommentHandler.VoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error voting comment in CommentHandler.VoteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {
 			statusCode = http.StatusNotFound
@@ -245,6 +254,7 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment voted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment voted successfully",
@@ -252,9 +262,10 @@ func (h *CommentHandler) VoteComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) UnvoteComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.UnvoteComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.UnvoteComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -265,7 +276,7 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 	commentIDParam := c.Param("id")
 	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid comment ID in CommentHandler.UnvoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid comment ID in CommentHandler.UnvoteComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid comment ID",
@@ -274,7 +285,7 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.UnvoteComment(userID, commentID); err != nil {
-		log.Printf("[Err] Error unvoting comment in CommentHandler.UnvoteComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unvoting comment in CommentHandler.UnvoteComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {
 			statusCode = http.StatusNotFound
@@ -286,6 +297,7 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment unvoted successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment unvoted successfully",
@@ -293,13 +305,14 @@ func (h *CommentHandler) UnvoteComment(c *gin.Context) {
 }
 
 func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get requestUserID from context (if exists) - this is the user viewing the comments
 	requestUserID := util.GetOptionalUserIDFromContext(c)
 
 	idParam := c.Param("id")
 	userID, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid user ID in CommentHandler.GetCommentsByUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid user ID in CommentHandler.GetCommentsByUser: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid user ID",
@@ -328,7 +341,7 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 			return
 		}
 
-		log.Printf("[Err] Error getting comments by user in CommentHandler.GetCommentsByUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting comments by user in CommentHandler.GetCommentsByUser: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
 			Message: "Failed to retrieve comments",
@@ -336,6 +349,7 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] User comments retrieved successfully for user %d", userID)
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success:    true,
 		Message:    "Comments retrieved successfully",
@@ -345,9 +359,10 @@ func (h *CommentHandler) GetCommentsByUser(c *gin.Context) {
 }
 
 func (h *CommentHandler) ReportComment(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := util.GetUserIDFromContext(c)
 	if err != nil {
-		log.Printf("[Err] %s in CommentHandler.ReportComment", err.Error())
+		logger.ErrorfWithCtx(ctx, "[Err] %s in CommentHandler.ReportComment", err.Error())
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Unauthorized",
@@ -358,7 +373,7 @@ func (h *CommentHandler) ReportComment(c *gin.Context) {
 	commentIDParam := c.Param("id")
 	commentID, err := strconv.ParseUint(commentIDParam, 10, 64)
 	if err != nil {
-		log.Printf("[Err] Invalid comment ID in CommentHandler.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid comment ID in CommentHandler.ReportComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid comment ID",
@@ -368,7 +383,7 @@ func (h *CommentHandler) ReportComment(c *gin.Context) {
 
 	var req request.ReportCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in CommentHandler.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in CommentHandler.ReportComment: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request payload: " + err.Error(),
@@ -377,7 +392,7 @@ func (h *CommentHandler) ReportComment(c *gin.Context) {
 	}
 
 	if err := h.commentService.ReportComment(userID, commentID, &req); err != nil {
-		log.Printf("[Err] Error reporting comment in CommentHandler.ReportComment: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error reporting comment in CommentHandler.ReportComment: %v", err)
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "comment not found" {
 			statusCode = http.StatusNotFound
@@ -391,6 +406,7 @@ func (h *CommentHandler) ReportComment(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Comment reported successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Comment reported successfully",

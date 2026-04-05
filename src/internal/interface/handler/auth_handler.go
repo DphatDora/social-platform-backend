@@ -2,12 +2,12 @@ package handler
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"social-platform-backend/config"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/internal/service"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 	"strings"
 
@@ -26,11 +26,12 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 
 // Register handles user registration
 func (h *AuthHandler) Register(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.RegisterRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.Register: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -40,7 +41,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// Register user
 	if err := h.authService.Register(&req); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.Register: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Register: %v", err)
 
 		// Check for specific error types
 		if strings.Contains(err.Error(), "already exists") {
@@ -58,6 +59,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] User registration successful")
 	c.JSON(http.StatusCreated, response.APIResponse{
 		Success: true,
 		Message: "Registration successful. Please check your email to verify your account.",
@@ -65,11 +67,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	ctx := c.Request.Context()
 	token := c.Query("token")
 
 	conf := config.GetConfig()
 	if token == "" {
-		log.Printf("[Err] Missing token in AuthHandler.VerifyEmail")
+		logger.ErrorfWithCtx(ctx, "[Err] Missing token in AuthHandler.VerifyEmail")
 		redirectURL := fmt.Sprintf("%s/auth/verify-result?success=false&message=Missing+verification+token", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
@@ -77,7 +80,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 
 	// Verify token
 	if err := h.authService.VerifyEmail(token); err != nil {
-		log.Printf("[Err] Error verifying email in AuthHandler.VerifyEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error verifying email in AuthHandler.VerifyEmail: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
 			redirectURL := fmt.Sprintf("%s/auth/verify-result?success=false&message=Token+has+expired.+Please+request+a+new+verification+email", conf.Client.Url)
@@ -90,16 +93,18 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Email verified successfully")
 	redirectURL := fmt.Sprintf("%s/auth/verify-result?success=true&message=Email+verified+successfully", conf.Client.Url)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.LoginRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.Login: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -110,7 +115,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Login user
 	loginResponse, err := h.authService.Login(&req)
 	if err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.Login: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Login: %v", err)
 		if strings.Contains(err.Error(), "not verified") {
 			c.JSON(http.StatusForbidden, response.APIResponse{
 				Success: false,
@@ -129,6 +134,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Set refresh token as HTTP-only cookie
 	util.SetRefreshTokenCookie(c, loginResponse.RefreshToken)
 
+	logger.InfofWithCtx(ctx, "[Info] User login successful")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Login successful",
@@ -139,11 +145,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.ForgotPasswordRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.ForgotPassword: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -153,7 +160,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	// Process forgot password
 	if err := h.authService.ForgotPassword(&req); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.ForgotPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ForgotPassword: %v", err)
 
 		if strings.Contains(err.Error(), "not verified") {
 			c.JSON(http.StatusForbidden, response.APIResponse{
@@ -170,6 +177,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Password reset link sent to email")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Password reset link has been sent to your email",
@@ -177,11 +185,12 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 }
 
 func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
+	ctx := c.Request.Context()
 	token := c.Query("token")
 	conf := config.GetConfig()
 
 	if token == "" {
-		log.Printf("[Err] Missing token in AuthHandler.VerifyResetToken")
+		logger.ErrorfWithCtx(ctx, "[Err] Missing token in AuthHandler.VerifyResetToken")
 		redirectURL := fmt.Sprintf("%s/auth/reset-password?success=false&message=Missing+reset+token", conf.Client.Url)
 		c.Redirect(http.StatusFound, redirectURL)
 		return
@@ -190,7 +199,7 @@ func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
 	// Verify token
 	validToken, err := h.authService.VerifyResetToken(token)
 	if err != nil {
-		log.Printf("[Err] Error verifying reset token in AuthHandler.VerifyResetToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error verifying reset token in AuthHandler.VerifyResetToken: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
 			redirectURL := fmt.Sprintf("%s/auth/reset-password?success=false&message=Token+has+expired", conf.Client.Url)
@@ -203,16 +212,18 @@ func (h *AuthHandler) VerifyResetToken(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Reset token verified successfully")
 	redirectURL := fmt.Sprintf("%s/auth/reset-password?token=%s", conf.Client.Url, validToken)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.ResetPasswordRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.ResetPassword: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -222,7 +233,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 
 	// Reset password
 	if err := h.authService.ResetPassword(&req); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.ResetPassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResetPassword: %v", err)
 
 		if strings.Contains(err.Error(), "expired") {
 			c.JSON(http.StatusBadRequest, response.APIResponse{
@@ -238,7 +249,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		})
 		return
 	}
-
+	logger.InfofWithCtx(ctx, "[Info] Password reset successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Password has been reset successfully. You can now login with your new password",
@@ -246,11 +257,12 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 }
 
 func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.ResendVerificationRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.ResendVerificationEmail: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -260,7 +272,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 
 	// Resend verification email
 	if err := h.authService.ResendVerificationEmail(&req); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.ResendVerificationEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResendVerificationEmail: %v", err)
 		if strings.Contains(err.Error(), "already verified") {
 			c.JSON(http.StatusBadRequest, response.APIResponse{
 				Success: false,
@@ -284,6 +296,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Verification email resent")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Verification email has been resent. Please check your email",
@@ -291,11 +304,12 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.ResendVerificationRequest
 
 	// Validate request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.ResendResetPasswordEmail: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -305,7 +319,7 @@ func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
 
 	// Resend reset password email
 	if err := h.authService.ResendResetPasswordEmail(&req); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.ResendResetPasswordEmail: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.ResendResetPasswordEmail: %v", err)
 		if strings.Contains(err.Error(), "not verified") {
 			c.JSON(http.StatusForbidden, response.APIResponse{
 				Success: false,
@@ -329,6 +343,7 @@ func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
 		return
 	}
 
+	logger.InfofWithCtx(ctx, "[Info] Reset password email resent")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Reset password email has been resent. Please check your email",
@@ -336,10 +351,11 @@ func (h *AuthHandler) ResendResetPasswordEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req request.GoogleLoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[Err] Error binding JSON in AuthHandler.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error binding JSON in AuthHandler.GoogleLogin: %v", err)
 		c.JSON(http.StatusBadRequest, response.APIResponse{
 			Success: false,
 			Message: "Invalid request format: " + err.Error(),
@@ -349,7 +365,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 
 	loginResponse, err := h.authService.GoogleLogin(&req)
 	if err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.GoogleLogin: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.GoogleLogin: %v", err)
 
 		if strings.Contains(err.Error(), "invalid Google ID token") {
 			c.JSON(http.StatusUnauthorized, response.APIResponse{
@@ -369,6 +385,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 	// Set refresh token as HTTP-only cookie
 	util.SetRefreshTokenCookie(c, loginResponse.RefreshToken)
 
+	logger.InfofWithCtx(ctx, "[Info] Google login successful")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Google login successful",
@@ -379,10 +396,11 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 }
 
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get refresh token from HTTP-only cookie
 	refreshToken, err := c.Cookie("refreshToken")
 	if err != nil || refreshToken == "" {
-		log.Printf("[Err] Missing refresh token cookie in AuthHandler.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Missing refresh token cookie in AuthHandler.RefreshToken: %v", err)
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
 			Message: "Missing refresh token",
@@ -392,7 +410,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	refreshResponse, err := h.authService.RefreshToken(refreshToken)
 	if err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.RefreshToken: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.RefreshToken: %v", err)
 		util.ClearRefreshTokenCookie(c)
 		c.JSON(http.StatusUnauthorized, response.APIResponse{
 			Success: false,
@@ -404,6 +422,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	// Set new refresh token as HTTP-only cookie
 	util.SetRefreshTokenCookie(c, refreshResponse.RefreshToken)
 
+	logger.InfofWithCtx(ctx, "[Info] Token refreshed successfully")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Token refreshed successfully",
@@ -414,12 +433,14 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Get refresh token from HTTP-only cookie
 	refreshToken, err := c.Cookie("refreshToken")
 	if err != nil || refreshToken == "" {
-		log.Printf("[Err] Missing refresh token cookie in AuthHandler.Logout: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Missing refresh token cookie in AuthHandler.Logout: %v", err)
 		// Still clear the cookie and return success
 		util.ClearRefreshTokenCookie(c)
+		logger.InfofWithCtx(ctx, "[Info] Logout successful (no refresh token)")
 		c.JSON(http.StatusOK, response.APIResponse{
 			Success: true,
 			Message: "Logout successful",
@@ -428,7 +449,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	if err := h.authService.Logout(refreshToken); err != nil {
-		log.Printf("[Err] Error in service layer AuthHandler.Logout: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error in service layer AuthHandler.Logout: %v", err)
 		// Still clear the cookie even if service fails
 		util.ClearRefreshTokenCookie(c)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -441,6 +462,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	// Clear the refresh token cookie
 	util.ClearRefreshTokenCookie(c)
 
+	logger.InfofWithCtx(ctx, "[Info] User logout successful")
 	c.JSON(http.StatusOK, response.APIResponse{
 		Success: true,
 		Message: "Logout successful",

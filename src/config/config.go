@@ -101,4 +101,11 @@ func bindEnvs() {
 	_ = viper.BindEnv("redis.db", "REDIS_DB")
 	_ = viper.BindEnv("redis.poolSize", "REDIS_POOL_SIZE")
 	_ = viper.BindEnv("redis.required", "REDIS_REQUIRED")
+
+	// Log
+	_ = viper.BindEnv("log.level", "LOG_LEVEL")
+	_ = viper.BindEnv("log.filePath", "LOG_FILE_PATH")
+	_ = viper.BindEnv("log.maxSizeMB", "LOG_MAX_SIZE_MB")
+	_ = viper.BindEnv("log.console", "LOG_CONSOLE")
+	_ = viper.BindEnv("log.dashboardToken", "LOG_DASHBOARD_TOKEN")
 }
