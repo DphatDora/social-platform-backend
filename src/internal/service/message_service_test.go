@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -64,7 +65,7 @@ func TestMessageService_SendMessage_Success(t *testing.T) {
 	mockMessageRepo.On("GetUnreadCount", conversation.ID, senderID).Return(int64(0), nil).Maybe()
 	mockMessageRepo.On("GetUnreadCount", conversation.ID, req.RecipientID).Return(int64(1), nil).Maybe()
 
-	result, err := messageService.SendMessage(senderID, req)
+	result, err := messageService.SendMessage(context.Background(), senderID, req)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -91,7 +92,7 @@ func TestMessageService_SendMessage_RecipientNotFound(t *testing.T) {
 
 	mockUserRepo.On("GetUserByID", req.RecipientID).Return(nil, errors.New("not found"))
 
-	result, err := messageService.SendMessage(123, req)
+	result, err := messageService.SendMessage(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -122,7 +123,7 @@ func TestMessageService_SendMessage_ConversationError(t *testing.T) {
 	mockUserRepo.On("GetUserByID", req.RecipientID).Return(recipient, nil)
 	mockConversationRepo.On("CreateOrGetConversation", senderID, req.RecipientID).Return(nil, errors.New("db error"))
 
-	result, err := messageService.SendMessage(senderID, req)
+	result, err := messageService.SendMessage(context.Background(), senderID, req)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -169,7 +170,7 @@ func TestMessageService_MarkMessageAsRead_Success(t *testing.T) {
 	mockMessageRepo.On("GetUnreadCount", message.ConversationID, message.SenderID).Return(int64(0), nil).Maybe()
 	mockMessageRepo.On("GetUnreadCount", message.ConversationID, userID).Return(int64(0), nil).Maybe()
 
-	err := messageService.MarkMessageAsRead(userID, messageID)
+	err := messageService.MarkMessageAsRead(context.Background(), userID, messageID)
 
 	assert.NoError(t, err)
 	mockMessageRepo.AssertExpectations(t)
@@ -190,7 +191,7 @@ func TestMessageService_MarkMessageAsRead_MessageNotFound(t *testing.T) {
 	messageID := uint64(999)
 	mockMessageRepo.On("GetMessageByID", messageID).Return(nil, errors.New("not found"))
 
-	err := messageService.MarkMessageAsRead(123, messageID)
+	err := messageService.MarkMessageAsRead(context.Background(), 123, messageID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "message not found")
@@ -223,7 +224,7 @@ func TestMessageService_MarkMessageAsRead_Unauthorized(t *testing.T) {
 	mockMessageRepo.On("GetMessageByID", messageID).Return(message, nil)
 	mockConversationRepo.On("CheckUserInConversation", message.ConversationID, userID).Return(false, nil)
 
-	err := messageService.MarkMessageAsRead(userID, messageID)
+	err := messageService.MarkMessageAsRead(context.Background(), userID, messageID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
@@ -266,7 +267,7 @@ func TestMessageService_GetConversations_Success(t *testing.T) {
 	mockMessageRepo.On("GetUnreadCount", uint64(1), userID).Return(int64(3), nil)
 	mockMessageRepo.On("GetUnreadCount", uint64(2), userID).Return(int64(0), nil)
 
-	result, pagination, err := messageService.GetConversations(userID, page, limit)
+	result, pagination, err := messageService.GetConversations(context.Background(), userID, page, limit)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -294,7 +295,7 @@ func TestMessageService_GetConversations_EmptyResult(t *testing.T) {
 
 	mockConversationRepo.On("GetUserConversations", userID, page, limit).Return([]*model.Conversation{}, int64(0), nil)
 
-	result, pagination, err := messageService.GetConversations(userID, page, limit)
+	result, pagination, err := messageService.GetConversations(context.Background(), userID, page, limit)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -340,7 +341,7 @@ func TestMessageService_GetMessages_Success(t *testing.T) {
 	mockConversationRepo.On("CheckUserInConversation", conversationID, userID).Return(true, nil)
 	mockMessageRepo.On("GetConversationMessages", conversationID, page, limit).Return(messages, int64(2), nil)
 
-	result, pagination, err := messageService.GetMessages(userID, conversationID, page, limit)
+	result, pagination, err := messageService.GetMessages(context.Background(), userID, conversationID, page, limit)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -369,7 +370,7 @@ func TestMessageService_GetMessages_Unauthorized(t *testing.T) {
 
 	mockConversationRepo.On("CheckUserInConversation", conversationID, userID).Return(false, nil)
 
-	result, pagination, err := messageService.GetMessages(userID, conversationID, page, limit)
+	result, pagination, err := messageService.GetMessages(context.Background(), userID, conversationID, page, limit)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -396,7 +397,7 @@ func TestMessageService_GetMessages_ConversationCheckError(t *testing.T) {
 
 	mockConversationRepo.On("CheckUserInConversation", conversationID, userID).Return(false, errors.New("db error"))
 
-	result, pagination, err := messageService.GetMessages(userID, conversationID, page, limit)
+	result, pagination, err := messageService.GetMessages(context.Background(), userID, conversationID, page, limit)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)

@@ -32,7 +32,11 @@ database:
   timeZone:
 
 log:
-  level: "debug"
+  level:
+  filePath:
+  maxSizeMB: 10
+  console:
+  dashboardToken:
 
 auth:
   verifyTokenExpirationMinutes: 10

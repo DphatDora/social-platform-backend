@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -55,7 +56,7 @@ func TestNotificationService_CreateNotification_Success(t *testing.T) {
 	// Background goroutine call
 	mockNotificationRepo.On("GetUnreadCount", userID).Return(int64(1), nil).Maybe()
 
-	err := notificationService.CreateNotification(userID, action, notifPayload)
+	err := notificationService.CreateNotification(context.Background(), userID, action, notifPayload)
 
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -91,7 +92,7 @@ func TestNotificationService_CreateNotification_UserNotFound(t *testing.T) {
 	mockNotificationSettingRepo.On("GetUserNotificationSetting", userID, action).Return(setting, nil)
 	mockUserRepo.On("GetUserByID", userID).Return(nil, errors.New("not found"))
 
-	err := notificationService.CreateNotification(userID, action, notifPayload)
+	err := notificationService.CreateNotification(context.Background(), userID, action, notifPayload)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get user")
@@ -134,7 +135,7 @@ func TestNotificationService_CreateNotification_DefaultSettings(t *testing.T) {
 	// Background goroutine call
 	mockNotificationRepo.On("GetUnreadCount", userID).Return(int64(1), nil).Maybe()
 
-	err := notificationService.CreateNotification(userID, action, notifPayload)
+	err := notificationService.CreateNotification(context.Background(), userID, action, notifPayload)
 
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -176,7 +177,7 @@ func TestNotificationService_GetUserNotifications_Success(t *testing.T) {
 
 	mockNotificationRepo.On("GetUserNotifications", userID, limit, 0).Return(notifications, int64(2), nil)
 
-	result, pagination, err := notificationService.GetUserNotifications(userID, page, limit)
+	result, pagination, err := notificationService.GetUserNotifications(context.Background(), userID, page, limit)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -200,7 +201,7 @@ func TestNotificationService_GetUserNotifications_EmptyResult(t *testing.T) {
 
 	mockNotificationRepo.On("GetUserNotifications", userID, limit, 0).Return([]*model.Notification{}, int64(0), nil)
 
-	result, pagination, err := notificationService.GetUserNotifications(userID, page, limit)
+	result, pagination, err := notificationService.GetUserNotifications(context.Background(), userID, page, limit)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -234,7 +235,7 @@ func TestNotificationService_MarkAsRead_Success(t *testing.T) {
 	mockNotificationRepo.On("GetNotificationByID", notificationID).Return(notification, nil)
 	mockNotificationRepo.On("MarkAsRead", notificationID).Return(nil)
 
-	err := notificationService.MarkAsRead(userID, notificationID)
+	err := notificationService.MarkAsRead(context.Background(), userID, notificationID)
 
 	assert.NoError(t, err)
 	mockNotificationRepo.AssertExpectations(t)
@@ -253,7 +254,7 @@ func TestNotificationService_MarkAsRead_NotificationNotFound(t *testing.T) {
 
 	mockNotificationRepo.On("GetNotificationByID", notificationID).Return(nil, errors.New("not found"))
 
-	err := notificationService.MarkAsRead(userID, notificationID)
+	err := notificationService.MarkAsRead(context.Background(), userID, notificationID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "notification not found")
@@ -283,7 +284,7 @@ func TestNotificationService_MarkAsRead_Unauthorized(t *testing.T) {
 
 	mockNotificationRepo.On("GetNotificationByID", notificationID).Return(notification, nil)
 
-	err := notificationService.MarkAsRead(userID, notificationID)
+	err := notificationService.MarkAsRead(context.Background(), userID, notificationID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
@@ -302,7 +303,7 @@ func TestNotificationService_MarkAllAsRead_Success(t *testing.T) {
 
 	mockNotificationRepo.On("MarkAllAsRead", userID).Return(nil)
 
-	err := notificationService.MarkAllAsRead(userID)
+	err := notificationService.MarkAllAsRead(context.Background(), userID)
 
 	assert.NoError(t, err)
 	mockNotificationRepo.AssertExpectations(t)
@@ -332,7 +333,7 @@ func TestNotificationService_DeleteNotification_Success(t *testing.T) {
 	mockNotificationRepo.On("GetNotificationByID", notificationID).Return(notification, nil)
 	mockNotificationRepo.On("DeleteNotification", notificationID).Return(nil)
 
-	err := notificationService.DeleteNotification(userID, notificationID)
+	err := notificationService.DeleteNotification(context.Background(), userID, notificationID)
 
 	assert.NoError(t, err)
 	mockNotificationRepo.AssertExpectations(t)
@@ -361,7 +362,7 @@ func TestNotificationService_DeleteNotification_Unauthorized(t *testing.T) {
 
 	mockNotificationRepo.On("GetNotificationByID", notificationID).Return(notification, nil)
 
-	err := notificationService.DeleteNotification(userID, notificationID)
+	err := notificationService.DeleteNotification(context.Background(), userID, notificationID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
@@ -381,7 +382,7 @@ func TestNotificationService_GetUnreadCount_Success(t *testing.T) {
 
 	mockNotificationRepo.On("GetUnreadCount", userID).Return(expectedCount, nil)
 
-	count, err := notificationService.GetUnreadCount(userID)
+	count, err := notificationService.GetUnreadCount(context.Background(), userID)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedCount, count)

@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"social-platform-backend/config"
+	"social-platform-backend/package/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -26,9 +27,10 @@ func InitPostgresql(conf *config.Config) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	db = db.Debug()
 	if err != nil {
-		panic("❌❌ Failed to connect database" + err.Error())
+		logger.Errorf("[❌] Failed to connect database: %v", err.Error())
+		panic(err)
 	}
-	fmt.Println("✅✅ Connect to the database successfully")
+	logger.Infof("[✅] Connect to the database successfully")
 	pgSingleton = db
 }
 
@@ -43,7 +45,7 @@ func GetDB() *gorm.DB {
 func ClosePostgresql() error {
 	sqlDB, err := pgSingleton.DB()
 	if err != nil {
-		fmt.Println("failed to get sql.DB:", err)
+		logger.Errorf("[❌] Failed to get sql.DB: %v", err)
 	}
 	defer sqlDB.Close()
 

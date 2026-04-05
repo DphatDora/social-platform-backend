@@ -1,14 +1,15 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
 	"social-platform-backend/package/util"
 	"strings"
@@ -57,11 +58,11 @@ func NewPostService(
 	}
 }
 
-func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) error {
+func (s *PostService) CreatePost(ctx context.Context, userID uint64, req *request.CreatePostRequest) error {
 	// Check if community exists
 	community, err := s.communityRepo.GetCommunityByID(req.CommunityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in PostService.CreatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in PostService.CreatePost: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
@@ -71,41 +72,41 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		// text post: only title and content required
 	case constant.PostTypeLink:
 		if req.URL == nil {
-			log.Printf("[Err] URL is required for link post in PostService.CreatePost")
+			logger.ErrorfWithCtx(ctx, "[Err] URL is required for link post in PostService.CreatePost")
 			return fmt.Errorf("url is required for link post")
 		}
 	case constant.PostTypeMedia:
 		if req.MediaURLs == nil || len(*req.MediaURLs) == 0 {
-			log.Printf("[Err] Media URLs are required for media post in PostService.CreatePost")
+			logger.ErrorfWithCtx(ctx, "[Err] Media URLs are required for media post in PostService.CreatePost")
 			return fmt.Errorf("media_urls are required for media post")
 		}
 	case constant.PostTypePoll:
 		if req.PollData == nil {
-			log.Printf("[Err] Poll data is required for poll post in PostService.CreatePost")
+			logger.ErrorfWithCtx(ctx, "[Err] Poll data is required for poll post in PostService.CreatePost")
 			return fmt.Errorf("poll_data is required for poll post")
 		}
 		// Validate poll data structure
 		var pollData payload.PollData
 		if err := json.Unmarshal(*req.PollData, &pollData); err != nil {
-			log.Printf("[Err] Invalid poll data format in PostService.CreatePost: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Invalid poll data format in PostService.CreatePost: %v", err)
 			return fmt.Errorf("invalid poll data format")
 		}
 		if pollData.Question == "" {
-			log.Printf("[Err] Poll question is required in PostService.CreatePost")
+			logger.ErrorfWithCtx(ctx, "[Err] Poll question is required in PostService.CreatePost")
 			return fmt.Errorf("poll question is required")
 		}
 		if len(pollData.Options) < 2 {
-			log.Printf("[Err] Poll must have at least 2 options in PostService.CreatePost")
+			logger.ErrorfWithCtx(ctx, "[Err] Poll must have at least 2 options in PostService.CreatePost")
 			return fmt.Errorf("poll must have at least 2 options")
 		}
 		for i, option := range pollData.Options {
 			if option.Text == "" {
-				log.Printf("[Err] Poll option %d text is required in PostService.CreatePost", i)
+				logger.ErrorfWithCtx(ctx, "[Err] Poll option %d text is required in PostService.CreatePost", i)
 				return fmt.Errorf("poll option text is required")
 			}
 		}
 	default:
-		log.Printf("[Err] Invalid post type in PostService.CreatePost: %s", req.Type)
+		logger.ErrorfWithCtx(ctx, "[Err] Invalid post type in PostService.CreatePost: %s", req.Type)
 		return fmt.Errorf("invalid post type")
 	}
 
@@ -129,14 +130,14 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 	}
 
 	if err := s.postRepo.CreatePost(post); err != nil {
-		log.Printf("[Err] Error creating post in PostService.CreatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating post in PostService.CreatePost: %v", err)
 		return fmt.Errorf("failed to create post")
 	}
 
 	go func(userID uint64, post *model.Post, postType string) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in PostService.CreatePost background task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in PostService.CreatePost background task: %v", r)
 			}
 		}()
 
@@ -148,7 +149,7 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		if postType == constant.PostTypeText || postType == constant.PostTypeLink || postType == constant.PostTypePoll {
 			combinedText := post.Title + " " + post.Content
 			if textViolation, err := util.CheckTextContent(combinedText); err != nil {
-				log.Printf("[Err] Error checking text content in PostService.CreatePost: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in PostService.CreatePost: %v", err)
 			} else if textViolation.IsViolation {
 				violation = true
 				violationReason = textViolation.Reason
@@ -159,7 +160,7 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		if !violation && postType == constant.PostTypeMedia && post.MediaURLs != nil {
 			for _, mediaURL := range *post.MediaURLs {
 				if imageViolation, err := util.CheckImageContent(mediaURL); err != nil {
-					log.Printf("[Err] Error checking image content in PostService.CreatePost: %v", err)
+					logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in PostService.CreatePost: %v", err)
 				} else if imageViolation.IsViolation {
 					violation = true
 					violationReason = imageViolation.Reason
@@ -170,9 +171,9 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		}
 
 		if violation {
-			log.Printf("[Info] Content violation detected for post %d: %s", post.ID, violationReason)
+			logger.InfofWithCtx(ctx, "[Info] Content violation detected for post %d: %s", post.ID, violationReason)
 			if err := s.postRepo.UpdatePostStatus(post.ID, constant.POST_STATUS_REJECTED); err != nil {
-				log.Printf("[Err] Error updating post status to rejected: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error updating post status to rejected: %v", err)
 			}
 
 			if s.notificationService != nil {
@@ -181,8 +182,8 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 					Reason:   violationReason,
 					Category: violationCategory,
 				}
-				if err := s.notificationService.CreateNotification(userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_POST, notifPayload); err != nil {
-					log.Printf("[Err] Error sending content violation notification: %v", err)
+				if err := s.notificationService.CreateNotification(ctx, userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_POST, notifPayload); err != nil {
+					logger.ErrorfWithCtx(ctx, "[Err] Error sending content violation notification: %v", err)
 				}
 			}
 
@@ -190,8 +191,8 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_POST); err != nil {
-				log.Printf("[Err] Error creating karma task in PostService.CreatePost: %v", err)
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, nil, constant.KARMA_ACTION_CREATE_POST); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in PostService.CreatePost: %v", err)
 			}
 		}
 	}(userID, post, req.Type)
@@ -199,22 +200,22 @@ func (s *PostService) CreatePost(userID uint64, req *request.CreatePostRequest) 
 	return nil
 }
 
-func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody interface{}) error {
+func (s *PostService) UpdatePost(ctx context.Context, userID, postID uint64, postType string, reqBody interface{}) error {
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.UpdatePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.UpdatePost: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Check if user is the author
 	if post.AuthorID != userID {
-		log.Printf("[Err] User does not have permission to update post in PostService.UpdatePost: userID=%d, postID=%d", userID, postID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission to update post in PostService.UpdatePost: userID=%d, postID=%d", userID, postID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Check if post type matches
 	if post.Type != postType {
-		log.Printf("[Err] Post type mismatch in PostService.UpdatePost: expected=%s, actual=%s", postType, post.Type)
+		logger.ErrorfWithCtx(ctx, "[Err] Post type mismatch in PostService.UpdatePost: expected=%s, actual=%s", postType, post.Type)
 		return fmt.Errorf("post type mismatch")
 	}
 
@@ -226,7 +227,7 @@ func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody
 			return fmt.Errorf("invalid request body for text post")
 		}
 		if err := s.postRepo.UpdatePostText(postID, req); err != nil {
-			log.Printf("[Err] Error updating text post in PostService.UpdatePost: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error updating text post in PostService.UpdatePost: %v", err)
 			return fmt.Errorf("failed to update post")
 		}
 	case constant.PostTypeLink:
@@ -235,7 +236,7 @@ func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody
 			return fmt.Errorf("invalid request body for link post")
 		}
 		if err := s.postRepo.UpdatePostLink(postID, req); err != nil {
-			log.Printf("[Err] Error updating link post in PostService.UpdatePost: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error updating link post in PostService.UpdatePost: %v", err)
 			return fmt.Errorf("failed to update post")
 		}
 	case constant.PostTypeMedia:
@@ -244,7 +245,7 @@ func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody
 			return fmt.Errorf("invalid request body for media post")
 		}
 		if err := s.postRepo.UpdatePostMedia(postID, req); err != nil {
-			log.Printf("[Err] Error updating media post in PostService.UpdatePost: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error updating media post in PostService.UpdatePost: %v", err)
 			return fmt.Errorf("failed to update post")
 		}
 	case constant.PostTypePoll:
@@ -253,7 +254,7 @@ func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody
 			return fmt.Errorf("invalid request body for poll post")
 		}
 		if err := s.postRepo.UpdatePostPoll(postID, req); err != nil {
-			log.Printf("[Err] Error updating poll post in PostService.UpdatePost: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error updating poll post in PostService.UpdatePost: %v", err)
 			return fmt.Errorf("failed to update post")
 		}
 	default:
@@ -263,36 +264,36 @@ func (s *PostService) UpdatePost(userID, postID uint64, postType string, reqBody
 	return nil
 }
 
-func (s *PostService) DeletePost(userID, postID uint64) error {
+func (s *PostService) DeletePost(ctx context.Context, userID, postID uint64) error {
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.DeletePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.DeletePost: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Check if user is the author
 	if post.AuthorID != userID {
-		log.Printf("[Err] User does not have permission to delete post in PostService.DeletePost: userID=%d, postID=%d", userID, postID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission to delete post in PostService.DeletePost: userID=%d, postID=%d", userID, postID)
 		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.postRepo.DeletePost(postID); err != nil {
-		log.Printf("[Err] Error deleting post in PostService.DeletePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post in PostService.DeletePost: %v", err)
 		return fmt.Errorf("failed to delete post")
 	}
 
 	return nil
 }
 
-func (s *PostService) GetAllPosts(sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetAllPosts(ctx context.Context, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	// If sortBy is "best", use recommendation service
 	if sortBy == "best" && userID != nil && s.recommendService != nil {
-		return s.recommendService.GetRecommendedPosts(*userID, page, limit)
+		return s.recommendService.GetRecommendedPosts(ctx, *userID, page, limit)
 	}
 
 	posts, total, err := s.postRepo.GetAllPosts(sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting all posts in PostService.GetAllPosts: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
 	}
 
@@ -319,22 +320,22 @@ func (s *PostService) GetAllPosts(sortBy string, page, limit int, tags []string,
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetPostsByCommunityID(ctx context.Context, communityID uint64, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in PostService.GetPostsByCommunityID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in PostService.GetPostsByCommunityID: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// If sortBy is "best", use recommendation service
 	if sortBy == "best" && userID != nil && s.recommendService != nil {
-		return s.recommendService.GetRecommendedPostsByCommunity(*userID, communityID, page, limit)
+		return s.recommendService.GetRecommendedPostsByCommunity(ctx, *userID, communityID, page, limit)
 	}
 
 	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting posts by community ID in PostService.GetPostsByCommunityID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by community ID in PostService.GetPostsByCommunityID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
 	}
 
@@ -360,10 +361,10 @@ func (s *PostService) GetPostsByCommunityID(communityID uint64, sortBy string, p
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) SearchPostsByTitle(ctx context.Context, title, sortBy string, page, limit int, tags []string, userID *uint64) ([]*response.PostListResponse, *response.Pagination, error) {
 	posts, total, err := s.postRepo.SearchPostsByTitle(title, sortBy, page, limit, tags, userID)
 	if err != nil {
-		log.Printf("[Err] Error searching posts by title in PostService.SearchPostsByTitle: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error searching posts by title in PostService.SearchPostsByTitle: %v", err)
 		return nil, nil, fmt.Errorf("failed to search posts")
 	}
 
@@ -390,18 +391,18 @@ func (s *PostService) SearchPostsByTitle(title, sortBy string, page, limit int, 
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*response.PostDetailResponse, error) {
+func (s *PostService) GetPostDetailByID(ctx context.Context, postID uint64, userID *uint64) (*response.PostDetailResponse, error) {
 	// First, check if post exists at all
 	postExists, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.GetPostDetailByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.GetPostDetailByID: %v", err)
 		return nil, fmt.Errorf("post not found")
 	}
 
 	// Get community to check if it's private
 	community, err := s.communityRepo.GetCommunityByID(postExists.CommunityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in PostService.GetPostDetailByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in PostService.GetPostDetailByID: %v", err)
 		return nil, fmt.Errorf("failed to get post details")
 	}
 
@@ -409,13 +410,13 @@ func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*respons
 	if community.IsPrivate {
 		if userID == nil {
 			// Not authenticated
-			log.Printf("[Err] User not authenticated to view post from private community in PostService.GetPostDetailByID: postID=%d", postID)
+			logger.ErrorfWithCtx(ctx, "[Err] User not authenticated to view post from private community in PostService.GetPostDetailByID: postID=%d", postID)
 			return nil, fmt.Errorf("you do not have permission to view this post")
 		}
 		// Check if user is member of the private community
 		isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(*userID, postExists.CommunityID)
 		if err != nil || !isSubscribed {
-			log.Printf("[Err] User does not have permission to view post from private community in PostService.GetPostDetailByID: userID=%d, postID=%d", *userID, postID)
+			logger.ErrorfWithCtx(ctx, "[Err] User does not have permission to view post from private community in PostService.GetPostDetailByID: userID=%d, postID=%d", *userID, postID)
 			return nil, fmt.Errorf("you do not have permission to view this post")
 		}
 	}
@@ -423,18 +424,18 @@ func (s *PostService) GetPostDetailByID(postID uint64, userID *uint64) (*respons
 	// If we reach here, user has permission, get full post details
 	post, err := s.postRepo.GetPostDetailByID(postID, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting post detail in PostService.GetPostDetailByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting post detail in PostService.GetPostDetailByID: %v", err)
 		return nil, fmt.Errorf("failed to get post details")
 	}
 
 	return response.NewPostDetailResponse(post), nil
 }
 
-func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
+func (s *PostService) VotePost(ctx context.Context, userID, postID uint64, vote bool) error {
 	// Check if post exists
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.VotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.VotePost: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
@@ -445,14 +446,14 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 	}
 
 	if err := s.postVoteRepo.UpsertPostVote(postVote); err != nil {
-		log.Printf("[Err] Error upserting post vote in PostService.VotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error upserting post vote in PostService.VotePost: %v", err)
 		return fmt.Errorf("failed to vote post")
 	}
 
 	go func(userID uint64, post *model.Post, vote bool) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in PostService.VotePost background task: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in PostService.VotePost background task: %v", r)
 			}
 		}()
 
@@ -465,8 +466,8 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, &post.AuthorID, karmaAction); err != nil {
-				log.Printf("[Err] Error creating karma task in PostService.VotePost: %v", err)
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, &post.AuthorID, karmaAction); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in PostService.VotePost: %v", err)
 			}
 		}
 
@@ -480,8 +481,8 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 			}
 
 			postIDPtr := &post.ID
-			if err := s.botTaskService.CreateInterestScoreTask(userID, post.CommunityID, interestAction, postIDPtr); err != nil {
-				log.Printf("[Err] Error creating interest score task in PostService.VotePost: %v", err)
+			if err := s.botTaskService.CreateInterestScoreTask(ctx, userID, post.CommunityID, interestAction, postIDPtr); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating interest score task in PostService.VotePost: %v", err)
 			}
 		}
 
@@ -489,7 +490,7 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 		if s.notificationService != nil && userID != post.AuthorID {
 			voter, err := s.userRepo.GetUserByID(userID)
 			if err != nil {
-				log.Printf("[Err] Error getting voter in PostService.VotePost: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error getting voter in PostService.VotePost: %v", err)
 				return
 			}
 
@@ -499,6 +500,7 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 				VoteType: vote,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				post.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_POST_VOTE,
 				notifPayload,
@@ -509,27 +511,27 @@ func (s *PostService) VotePost(userID, postID uint64, vote bool) error {
 	return nil
 }
 
-func (s *PostService) UnvotePost(userID, postID uint64) error {
+func (s *PostService) UnvotePost(ctx context.Context, userID, postID uint64) error {
 	// Check if post exists
 	_, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.UnvotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.UnvotePost: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Delete vote
 	if err := s.postVoteRepo.DeletePostVote(userID, postID); err != nil {
-		log.Printf("[Err] Error deleting post vote in PostService.UnvotePost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post vote in PostService.UnvotePost: %v", err)
 		return fmt.Errorf("failed to unvote post")
 	}
 
 	return nil
 }
 
-func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollRequest) error {
+func (s *PostService) VotePoll(ctx context.Context, userID, postID uint64, req *request.VotePollRequest) error {
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.VotePoll: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
@@ -538,13 +540,13 @@ func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollReque
 	}
 
 	if post.PollData == nil {
-		log.Printf("[Err] Poll data is nil in PostService.VotePoll")
+		logger.ErrorfWithCtx(ctx, "[Err] Poll data is nil in PostService.VotePoll")
 		return fmt.Errorf("poll data not found")
 	}
 
 	var pollData payload.PollData
 	if err := json.Unmarshal(*post.PollData, &pollData); err != nil {
-		log.Printf("[Err] Error unmarshalling poll data in PostService.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unmarshalling poll data in PostService.VotePoll: %v", err)
 		return fmt.Errorf("invalid poll data")
 	}
 
@@ -626,24 +628,24 @@ func (s *PostService) VotePoll(userID, postID uint64, req *request.VotePollReque
 
 	updatedPollData, err := json.Marshal(pollData)
 	if err != nil {
-		log.Printf("[Err] Error marshalling poll data in PostService.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marshalling poll data in PostService.VotePoll: %v", err)
 		return fmt.Errorf("failed to update poll data")
 	}
 
 	rawMessage := json.RawMessage(updatedPollData)
 
 	if err := s.postRepo.UpdatePollData(postID, &rawMessage); err != nil {
-		log.Printf("[Err] Error updating poll data in PostService.VotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating poll data in PostService.VotePoll: %v", err)
 		return fmt.Errorf("failed to update poll")
 	}
 
 	return nil
 }
 
-func (s *PostService) UnvotePoll(userID, postID uint64, req *request.UnvotePollRequest) error {
+func (s *PostService) UnvotePoll(ctx context.Context, userID, postID uint64, req *request.UnvotePollRequest) error {
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.UnvotePoll: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
@@ -652,13 +654,13 @@ func (s *PostService) UnvotePoll(userID, postID uint64, req *request.UnvotePollR
 	}
 
 	if post.PollData == nil {
-		log.Printf("[Err] Poll data is nil in PostService.UnvotePoll")
+		logger.ErrorfWithCtx(ctx, "[Err] Poll data is nil in PostService.UnvotePoll")
 		return fmt.Errorf("poll data not found")
 	}
 
 	var pollData payload.PollData
 	if err := json.Unmarshal(*post.PollData, &pollData); err != nil {
-		log.Printf("[Err] Error unmarshalling poll data in PostService.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error unmarshalling poll data in PostService.UnvotePoll: %v", err)
 		return fmt.Errorf("invalid poll data")
 	}
 
@@ -709,31 +711,31 @@ func (s *PostService) UnvotePoll(userID, postID uint64, req *request.UnvotePollR
 
 	updatedPollData, err := json.Marshal(pollData)
 	if err != nil {
-		log.Printf("[Err] Error marshalling poll data in PostService.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error marshalling poll data in PostService.UnvotePoll: %v", err)
 		return fmt.Errorf("failed to update poll data")
 	}
 
 	rawMessage := json.RawMessage(updatedPollData)
 
 	if err := s.postRepo.UpdatePollData(postID, &rawMessage); err != nil {
-		log.Printf("[Err] Error updating poll data in PostService.UnvotePoll: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating poll data in PostService.UnvotePoll: %v", err)
 		return fmt.Errorf("failed to update poll")
 	}
 
 	return nil
 }
 
-func (s *PostService) GetPostsByUserID(userID uint64, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *PostService) GetPostsByUserID(ctx context.Context, userID uint64, sortBy string, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Check if user exists
 	_, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] User not found in PostService.GetPostsByUserID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] User not found in PostService.GetPostsByUserID: %v", err)
 		return nil, nil, fmt.Errorf("user not found")
 	}
 
 	posts, total, err := s.postRepo.GetPostsByUserID(userID, sortBy, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting posts by user ID in PostService.GetPostsByUserID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by user ID in PostService.GetPostsByUserID: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
 	}
 
@@ -751,18 +753,18 @@ func (s *PostService) GetPostsByUserID(userID uint64, sortBy string, page, limit
 	return postResponses, pagination, nil
 }
 
-func (s *PostService) ReportPost(userID, postID uint64, req *request.ReportPostRequest) error {
+func (s *PostService) ReportPost(ctx context.Context, userID, postID uint64, req *request.ReportPostRequest) error {
 	// Check if post exists
 	_, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in PostService.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in PostService.ReportPost: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Check if user already reported this post
 	alreadyReported, err := s.postReportRepo.IsUserReportedPost(userID, postID)
 	if err != nil {
-		log.Printf("[Err] Error checking if user reported post in PostService.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking if user reported post in PostService.ReportPost: %v", err)
 		return fmt.Errorf("failed to check report status")
 	}
 	if alreadyReported {
@@ -779,17 +781,17 @@ func (s *PostService) ReportPost(userID, postID uint64, req *request.ReportPostR
 	}
 
 	if err := s.postReportRepo.CreatePostReport(report); err != nil {
-		log.Printf("[Err] Error creating post report in PostService.ReportPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating post report in PostService.ReportPost: %v", err)
 		return fmt.Errorf("failed to report post")
 	}
 
 	return nil
 }
 
-func (s *PostService) GetAllTags(search *string) ([]*response.TagResponse, error) {
+func (s *PostService) GetAllTags(ctx context.Context, search *string) ([]*response.TagResponse, error) {
 	tags, err := s.tagRepo.GetAllTags(search)
 	if err != nil {
-		log.Printf("[Err] Error getting tags in PostService.GetAllTags: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting tags in PostService.GetAllTags: %v", err)
 		return nil, err
 	}
 

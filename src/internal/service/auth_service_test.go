@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -48,7 +49,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	mockUserRepo.On("CreateUser", mock.AnythingOfType("*model.User")).Return(nil)
 	mockVerificationRepo.On("CreateVerification", mock.AnythingOfType("*model.UserVerification")).Return(nil)
 
-	err := authService.Register(req)
+	err := authService.Register(context.Background(), req)
 
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -79,7 +80,7 @@ func TestAuthService_Register_EmailAlreadyExists(t *testing.T) {
 
 	mockUserRepo.On("IsEmailExisted", req.Email).Return(true, nil)
 
-	err := authService.Register(req)
+	err := authService.Register(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "email already exists")
@@ -109,7 +110,7 @@ func TestAuthService_Register_CheckEmailError(t *testing.T) {
 
 	mockUserRepo.On("IsEmailExisted", req.Email).Return(false, errors.New("database error"))
 
-	err := authService.Register(req)
+	err := authService.Register(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check email existence")
@@ -141,7 +142,7 @@ func TestAuthService_Register_CreateUserError(t *testing.T) {
 	mockUserRepo.On("IsEmailExisted", req.Email).Return(false, nil)
 	mockUserRepo.On("CreateUser", mock.AnythingOfType("*model.User")).Return(errors.New("database error"))
 
-	err := authService.Register(req)
+	err := authService.Register(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create user")
@@ -177,7 +178,7 @@ func TestAuthService_VerifyEmail_Success(t *testing.T) {
 	mockUserRepo.On("ActivateUser", verification.UserID).Return(nil)
 	mockVerificationRepo.On("DeleteVerification", verification.ID).Return(nil)
 
-	err := authService.VerifyEmail(token)
+	err := authService.VerifyEmail(context.Background(), token)
 
 	assert.NoError(t, err)
 	mockVerificationRepo.AssertExpectations(t)
@@ -202,7 +203,7 @@ func TestAuthService_VerifyEmail_InvalidToken(t *testing.T) {
 	token := "invalid-token"
 	mockVerificationRepo.On("GetVerificationByToken", token).Return(nil, errors.New("not found"))
 
-	err := authService.VerifyEmail(token)
+	err := authService.VerifyEmail(context.Background(), token)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid or expired token")
@@ -235,7 +236,7 @@ func TestAuthService_VerifyEmail_ExpiredToken(t *testing.T) {
 
 	mockVerificationRepo.On("GetVerificationByToken", token).Return(verification, nil)
 
-	err := authService.VerifyEmail(token)
+	err := authService.VerifyEmail(context.Background(), token)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "token has expired")
@@ -274,7 +275,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(user, nil)
 
-	response, err := authService.Login(req)
+	response, err := authService.Login(context.Background(), req)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, response)
@@ -304,7 +305,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(nil, errors.New("not found"))
 
-	response, err := authService.Login(req)
+	response, err := authService.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Nil(t, response)
@@ -343,7 +344,7 @@ func TestAuthService_Login_UserNotActive(t *testing.T) {
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(user, nil)
 
-	response, err := authService.Login(req)
+	response, err := authService.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Nil(t, response)
@@ -381,7 +382,7 @@ func TestAuthService_Login_NoPassword(t *testing.T) {
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(user, nil)
 
-	response, err := authService.Login(req)
+	response, err := authService.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Nil(t, response)
@@ -420,7 +421,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 
 	mockUserRepo.On("GetUserByEmail", req.Email).Return(user, nil)
 
-	response, err := authService.Login(req)
+	response, err := authService.Login(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Nil(t, response)
