@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestCommunityService_CreateCommunity_Success(t *testing.T) {
 	mockCommunityRepo.On("CreateCommunity", mock.AnythingOfType("*model.Community")).Return(nil)
 	mockCommunityModeratorRepo.On("CreateModerator", mock.AnythingOfType("*model.CommunityModerator")).Return(nil)
 
-	err := communityService.CreateCommunity(userID, req)
+	err := communityService.CreateCommunity(context.Background(), userID, req)
 
 	assert.NoError(t, err)
 	mockCommunityRepo.AssertExpectations(t)
@@ -55,7 +56,7 @@ func TestCommunityService_CreateCommunity_RepositoryError(t *testing.T) {
 
 	mockCommunityRepo.On("CreateCommunity", mock.AnythingOfType("*model.Community")).Return(errors.New("db error"))
 
-	err := communityService.CreateCommunity(123, req)
+	err := communityService.CreateCommunity(context.Background(), 123, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create community")
@@ -87,7 +88,7 @@ func TestCommunityService_GetCommunityByID_Success(t *testing.T) {
 	mockCommunityModeratorRepo.On("GetCommunityModerators", communityID).Return([]*model.CommunityModerator{}, nil)
 	mockPostRepo.On("GetPostsLastWeekCount", communityID).Return(int64(5), nil)
 
-	result, err := communityService.GetCommunityByID(communityID, &userID)
+	result, err := communityService.GetCommunityByID(context.Background(), communityID, &userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -109,7 +110,7 @@ func TestCommunityService_GetCommunityByID_NotFound(t *testing.T) {
 	userID := uint64(123)
 	mockCommunityRepo.On("GetCommunityByIDWithUserSubscription", communityID, &userID).Return(nil, uint64(0), errors.New("not found"))
 
-	result, err := communityService.GetCommunityByID(communityID, &userID)
+	result, err := communityService.GetCommunityByID(context.Background(), communityID, &userID)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -154,7 +155,7 @@ func TestCommunityService_GetCommunityByID_WithModerators(t *testing.T) {
 	mockCommunityModeratorRepo.On("GetCommunityModerators", communityID).Return(moderators, nil)
 	mockPostRepo.On("GetPostsLastWeekCount", communityID).Return(int64(10), nil)
 
-	result, err := communityService.GetCommunityByID(communityID, &userID)
+	result, err := communityService.GetCommunityByID(context.Background(), communityID, &userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -189,7 +190,7 @@ func TestCommunityService_UpdateCommunity_Success(t *testing.T) {
 	mockCommunityModeratorRepo.On("GetModeratorRole", communityID, userID).Return("super_admin", nil)
 	mockCommunityRepo.On("UpdateCommunity", communityID, req).Return(nil)
 
-	err := communityService.UpdateCommunity(userID, communityID, req)
+	err := communityService.UpdateCommunity(context.Background(), userID, communityID, req)
 
 	assert.NoError(t, err)
 	mockCommunityRepo.AssertExpectations(t)
@@ -219,7 +220,7 @@ func TestCommunityService_UpdateCommunity_NotSuperAdmin(t *testing.T) {
 	mockCommunityRepo.On("GetCommunityByID", communityID).Return(community, nil)
 	mockCommunityModeratorRepo.On("GetModeratorRole", communityID, userID).Return("moderator", nil)
 
-	err := communityService.UpdateCommunity(userID, communityID, req)
+	err := communityService.UpdateCommunity(context.Background(), userID, communityID, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -250,7 +251,7 @@ func TestCommunityService_UpdateCommunity_NotModerator(t *testing.T) {
 	mockCommunityRepo.On("GetCommunityByID", communityID).Return(community, nil)
 	mockCommunityModeratorRepo.On("GetModeratorRole", communityID, userID).Return("", errors.New("not found"))
 
-	err := communityService.UpdateCommunity(userID, communityID, req)
+	err := communityService.UpdateCommunity(context.Background(), userID, communityID, req)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -278,7 +279,7 @@ func TestCommunityService_DeleteCommunity_Success(t *testing.T) {
 	mockCommunityModeratorRepo.On("GetModeratorRole", communityID, userID).Return("super_admin", nil)
 	mockCommunityRepo.On("DeleteCommunity", communityID).Return(nil)
 
-	err := communityService.DeleteCommunity(userID, communityID)
+	err := communityService.DeleteCommunity(context.Background(), userID, communityID)
 
 	assert.NoError(t, err)
 	mockCommunityRepo.AssertExpectations(t)
@@ -304,7 +305,7 @@ func TestCommunityService_DeleteCommunity_NotSuperAdmin(t *testing.T) {
 	mockCommunityRepo.On("GetCommunityByID", communityID).Return(community, nil)
 	mockCommunityModeratorRepo.On("GetModeratorRole", communityID, userID).Return("moderator", nil)
 
-	err := communityService.DeleteCommunity(userID, communityID)
+	err := communityService.DeleteCommunity(context.Background(), userID, communityID)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")

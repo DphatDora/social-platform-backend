@@ -129,7 +129,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 					Reason:    violationReason,
 					Category:  violationCategory,
 				}
-				if err := s.notificationService.CreateNotification(userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT, notifPayload); err != nil {
+				if err := s.notificationService.CreateNotification(ctx, userID, constant.NOTIFICATION_ACTION_CONTENT_VIOLATION_COMMENT, notifPayload); err != nil {
 					logger.ErrorfWithCtx(ctx, "[Err] Error sending content violation notification: %v", err)
 				}
 			}
@@ -138,7 +138,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, nil, constant.KARMA_ACTION_CREATE_COMMENT); err != nil {
 				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in CommentService.CreateComment: %v", err)
 			}
 		}
@@ -157,6 +157,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 				UserName:  commenter.Username,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				parentComment.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_COMMENT_REPLY,
 				notifPayload,
@@ -170,6 +171,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 				UserName: commenter.Username,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				post.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
 				notifPayload,
@@ -198,6 +200,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 			for _, followerID := range followerIDs {
 				if followerID != post.AuthorID && followerID != userID {
 					if err := s.notificationService.CreateNotification(
+						ctx,
 						followerID,
 						constant.NOTIFICATION_ACTION_GET_POST_NEW_COMMENT,
 						notifPayload,
@@ -367,7 +370,7 @@ func (s *CommentService) VoteComment(ctx context.Context, userID, commentID uint
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateKarmaTask(userID, &comment.AuthorID, action); err != nil {
+			if err := s.botTaskService.CreateKarmaTask(ctx, userID, &comment.AuthorID, action); err != nil {
 				logger.ErrorfWithCtx(ctx, "[Err] Error creating karma task in CommentService.VoteComment: %v", err)
 			}
 		}
@@ -386,6 +389,7 @@ func (s *CommentService) VoteComment(ctx context.Context, userID, commentID uint
 				VoteType:  vote,
 			}
 			s.notificationService.CreateNotification(
+				ctx,
 				comment.AuthorID,
 				constant.NOTIFICATION_ACTION_GET_COMMENT_VOTE,
 				notifPayload,

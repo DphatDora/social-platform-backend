@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"sort"
 	"time"
 )
@@ -32,11 +33,11 @@ func NewRecommendationService(
 	}
 }
 
-func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *RecommendationService) GetRecommendedPosts(ctx context.Context, userID uint64, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Get top communities user is interested in (limited to MAX_COMMUNITIES)
 	communityScores, err := s.userInterestScoreRepo.GetUserInterestScoresWithScores(userID, constant.RECOMMENDATION_MAX_COMMUNITIES)
 	if err != nil {
-		log.Printf("[Err] Error getting community scores in RecommendationService.GetRecommendedPosts: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community scores in RecommendationService.GetRecommendedPosts: %v", err)
 		// If no interest data, return empty list
 		return []*response.PostListResponse{}, &response.Pagination{
 			Total: 0,
@@ -80,7 +81,7 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 		// Get recent posts from this community
 		posts, _, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, postsLimit, []string{}, &userID)
 		if err != nil {
-			log.Printf("[Warn] Error getting posts for community %d: %v", communityID, err)
+			logger.WarnfWithCtx(ctx, "[Warn] Error getting posts for community %d: %v", communityID, err)
 			continue
 		}
 		allPosts = append(allPosts, posts...)
@@ -127,7 +128,7 @@ func (s *RecommendationService) GetRecommendedPosts(userID uint64, page, limit i
 	return postResponses, pagination, nil
 }
 
-func (s *RecommendationService) GetRecommendedPostsByCommunity(userID, communityID uint64, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
+func (s *RecommendationService) GetRecommendedPostsByCommunity(ctx context.Context, userID, communityID uint64, page, limit int) ([]*response.PostListResponse, *response.Pagination, error) {
 	// Get user's preferred tags
 	userTags, err := s.userTagPrefRepo.GetUserTagPreferences(userID)
 	var preferredTags []string
@@ -138,7 +139,7 @@ func (s *RecommendationService) GetRecommendedPostsByCommunity(userID, community
 	// Get all recent posts from the community (last 30 days)
 	posts, total, err := s.postRepo.GetPostsByCommunityID(communityID, "new", 1, 100, []string{}, &userID)
 	if err != nil {
-		log.Printf("[Err] Error getting posts by community in RecommendationService.GetRecommendedPostsByCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts by community in RecommendationService.GetRecommendedPostsByCommunity: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
 	}
 

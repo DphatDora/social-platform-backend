@@ -1,8 +1,9 @@
 package service
 
 import (
-	"log"
+	"context"
 	"social-platform-backend/internal/interface/dto/response"
+	"social-platform-backend/package/logger"
 	"sync"
 )
 
@@ -23,7 +24,7 @@ func NewSSEService() *SSEService {
 	}
 }
 
-func (s *SSEService) RegisterClient(userID uint64) *SSEClient {
+func (s *SSEService) RegisterClient(ctx context.Context, userID uint64) *SSEClient {
 	client := &SSEClient{
 		UserID:  userID,
 		Channel: make(chan *response.SSEEvent, 10),
@@ -33,12 +34,12 @@ func (s *SSEService) RegisterClient(userID uint64) *SSEClient {
 	defer s.clientsMux.Unlock()
 
 	s.clients[userID] = append(s.clients[userID], client)
-	log.Printf("[Info] SSE client registered for user %d. Total clients: %d", userID, len(s.clients[userID]))
+	logger.InfofWithCtx(ctx, "[Info] SSE client registered for user %d. Total clients: %d", userID, len(s.clients[userID]))
 
 	return client
 }
 
-func (s *SSEService) UnregisterClient(userID uint64, client *SSEClient) {
+func (s *SSEService) UnregisterClient(ctx context.Context, userID uint64, client *SSEClient) {
 	s.clientsMux.Lock()
 	defer s.clientsMux.Unlock()
 
@@ -48,7 +49,7 @@ func (s *SSEService) UnregisterClient(userID uint64, client *SSEClient) {
 			// Remove client from slice
 			s.clients[userID] = append(clients[:i], clients[i+1:]...)
 			close(client.Channel)
-			log.Printf("[Info] SSE client unregistered for user %d. Remaining clients: %d", userID, len(s.clients[userID]))
+			logger.InfofWithCtx(ctx, "[Info] SSE client unregistered for user %d. Remaining clients: %d", userID, len(s.clients[userID]))
 			break
 		}
 	}
@@ -60,7 +61,7 @@ func (s *SSEService) UnregisterClient(userID uint64, client *SSEClient) {
 }
 
 // BroadcastToUser sends event to all SSE clients of a user
-func (s *SSEService) BroadcastToUser(userID uint64, event *response.SSEEvent) {
+func (s *SSEService) BroadcastToUser(ctx context.Context, userID uint64, event *response.SSEEvent) {
 	s.clientsMux.RLock()
 	defer s.clientsMux.RUnlock()
 
@@ -68,9 +69,9 @@ func (s *SSEService) BroadcastToUser(userID uint64, event *response.SSEEvent) {
 	for _, client := range clients {
 		select {
 		case client.Channel <- event:
-			log.Printf("[Info] Event '%s' sent to user %d", event.Event, userID)
+			logger.InfofWithCtx(ctx, "[Info] Event '%s' sent to user %d", event.Event, userID)
 		default:
-			log.Printf("[Warn] Failed to send event '%s' to user %d - channel full", event.Event, userID)
+			logger.WarnfWithCtx(ctx, "[Warn] Failed to send event '%s' to user %d - channel full", event.Event, userID)
 		}
 	}
 }

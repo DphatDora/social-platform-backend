@@ -151,7 +151,7 @@ func (s *AuthService) Register(ctx context.Context, req *request.RegisterRequest
 		}
 
 		if s.botTaskService != nil {
-			if err := s.botTaskService.CreateEmailTask(userEmail, "Verify Your Account", body); err != nil {
+			if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Verify Your Account", body); err != nil {
 				logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.Register: %v", err)
 			}
 		}
@@ -306,7 +306,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *request.ForgotPas
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Reset Your Password", body); err != nil {
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Reset Your Password", body); err != nil {
 			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ForgotPassword: %v", err)
 		}
 	}(user.Email, token)
@@ -428,7 +428,7 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, req *request.
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Verify Your Account", body); err != nil {
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Verify Your Account", body); err != nil {
 			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ResendVerificationEmail: %v", err)
 		}
 	}(user.Email, token)
@@ -494,7 +494,7 @@ func (s *AuthService) ResendResetPasswordEmail(ctx context.Context, req *request
 			return
 		}
 
-		if err := s.botTaskService.CreateEmailTask(userEmail, "Reset Your Password", body); err != nil {
+		if err := s.botTaskService.CreateEmailTask(ctx, userEmail, "Reset Your Password", body); err != nil {
 			logger.ErrorfWithCtx(ctx, "[Err] Error creating email task in AuthService.ResendResetPasswordEmail: %v", err)
 		}
 	}(user.Email, token)

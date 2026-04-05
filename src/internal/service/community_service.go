@@ -1,13 +1,14 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
 	"strings"
 	"time"
@@ -55,7 +56,7 @@ func NewCommunityService(
 	}
 }
 
-func (s *CommunityService) CreateCommunity(userID uint64, req *request.CreateCommunityRequest) error {
+func (s *CommunityService) CreateCommunity(ctx context.Context, userID uint64, req *request.CreateCommunityRequest) error {
 	community := &model.Community{
 		Name:             req.Name,
 		ShortDescription: req.ShortDescription,
@@ -69,7 +70,7 @@ func (s *CommunityService) CreateCommunity(userID uint64, req *request.CreateCom
 	}
 
 	if err := s.communityRepo.CreateCommunity(community); err != nil {
-		log.Printf("[Err] Error creating community in CommunityService.CreateCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating community in CommunityService.CreateCommunity: %v", err)
 		return fmt.Errorf("failed to create community")
 	}
 
@@ -82,24 +83,24 @@ func (s *CommunityService) CreateCommunity(userID uint64, req *request.CreateCom
 	}
 
 	if err := s.communityModeratorRepo.CreateModerator(moderator); err != nil {
-		log.Printf("[Err] Error creating moderator in CommunityService.CreateCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating moderator in CommunityService.CreateCommunity: %v", err)
 		return fmt.Errorf("failed to create moderator")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*response.CommunityDetailResponse, error) {
+func (s *CommunityService) GetCommunityByID(ctx context.Context, id uint64, userID *uint64) (*response.CommunityDetailResponse, error) {
 	community, memberCount, err := s.communityRepo.GetCommunityByIDWithUserSubscription(id, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting community by ID in CommunityService.GetCommunityByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community by ID in CommunityService.GetCommunityByID: %v", err)
 		return nil, fmt.Errorf("community not found")
 	}
 
 	// Get community moderators
 	moderators, err := s.communityModeratorRepo.GetCommunityModerators(id)
 	if err != nil {
-		log.Printf("[Err] Error getting community moderators in CommunityService.GetCommunityByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community moderators in CommunityService.GetCommunityByID: %v", err)
 		moderators = []*model.CommunityModerator{}
 	}
 
@@ -111,7 +112,7 @@ func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*respons
 	// Get posts count in last week
 	postsLastWeek, err := s.postRepo.GetPostsLastWeekCount(id)
 	if err != nil {
-		log.Printf("[Err] Error getting posts last week count in CommunityService.GetCommunityByID: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting posts last week count in CommunityService.GetCommunityByID: %v", err)
 		postsLastWeek = 0
 	}
 
@@ -131,64 +132,64 @@ func (s *CommunityService) GetCommunityByID(id uint64, userID *uint64) (*respons
 	return communityResponse, nil
 }
 
-func (s *CommunityService) UpdateCommunity(userID, id uint64, req *request.UpdateCommunityRequest) error {
+func (s *CommunityService) UpdateCommunity(ctx context.Context, userID, id uint64, req *request.UpdateCommunityRequest) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(id)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdateCommunity: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (must be SUPER_ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(id, userID)
 	if err != nil || role != constant.ROLE_SUPER_ADMIN {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateCommunity: userID=%d, communityID=%d", userID, id)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdateCommunity: userID=%d, communityID=%d", userID, id)
 		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.communityRepo.UpdateCommunity(id, req); err != nil {
-		log.Printf("[Err] Error updating community in CommunityService.UpdateCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating community in CommunityService.UpdateCommunity: %v", err)
 		return fmt.Errorf("failed to update community")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) DeleteCommunity(userID, id uint64) error {
+func (s *CommunityService) DeleteCommunity(ctx context.Context, userID, id uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(id)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.DeleteCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.DeleteCommunity: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (must be SUPER_ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(id, userID)
 	if err != nil || role != constant.ROLE_SUPER_ADMIN {
-		log.Printf("[Err] User does not have permission in CommunityService.DeleteCommunity: userID=%d, communityID=%d", userID, id)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.DeleteCommunity: userID=%d, communityID=%d", userID, id)
 		return fmt.Errorf("permission denied")
 	}
 
 	if err := s.communityRepo.DeleteCommunity(id); err != nil {
-		log.Printf("[Err] Error deleting community in CommunityService.DeleteCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting community in CommunityService.DeleteCommunity: %v", err)
 		return fmt.Errorf("failed to delete community")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
+func (s *CommunityService) JoinCommunity(ctx context.Context, userID, communityID uint64) error {
 	// Check if community exists
 	community, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.JoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if already subscribed
 	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(userID, communityID)
 	if err != nil {
-		log.Printf("[Err] Error checking subscription in CommunityService.JoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking subscription in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("failed to check subscription")
 	}
 
@@ -210,15 +211,15 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	}
 
 	if err := s.subscriptionRepo.CreateSubscription(subscription); err != nil {
-		log.Printf("[Err] Error creating subscription in CommunityService.JoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating subscription in CommunityService.JoinCommunity: %v", err)
 		return fmt.Errorf("failed to join community")
 	}
 
 	// Create bot task for interest score
 	if subscriptionStatus == constant.SUBSCRIPTION_STATUS_APPROVED {
 		go func(userID, communityID uint64) {
-			if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
-				log.Printf("[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
+			if err := s.botTaskService.CreateInterestScoreTask(ctx, userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating interest score task in goroutine (JoinCommunity): %v", err)
 			}
 		}(userID, communityID)
 	}
@@ -226,18 +227,18 @@ func (s *CommunityService) JoinCommunity(userID, communityID uint64) error {
 	return nil
 }
 
-func (s *CommunityService) UnjoinCommunity(userID, communityID uint64) error {
+func (s *CommunityService) UnjoinCommunity(ctx context.Context, userID, communityID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UnjoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UnjoinCommunity: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user is subscribed
 	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(userID, communityID)
 	if err != nil {
-		log.Printf("[Err] Error checking subscription in CommunityService.UnjoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking subscription in CommunityService.UnjoinCommunity: %v", err)
 		return fmt.Errorf("failed to check subscription")
 	}
 
@@ -249,31 +250,31 @@ func (s *CommunityService) UnjoinCommunity(userID, communityID uint64) error {
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err == nil && role != "" {
 		if err := s.communityModeratorRepo.DeleteModerator(communityID, userID); err != nil {
-			log.Printf("[Err] Error deleting moderator in CommunityService.UnjoinCommunity: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error deleting moderator in CommunityService.UnjoinCommunity: %v", err)
 			return fmt.Errorf("failed to remove moderator role")
 		}
 	}
 
 	// Delete subscription
 	if err := s.subscriptionRepo.DeleteSubscription(userID, communityID); err != nil {
-		log.Printf("[Err] Error deleting subscription in CommunityService.UnjoinCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting subscription in CommunityService.UnjoinCommunity: %v", err)
 		return fmt.Errorf("failed to leave community")
 	}
 
 	// Create bot task for interest score
 	go func(userID, communityID uint64) {
-		if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_LEAVE_COMMUNITY, nil); err != nil {
-			log.Printf("[Err] Error creating interest score task in goroutine (UnjoinCommunity): %v", err)
+		if err := s.botTaskService.CreateInterestScoreTask(ctx, userID, communityID, constant.INTEREST_ACTION_LEAVE_COMMUNITY, nil); err != nil {
+			logger.ErrorfWithCtx(ctx, "[Err] Error creating interest score task in goroutine (UnjoinCommunity): %v", err)
 		}
 	}(userID, communityID)
 
 	return nil
 }
 
-func (s *CommunityService) GetCommunities(page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunities(ctx context.Context, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	communities, total, err := s.communityRepo.GetCommunities(page, limit, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting communities in CommunityService.GetCommunities: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting communities in CommunityService.GetCommunities: %v", err)
 		return nil, nil, fmt.Errorf("failed to get communities")
 	}
 
@@ -303,7 +304,7 @@ func (s *CommunityService) GetCommunities(page, limit int, userID *uint64) ([]*r
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) SearchCommunitiesByName(name string, sortBy string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+func (s *CommunityService) SearchCommunitiesByName(ctx context.Context, name string, sortBy string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	// Validate sortBy
 	if sortBy != constant.SORT_NEWEST && sortBy != constant.SORT_MEMBER_COUNT {
 		sortBy = constant.SORT_NEWEST
@@ -311,7 +312,7 @@ func (s *CommunityService) SearchCommunitiesByName(name string, sortBy string, p
 
 	communities, total, err := s.communityRepo.SearchCommunitiesByName(name, sortBy, page, limit, userID)
 	if err != nil {
-		log.Printf("[Err] Error searching communities in CommunityService.SearchCommunitiesByName: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error searching communities in CommunityService.SearchCommunitiesByName: %v", err)
 		return nil, nil, fmt.Errorf("failed to search communities")
 	}
 
@@ -341,7 +342,7 @@ func (s *CommunityService) SearchCommunitiesByName(name string, sortBy string, p
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, topics []string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
+func (s *CommunityService) FilterCommunities(ctx context.Context, sortBy string, isPrivate *bool, topics []string, page, limit int, userID *uint64) ([]*response.CommunityListResponse, *response.Pagination, error) {
 	// Validate sortBy
 	if sortBy != constant.SORT_NEWEST && sortBy != constant.SORT_MEMBER_COUNT {
 		sortBy = constant.SORT_NEWEST
@@ -349,7 +350,7 @@ func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, top
 
 	communities, total, err := s.communityRepo.FilterCommunities(sortBy, isPrivate, topics, page, limit, userID)
 	if err != nil {
-		log.Printf("[Err] Error filtering communities in CommunityService.FilterCommunities: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error filtering communities in CommunityService.FilterCommunities: %v", err)
 		return nil, nil, fmt.Errorf("failed to filter communities")
 	}
 
@@ -386,18 +387,18 @@ func (s *CommunityService) FilterCommunities(sortBy string, isPrivate *bool, top
 	return communityResponses, pagination, nil
 }
 
-func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortBy, searchName, status string, page, limit int) ([]*response.MemberListResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunityMembers(ctx context.Context, userID, communityID uint64, sortBy, searchName, status string, page, limit int) ([]*response.MemberListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.GetCommunityMembers: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.GetCommunityMembers: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityMembers: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.GetCommunityMembers: userID=%d, communityID=%d", userID, communityID)
 		return nil, nil, fmt.Errorf("permission denied")
 	}
 
@@ -413,7 +414,7 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 
 	subscriptions, total, err := s.subscriptionRepo.GetCommunityMembers(communityID, sortBy, searchName, status, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting community members in CommunityService.GetCommunityMembers: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community members in CommunityService.GetCommunityMembers: %v", err)
 		return nil, nil, fmt.Errorf("failed to get community members")
 	}
 
@@ -446,25 +447,25 @@ func (s *CommunityService) GetCommunityMembers(userID, communityID uint64, sortB
 	return memberResponses, pagination, nil
 }
 
-func (s *CommunityService) RemoveMember(userID, communityID, memberID uint64) error {
+func (s *CommunityService) RemoveMember(ctx context.Context, userID, communityID, memberID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.RemoveMember: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.RemoveMember: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (must be SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.RemoveMember: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.RemoveMember: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Check if member is subscribed
 	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(memberID, communityID)
 	if err != nil {
-		log.Printf("[Err] Error checking subscription in CommunityService.RemoveMember: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking subscription in CommunityService.RemoveMember: %v", err)
 		return fmt.Errorf("failed to check subscription")
 	}
 	if !isSubscribed {
@@ -473,32 +474,32 @@ func (s *CommunityService) RemoveMember(userID, communityID, memberID uint64) er
 
 	// Remove member
 	if err := s.subscriptionRepo.DeleteSubscription(memberID, communityID); err != nil {
-		log.Printf("[Err] Error removing member in CommunityService.RemoveMember: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error removing member in CommunityService.RemoveMember: %v", err)
 		return fmt.Errorf("failed to remove member")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUserID uint64, role string) error {
+func (s *CommunityService) UpdateMemberRole(ctx context.Context, adminUserID, communityID, targetUserID uint64, role string) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateMemberRole: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdateMemberRole: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if admin has permission (must be SUPER_ADMIN)
 	adminRole, err := s.communityModeratorRepo.GetModeratorRole(communityID, adminUserID)
 	if err != nil || adminRole != constant.ROLE_SUPER_ADMIN {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateMemberRole: userID=%d, communityID=%d", adminUserID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdateMemberRole: userID=%d, communityID=%d", adminUserID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Check if target user is a member
 	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(targetUserID, communityID)
 	if err != nil {
-		log.Printf("[Err] Error checking subscription in CommunityService.UpdateMemberRole: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking subscription in CommunityService.UpdateMemberRole: %v", err)
 		return fmt.Errorf("failed to check subscription")
 	}
 	if !isSubscribed {
@@ -508,7 +509,7 @@ func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUser
 	// If role is "user", remove from moderators
 	if role == constant.ROLE_USER {
 		if err := s.communityModeratorRepo.DeleteModerator(communityID, targetUserID); err != nil {
-			log.Printf("[Err] Error removing moderator in CommunityService.UpdateMemberRole: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error removing moderator in CommunityService.UpdateMemberRole: %v", err)
 			return fmt.Errorf("failed to remove moderator role")
 		}
 		return nil
@@ -523,7 +524,7 @@ func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUser
 			JoinedAt:    time.Now(),
 		}
 		if err := s.communityModeratorRepo.UpsertModerator(moderator); err != nil {
-			log.Printf("[Err] Error upserting moderator in CommunityService.UpdateMemberRole: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error upserting moderator in CommunityService.UpdateMemberRole: %v", err)
 			return fmt.Errorf("failed to update moderator role")
 		}
 		return nil
@@ -532,43 +533,43 @@ func (s *CommunityService) UpdateMemberRole(adminUserID, communityID, targetUser
 	return fmt.Errorf("invalid role")
 }
 
-func (s *CommunityService) GetUserRoleInCommunity(userID, communityID uint64) (string, error) {
+func (s *CommunityService) GetUserRoleInCommunity(ctx context.Context, userID, communityID uint64) (string, error) {
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil {
-		log.Printf("[Err] Error getting user role in CommunityService.GetUserRoleInCommunity: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user role in CommunityService.GetUserRoleInCommunity: %v", err)
 		return "", fmt.Errorf("failed to get user role")
 	}
 	return role, nil
 }
 
-func (s *CommunityService) VerifyCommunityName(name string) (bool, error) {
+func (s *CommunityService) VerifyCommunityName(ctx context.Context, name string) (bool, error) {
 	exists, err := s.communityRepo.IsCommunityNameExists(name)
 	if err != nil {
-		log.Printf("[Err] Error checking community name in CommunityService.VerifyCommunityName: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking community name in CommunityService.VerifyCommunityName: %v", err)
 		return false, fmt.Errorf("failed to check community name")
 	}
 
 	return !exists, nil
 }
 
-func (s *CommunityService) GetCommunityPostsForModerator(userID, communityID uint64, status, searchTitle string, page, limit int) ([]*response.CommunityPostListResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunityPostsForModerator(ctx context.Context, userID, communityID uint64, status, searchTitle string, page, limit int) ([]*response.CommunityPostListResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.GetCommunityPostsForModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.GetCommunityPostsForModerator: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityPostsForModerator: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.GetCommunityPostsForModerator: userID=%d, communityID=%d", userID, communityID)
 		return nil, nil, fmt.Errorf("permission denied")
 	}
 
 	posts, total, err := s.postRepo.GetCommunityPostsForModerator(communityID, status, searchTitle, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting community posts for moderator in CommunityService.GetCommunityPostsForModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community posts for moderator in CommunityService.GetCommunityPostsForModerator: %v", err)
 		return nil, nil, fmt.Errorf("failed to get posts")
 	}
 
@@ -597,36 +598,36 @@ func (s *CommunityService) GetCommunityPostsForModerator(userID, communityID uin
 	return postResponses, pagination, nil
 }
 
-func (s *CommunityService) UpdatePostStatusByModerator(userID, communityID, postID uint64, status string) error {
+func (s *CommunityService) UpdatePostStatusByModerator(ctx context.Context, userID, communityID, postID uint64, status string) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdatePostStatusByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdatePostStatusByModerator: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdatePostStatusByModerator: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdatePostStatusByModerator: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Get post
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in CommunityService.UpdatePostStatusByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in CommunityService.UpdatePostStatusByModerator: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Verify post belongs to this community
 	if post.CommunityID != communityID {
-		log.Printf("[Err] Post does not belong to community in CommunityService.UpdatePostStatusByModerator: postID=%d, communityID=%d", postID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] Post does not belong to community in CommunityService.UpdatePostStatusByModerator: postID=%d, communityID=%d", postID, communityID)
 		return fmt.Errorf("post not found in this community")
 	}
 
 	if err := s.postRepo.UpdatePostStatus(postID, status); err != nil {
-		log.Printf("[Err] Error updating post status in CommunityService.UpdatePostStatusByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating post status in CommunityService.UpdatePostStatusByModerator: %v", err)
 		return fmt.Errorf("failed to update post status")
 	}
 
@@ -635,7 +636,7 @@ func (s *CommunityService) UpdatePostStatusByModerator(userID, communityID, post
 		go func(authorID uint64, postID uint64, postTitle string, status string) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[Panic] Recovered in CommunityService.UpdatePostStatusByModerator notification: %v", r)
+					logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommunityService.UpdatePostStatusByModerator notification: %v", r)
 				}
 			}()
 
@@ -651,44 +652,44 @@ func (s *CommunityService) UpdatePostStatusByModerator(userID, communityID, post
 				Status: statusStr,
 			}
 
-			s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED, notifPayload)
+			s.notificationService.CreateNotification(ctx, authorID, constant.NOTIFICATION_ACTION_POST_STATUS_UPDATED, notifPayload)
 		}(post.AuthorID, postID, post.Title, status)
 	}
 
 	return nil
 }
 
-func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uint64) error {
+func (s *CommunityService) DeletePostByModerator(ctx context.Context, userID, communityID, postID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.DeletePostByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.DeletePostByModerator: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.DeletePostByModerator: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.DeletePostByModerator: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Get post
 	post, err := s.postRepo.GetPostByID(postID)
 	if err != nil {
-		log.Printf("[Err] Post not found in CommunityService.DeletePostByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in CommunityService.DeletePostByModerator: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Verify post belongs to this community
 	if post.CommunityID != communityID {
-		log.Printf("[Err] Post does not belong to community in CommunityService.DeletePostByModerator: postID=%d, communityID=%d", postID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] Post does not belong to community in CommunityService.DeletePostByModerator: postID=%d, communityID=%d", postID, communityID)
 		return fmt.Errorf("post not found in this community")
 	}
 
 	// Delete post
 	if err := s.postRepo.DeletePost(postID); err != nil {
-		log.Printf("[Err] Error deleting post in CommunityService.DeletePostByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post in CommunityService.DeletePostByModerator: %v", err)
 		return fmt.Errorf("failed to delete post")
 	}
 
@@ -696,7 +697,7 @@ func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uin
 	go func(authorID uint64, postID uint64) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in CommunityService.DeletePostByModerator notification: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommunityService.DeletePostByModerator notification: %v", r)
 			}
 		}()
 
@@ -704,47 +705,47 @@ func (s *CommunityService) DeletePostByModerator(userID, communityID, postID uin
 			"postId": postID,
 		}
 
-		s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_POST_DELETED, notifPayload)
+		s.notificationService.CreateNotification(ctx, authorID, constant.NOTIFICATION_ACTION_POST_DELETED, notifPayload)
 	}(post.AuthorID, postID)
 
 	return nil
 }
 
-func (s *CommunityService) DeleteCommentByModerator(userID, communityID, commentID uint64) error {
+func (s *CommunityService) DeleteCommentByModerator(ctx context.Context, userID, communityID, commentID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.DeleteCommentByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.DeleteCommentByModerator: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.DeleteCommentByModerator: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.DeleteCommentByModerator: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	comment, err := s.commentRepo.GetCommentByID(commentID)
 	if err != nil {
-		log.Printf("[Err] Comment not found in CommunityService.DeleteCommentByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment not found in CommunityService.DeleteCommentByModerator: %v", err)
 		return fmt.Errorf("comment not found")
 	}
 
 	post, err := s.postRepo.GetPostByID(comment.PostID)
 	if err != nil {
-		log.Printf("[Err] Post not found in CommunityService.DeleteCommentByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Post not found in CommunityService.DeleteCommentByModerator: %v", err)
 		return fmt.Errorf("post not found")
 	}
 
 	// Verify post belongs to this community
 	if post.CommunityID != communityID {
-		log.Printf("[Err] Comment does not belong to community in CommunityService.DeleteCommentByModerator: commentID=%d, communityID=%d", commentID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] Comment does not belong to community in CommunityService.DeleteCommentByModerator: commentID=%d, communityID=%d", commentID, communityID)
 		return fmt.Errorf("comment not found in this community")
 	}
 
 	if err := s.commentRepo.DeleteComment(commentID, comment.ParentCommentID); err != nil {
-		log.Printf("[Err] Error deleting comment in CommunityService.DeleteCommentByModerator: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment in CommunityService.DeleteCommentByModerator: %v", err)
 		return fmt.Errorf("failed to delete comment")
 	}
 
@@ -752,7 +753,7 @@ func (s *CommunityService) DeleteCommentByModerator(userID, communityID, comment
 	go func(authorID uint64, commentID uint64, postID uint64) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[Panic] Recovered in CommunityService.DeleteCommentByModerator notification: %v", r)
+				logger.ErrorfWithCtx(ctx, "[Panic] Recovered in CommunityService.DeleteCommentByModerator notification: %v", r)
 			}
 		}()
 
@@ -761,30 +762,30 @@ func (s *CommunityService) DeleteCommentByModerator(userID, communityID, comment
 			PostID:    postID,
 		}
 
-		s.notificationService.CreateNotification(authorID, constant.NOTIFICATION_ACTION_COMMENT_DELETED, notifPayload)
+		s.notificationService.CreateNotification(ctx, authorID, constant.NOTIFICATION_ACTION_COMMENT_DELETED, notifPayload)
 	}(comment.AuthorID, commentID, comment.PostID)
 
 	return nil
 }
 
-func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, page, limit int) ([]*response.PostReportResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunityPostReports(ctx context.Context, userID, communityID uint64, page, limit int) ([]*response.PostReportResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.GetCommunityPostReports: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.GetCommunityPostReports: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityPostReports: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.GetCommunityPostReports: userID=%d, communityID=%d", userID, communityID)
 		return nil, nil, fmt.Errorf("permission denied")
 	}
 
 	reports, total, err := s.postReportRepo.GetPostReportsByCommunityID(communityID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting community post reports in CommunityService.GetCommunityPostReports: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community post reports in CommunityService.GetCommunityPostReports: %v", err)
 		return nil, nil, fmt.Errorf("failed to get post reports")
 	}
 
@@ -793,7 +794,7 @@ func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, p
 	for _, report := range reports {
 		// Skip reports where post is nil (shouldn't happen but safety check)
 		if report.Post == nil {
-			log.Printf("[Warning] Post is nil for report ID %d, PostID %d", report.ID, report.PostID)
+			logger.WarnfWithCtx(ctx, "[Warning] Post is nil for report ID %d, PostID %d", report.ID, report.PostID)
 			continue
 		}
 
@@ -831,48 +832,48 @@ func (s *CommunityService) GetCommunityPostReports(userID, communityID uint64, p
 	return reportResponses, pagination, nil
 }
 
-func (s *CommunityService) DeletePostReport(userID, communityID, reportID uint64) error {
+func (s *CommunityService) DeletePostReport(ctx context.Context, userID, communityID, reportID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.DeletePostReport: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.DeletePostReport: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.DeletePostReport: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.DeletePostReport: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Delete report
 	if err := s.postReportRepo.DeletePostReport(reportID); err != nil {
-		log.Printf("[Err] Error deleting post report in CommunityService.DeletePostReport: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting post report in CommunityService.DeletePostReport: %v", err)
 		return fmt.Errorf("failed to delete post report")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) GetCommunityCommentReports(userID, communityID uint64, page, limit int) ([]*response.CommentReportResponse, *response.Pagination, error) {
+func (s *CommunityService) GetCommunityCommentReports(ctx context.Context, userID, communityID uint64, page, limit int) ([]*response.CommentReportResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.GetCommunityCommentReports: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.GetCommunityCommentReports: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.GetCommunityCommentReports: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.GetCommunityCommentReports: userID=%d, communityID=%d", userID, communityID)
 		return nil, nil, fmt.Errorf("permission denied")
 	}
 
 	reports, total, err := s.commentReportRepo.GetCommentReportsByCommunityID(communityID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting community comment reports in CommunityService.GetCommunityCommentReports: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting community comment reports in CommunityService.GetCommunityCommentReports: %v", err)
 		return nil, nil, fmt.Errorf("failed to get comment reports")
 	}
 
@@ -922,34 +923,34 @@ func (s *CommunityService) GetCommunityCommentReports(userID, communityID uint64
 	return reportResponses, pagination, nil
 }
 
-func (s *CommunityService) DeleteCommentReport(userID, communityID, reportID uint64) error {
+func (s *CommunityService) DeleteCommentReport(ctx context.Context, userID, communityID, reportID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.DeleteCommentReport: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.DeleteCommentReport: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.DeleteCommentReport: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.DeleteCommentReport: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Delete report
 	if err := s.commentReportRepo.DeleteCommentReport(reportID); err != nil {
-		log.Printf("[Err] Error deleting comment report in CommunityService.DeleteCommentReport: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting comment report in CommunityService.DeleteCommentReport: %v", err)
 		return fmt.Errorf("failed to delete comment report")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) GetAllTopics(search *string) ([]*response.TopicResponse, error) {
+func (s *CommunityService) GetAllTopics(ctx context.Context, search *string) ([]*response.TopicResponse, error) {
 	topics, err := s.topicRepo.GetAllTopics(search)
 	if err != nil {
-		log.Printf("[Err] Error getting topics in CommunityService.GetAllTopics: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting topics in CommunityService.GetAllTopics: %v", err)
 		return nil, err
 	}
 
@@ -964,73 +965,73 @@ func (s *CommunityService) GetAllTopics(search *string) ([]*response.TopicRespon
 	return topicResponses, nil
 }
 
-func (s *CommunityService) UpdateRequiresPostApproval(userID, communityID uint64, req *request.UpdateRequiresPostApprovalRequest) error {
+func (s *CommunityService) UpdateRequiresPostApproval(ctx context.Context, userID, communityID uint64, req *request.UpdateRequiresPostApprovalRequest) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresPostApproval: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdateRequiresPostApproval: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (must be SUPER_ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || role != constant.ROLE_SUPER_ADMIN {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresPostApproval: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdateRequiresPostApproval: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Update requires post approval
 	if err := s.communityRepo.UpdateRequiresPostApproval(communityID, req.RequiresPostApproval); err != nil {
-		log.Printf("[Err] Error updating requires post approval in CommunityService.UpdateRequiresPostApproval: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating requires post approval in CommunityService.UpdateRequiresPostApproval: %v", err)
 		return fmt.Errorf("failed to update requires post approval")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) UpdateRequiresMemberApproval(userID, communityID uint64, req *request.UpdateRequiresMemberApprovalRequest) error {
+func (s *CommunityService) UpdateRequiresMemberApproval(ctx context.Context, userID, communityID uint64, req *request.UpdateRequiresMemberApprovalRequest) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdateRequiresMemberApproval: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if user has permission (must be SUPER_ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, userID)
 	if err != nil || role != constant.ROLE_SUPER_ADMIN {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateRequiresMemberApproval: userID=%d, communityID=%d", userID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdateRequiresMemberApproval: userID=%d, communityID=%d", userID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Update requires member approval
 	if err := s.communityRepo.UpdateRequiresMemberApproval(communityID, req.RequiresMemberApproval); err != nil {
-		log.Printf("[Err] Error updating requires member approval in CommunityService.UpdateRequiresMemberApproval: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating requires member approval in CommunityService.UpdateRequiresMemberApproval: %v", err)
 		return fmt.Errorf("failed to update requires member approval")
 	}
 
 	return nil
 }
 
-func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID, targetUserID uint64, status string) error {
+func (s *CommunityService) UpdateSubscriptionStatus(ctx context.Context, moderatorUserID, communityID, targetUserID uint64, status string) error {
 	// Check if community exists
 	community, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.UpdateSubscriptionStatus: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.UpdateSubscriptionStatus: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if moderator has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, moderatorUserID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.UpdateSubscriptionStatus: userID=%d, communityID=%d", moderatorUserID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.UpdateSubscriptionStatus: userID=%d, communityID=%d", moderatorUserID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Check if subscription exists
 	isSubscribed, err := s.subscriptionRepo.IsUserSubscribed(targetUserID, communityID)
 	if err != nil || !isSubscribed {
-		log.Printf("[Err] Subscription not found in CommunityService.UpdateSubscriptionStatus: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Subscription not found in CommunityService.UpdateSubscriptionStatus: %v", err)
 		return fmt.Errorf("subscription not found")
 	}
 
@@ -1038,14 +1039,14 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 	case constant.SUBSCRIPTION_STATUS_APPROVED:
 		// Update status to approved
 		if err := s.subscriptionRepo.UpdateSubscriptionStatus(targetUserID, communityID, status); err != nil {
-			log.Printf("[Err] Error updating subscription status in CommunityService.UpdateSubscriptionStatus: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error updating subscription status in CommunityService.UpdateSubscriptionStatus: %v", err)
 			return fmt.Errorf("failed to approve subscription")
 		}
 
 		// Create bot task for interest score
 		go func(userID, communityID uint64) {
-			if err := s.botTaskService.CreateInterestScoreTask(userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
-				log.Printf("[Err] Error creating interest score task in goroutine (UpdateSubscriptionStatus): %v", err)
+			if err := s.botTaskService.CreateInterestScoreTask(ctx, userID, communityID, constant.INTEREST_ACTION_JOIN_COMMUNITY, nil); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating interest score task in goroutine (UpdateSubscriptionStatus): %v", err)
 			}
 		}(targetUserID, communityID)
 
@@ -1057,15 +1058,15 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 				Status:        "approved",
 			}
 
-			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
-				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Approved): %v", err)
+			if err := s.notificationService.CreateNotification(ctx, targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Approved): %v", err)
 			}
 		}(targetUserID, communityID, community.Name)
 
 	case constant.SUBSCRIPTION_STATUS_REJECTED:
 		// Delete subscription
 		if err := s.subscriptionRepo.DeleteSubscription(targetUserID, communityID); err != nil {
-			log.Printf("[Err] Error deleting subscription in CommunityService.UpdateSubscriptionStatus: %v", err)
+			logger.ErrorfWithCtx(ctx, "[Err] Error deleting subscription in CommunityService.UpdateSubscriptionStatus: %v", err)
 			return fmt.Errorf("failed to reject subscription")
 		}
 
@@ -1077,8 +1078,8 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 				Status:        "rejected",
 			}
 
-			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
-				log.Printf("[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Rejected): %v", err)
+			if err := s.notificationService.CreateNotification(ctx, targetUserID, constant.NOTIFICATION_ACTION_SUBSCRIPTION_STATUS_UPDATED, notificationPayload); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error sending notification in goroutine (UpdateSubscriptionStatus-Rejected): %v", err)
 			}
 		}(targetUserID, communityID, community.Name)
 
@@ -1090,18 +1091,18 @@ func (s *CommunityService) UpdateSubscriptionStatus(moderatorUserID, communityID
 
 }
 
-func (s *CommunityService) BanUser(moderatorID, communityID uint64, req *request.BanUserRequest) error {
+func (s *CommunityService) BanUser(ctx context.Context, moderatorID, communityID uint64, req *request.BanUserRequest) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.BanUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.BanUser: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if moderator has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, moderatorID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.BanUser: moderatorID=%d, communityID=%d", moderatorID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.BanUser: moderatorID=%d, communityID=%d", moderatorID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
@@ -1133,14 +1134,14 @@ func (s *CommunityService) BanUser(moderatorID, communityID uint64, req *request
 	}
 
 	if err := s.userRestrictionRepo.CreateRestriction(restriction); err != nil {
-		log.Printf("[Err] Error creating user restriction in CommunityService.BanUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating user restriction in CommunityService.BanUser: %v", err)
 		return fmt.Errorf("failed to ban user")
 	}
 
 	// Get community name for notification
 	community, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Failed to get community for notification in CommunityService.BanUser: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Failed to get community for notification in CommunityService.BanUser: %v", err)
 	} else {
 		// Send notification to banned user
 		go func(targetUserID, communityID uint64, communityName, restrictionType, reason string, expiresAt *time.Time) {
@@ -1157,8 +1158,8 @@ func (s *CommunityService) BanUser(moderatorID, communityID uint64, req *request
 				ExpiresAt:       expiresAtStr,
 			}
 
-			if err := s.notificationService.CreateNotification(targetUserID, constant.NOTIFICATION_ACTION_USER_BANNED, notificationPayload); err != nil {
-				log.Printf("[Err] Error sending notification in goroutine (BanUser): %v", err)
+			if err := s.notificationService.CreateNotification(ctx, targetUserID, constant.NOTIFICATION_ACTION_USER_BANNED, notificationPayload); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error sending notification in goroutine (BanUser): %v", err)
 			}
 		}(req.UserID, communityID, community.Name, req.RestrictionType, req.Reason, req.ExpiresAt)
 	}
@@ -1166,25 +1167,25 @@ func (s *CommunityService) BanUser(moderatorID, communityID uint64, req *request
 	return nil
 }
 
-func (s *CommunityService) GetUserRestrictionHistory(moderatorID, communityID, targetUserID uint64, page, limit int) ([]*response.UserRestrictionResponse, *response.Pagination, error) {
+func (s *CommunityService) GetUserRestrictionHistory(ctx context.Context, moderatorID, communityID, targetUserID uint64, page, limit int) ([]*response.UserRestrictionResponse, *response.Pagination, error) {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.GetUserRestrictionHistory: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.GetUserRestrictionHistory: %v", err)
 		return nil, nil, fmt.Errorf("community not found")
 	}
 
 	// Check if moderator has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, moderatorID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.GetUserRestrictionHistory: moderatorID=%d, communityID=%d", moderatorID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.GetUserRestrictionHistory: moderatorID=%d, communityID=%d", moderatorID, communityID)
 		return nil, nil, fmt.Errorf("permission denied")
 	}
 
 	// Get restriction history
 	restrictions, total, err := s.userRestrictionRepo.GetUserRestrictionHistory(targetUserID, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting user restriction history in CommunityService.GetUserRestrictionHistory: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user restriction history in CommunityService.GetUserRestrictionHistory: %v", err)
 		return nil, nil, fmt.Errorf("failed to get restriction history")
 	}
 
@@ -1209,24 +1210,24 @@ func (s *CommunityService) GetUserRestrictionHistory(moderatorID, communityID, t
 	return communityRestrictions, pagination, nil
 }
 
-func (s *CommunityService) RemoveUserRestriction(moderatorID, communityID, restrictionID uint64) error {
+func (s *CommunityService) RemoveUserRestriction(ctx context.Context, moderatorID, communityID, restrictionID uint64) error {
 	// Check if community exists
 	_, err := s.communityRepo.GetCommunityByID(communityID)
 	if err != nil {
-		log.Printf("[Err] Community not found in CommunityService.RemoveUserRestriction: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Community not found in CommunityService.RemoveUserRestriction: %v", err)
 		return fmt.Errorf("community not found")
 	}
 
 	// Check if moderator has permission (SUPER_ADMIN or ADMIN)
 	role, err := s.communityModeratorRepo.GetModeratorRole(communityID, moderatorID)
 	if err != nil || (role != constant.ROLE_SUPER_ADMIN && role != constant.ROLE_ADMIN) {
-		log.Printf("[Err] User does not have permission in CommunityService.RemoveUserRestriction: moderatorID=%d, communityID=%d", moderatorID, communityID)
+		logger.ErrorfWithCtx(ctx, "[Err] User does not have permission in CommunityService.RemoveUserRestriction: moderatorID=%d, communityID=%d", moderatorID, communityID)
 		return fmt.Errorf("permission denied")
 	}
 
 	// Delete restriction
 	if err := s.userRestrictionRepo.DeleteRestriction(restrictionID); err != nil {
-		log.Printf("[Err] Error deleting user restriction in CommunityService.RemoveUserRestriction: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting user restriction in CommunityService.RemoveUserRestriction: %v", err)
 		return fmt.Errorf("failed to remove restriction")
 	}
 

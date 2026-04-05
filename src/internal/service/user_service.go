@@ -1,13 +1,14 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"social-platform-backend/internal/domain/model"
 	"social-platform-backend/internal/domain/repository"
 	"social-platform-backend/internal/interface/dto/request"
 	"social-platform-backend/internal/interface/dto/response"
 	"social-platform-backend/package/constant"
+	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
 
 	"github.com/redis/go-redis/v9"
@@ -49,10 +50,10 @@ func NewUserService(
 	}
 }
 
-func (s *UserService) GetUserProfile(userID uint64) (*response.UserProfileResponse, error) {
+func (s *UserService) GetUserProfile(ctx context.Context, userID uint64) (*response.UserProfileResponse, error) {
 	user, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting user by ID in UserService.GetUserProfile: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by ID in UserService.GetUserProfile: %v", err)
 		return nil, fmt.Errorf("user not found")
 	}
 
@@ -89,70 +90,70 @@ func (s *UserService) GetUserProfile(userID uint64) (*response.UserProfileRespon
 	return userProfile, nil
 }
 
-func (s *UserService) UpdateUserProfile(userID uint64, updateReq *request.UpdateUserProfileRequest) error {
+func (s *UserService) UpdateUserProfile(ctx context.Context, userID uint64, updateReq *request.UpdateUserProfileRequest) error {
 	err := s.userRepo.UpdateUserProfile(userID, updateReq)
 	if err != nil {
-		log.Printf("[Err] Error updating user profile in UserService.UpdateUserProfile: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating user profile in UserService.UpdateUserProfile: %v", err)
 		return fmt.Errorf("failed to update user profile")
 	}
 	return nil
 }
 
-func (s *UserService) ChangePassword(userID uint64, changePasswordReq *request.ChangePasswordRequest) error {
+func (s *UserService) ChangePassword(ctx context.Context, userID uint64, changePasswordReq *request.ChangePasswordRequest) error {
 	user, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting user by ID in UserService.ChangePassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by ID in UserService.ChangePassword: %v", err)
 		return fmt.Errorf("user not found")
 	}
 
 	if user.Password == nil {
-		log.Printf("[Err] User ID %d registered with Google, cannot change password", userID)
+		logger.ErrorfWithCtx(ctx, "[Err] User ID %d registered with Google, cannot change password", userID)
 		return fmt.Errorf("this account is registered with Google and does not have a password")
 	}
 
 	if err := util.ComparePassword(*user.Password, changePasswordReq.OldPassword); err != nil {
-		log.Printf("[Err] Old password is incorrect in UserService.ChangePassword for user ID: %d", userID)
+		logger.ErrorfWithCtx(ctx, "[Err] Old password is incorrect in UserService.ChangePassword for user ID: %d", userID)
 		return fmt.Errorf("old password is incorrect")
 	}
 
 	hashedPassword, err := util.HashPassword(changePasswordReq.NewPassword)
 	if err != nil {
-		log.Printf("[Err] Error hashing password in UserService.ChangePassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error hashing password in UserService.ChangePassword: %v", err)
 		return fmt.Errorf("failed to hash password")
 	}
 
 	if err := s.userRepo.UpdatePasswordAndSetChangedAt(userID, hashedPassword); err != nil {
-		log.Printf("[Err] Error updating password in UserService.ChangePassword: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating password in UserService.ChangePassword: %v", err)
 		return fmt.Errorf("failed to update password")
 	}
 
 	// Invalidate password cache after successful password change
 	if s.redisClient != nil {
 		if err := util.InvalidatePasswordCache(s.redisClient, userID); err != nil {
-			log.Printf("[Warn] Error invalidating password cache for user %d: %v", userID, err)
+			logger.WarnfWithCtx(ctx, "[Warn] Error invalidating password cache for user %d: %v", userID, err)
 		}
 	}
 
 	// Delete all Refresh Tokens to force re-login on all devices
 	if err := s.refreshTokenRepo.DeleteAllRefreshTokensByUserID(userID); err != nil {
-		log.Printf("[Err] Error deleting refresh tokens for user %d: %v", userID, err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting refresh tokens for user %d: %v", userID, err)
 	}
 
 	return nil
 }
 
-func (s *UserService) GetUserConfig(userID uint64) (*response.UserConfigResponse, error) {
+func (s *UserService) GetUserConfig(ctx context.Context, userID uint64) (*response.UserConfigResponse, error) {
 	// Get user information
 	user, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting user by ID in UserService.GetUserConfig: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user by ID in UserService.GetUserConfig: %v", err)
 		return nil, fmt.Errorf("user not found")
 	}
 
 	// Get moderated communities
 	moderators, err := s.communityModeratorRepo.GetModeratorCommunitiesByUserID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting moderated communities in UserService.GetUserConfig: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting moderated communities in UserService.GetUserConfig: %v", err)
 		// Don't fail if we can't get moderated communities
 		moderators = []*model.CommunityModerator{}
 	}
@@ -174,10 +175,10 @@ func (s *UserService) GetUserConfig(userID uint64) (*response.UserConfigResponse
 	return userConfig, nil
 }
 
-func (s *UserService) GetUserBadgeHistory(userID uint64) ([]*response.UserBadgeResponse, error) {
+func (s *UserService) GetUserBadgeHistory(ctx context.Context, userID uint64) ([]*response.UserBadgeResponse, error) {
 	userBadges, err := s.userRepo.GetUserBadgeHistory(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting user badge history in UserService.GetUserBadgeHistory: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user badge history in UserService.GetUserBadgeHistory: %v", err)
 		return nil, fmt.Errorf("failed to get user badge history")
 	}
 
@@ -193,10 +194,10 @@ func (s *UserService) GetUserBadgeHistory(userID uint64) ([]*response.UserBadgeR
 	return badgeResponses, nil
 }
 
-func (s *UserService) GetUserSavedPosts(userID uint64, searchTitle string, isFollowed *bool, page, limit int) ([]*response.SavedPostResponse, *response.Pagination, error) {
+func (s *UserService) GetUserSavedPosts(ctx context.Context, userID uint64, searchTitle string, isFollowed *bool, page, limit int) ([]*response.SavedPostResponse, *response.Pagination, error) {
 	savedPosts, total, err := s.userSavedPostRepo.GetUserSavedPosts(userID, searchTitle, isFollowed, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error getting user saved posts in UserService.GetUserSavedPosts: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting user saved posts in UserService.GetUserSavedPosts: %v", err)
 		return nil, nil, fmt.Errorf("failed to get saved posts")
 	}
 
@@ -225,11 +226,11 @@ func (s *UserService) GetUserSavedPosts(userID uint64, searchTitle string, isFol
 	return savedPostResponses, pagination, nil
 }
 
-func (s *UserService) CreateUserSavedPost(userID uint64, savedPostReq *request.UserSavedPostRequest) error {
+func (s *UserService) CreateUserSavedPost(ctx context.Context, userID uint64, savedPostReq *request.UserSavedPostRequest) error {
 	// Check if post is already saved
 	exists, err := s.userSavedPostRepo.CheckUserSavedPostExists(userID, savedPostReq.PostID)
 	if err != nil {
-		log.Printf("[Err] Error checking if post is saved in UserService.CreateUserSavedPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error checking if post is saved in UserService.CreateUserSavedPost: %v", err)
 		return fmt.Errorf("failed to check saved post status")
 	}
 
@@ -237,7 +238,7 @@ func (s *UserService) CreateUserSavedPost(userID uint64, savedPostReq *request.U
 	if exists {
 		if savedPostReq.IsFollowed {
 			if err := s.userSavedPostRepo.UpdateFollowedStatus(userID, savedPostReq.PostID, savedPostReq.IsFollowed); err != nil {
-				log.Printf("[Err] Error updating follow status in UserService.CreateUserSavedPost: %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error updating follow status in UserService.CreateUserSavedPost: %v", err)
 				return fmt.Errorf("failed to update follow status")
 			}
 			return nil
@@ -247,61 +248,62 @@ func (s *UserService) CreateUserSavedPost(userID uint64, savedPostReq *request.U
 
 	// Create new saved post
 	if err := s.userSavedPostRepo.CreateUserSavedPost(userID, savedPostReq); err != nil {
-		log.Printf("[Err] Error creating user saved post in UserService.CreateUserSavedPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error creating user saved post in UserService.CreateUserSavedPost: %v", err)
 		return fmt.Errorf("failed to save post")
 	}
 	return nil
 }
 
-func (s *UserService) UpdateUserSavedPostFollowStatus(userID, postID uint64, updateReq *request.UpdateUserSavedPostRequest) error {
+func (s *UserService) UpdateUserSavedPostFollowStatus(ctx context.Context, userID, postID uint64, updateReq *request.UpdateUserSavedPostRequest) error {
 	if err := s.userSavedPostRepo.UpdateFollowedStatus(userID, postID, updateReq.IsFollowed); err != nil {
-		log.Printf("[Err] Error updating user saved post follow status in UserService.UpdateUserSavedPostFollowStatus: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error updating user saved post follow status in UserService.UpdateUserSavedPostFollowStatus: %v", err)
 		return fmt.Errorf("failed to update follow status")
 	}
 
 	// Create bot task for interest score if user is following the post
 	if updateReq.IsFollowed {
-		go func(userID, postID uint64) {
+		go func(ctx context.Context, userID, postID uint64) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[PanicRecovered] in goroutine UserService.UpdateUserSavedPostFollowStatus: %v", r)
+					logger.ErrorfWithCtx(ctx, "[PanicRecovered] in goroutine UserService.UpdateUserSavedPostFollowStatus: %v", r)
 				}
 			}()
 
 			// Get post to find community ID
 			post, err := s.postRepo.GetPostByID(postID)
 			if err != nil {
-				log.Printf("[Warn] Error getting post for interest score in UserService.UpdateUserSavedPostFollowStatus: %v", err)
+				logger.WarnfWithCtx(ctx, "[Warn] Error getting post for interest score in UserService.UpdateUserSavedPostFollowStatus: %v", err)
 				return
 			}
 
 			postIDPtr := &postID
 			if err := s.botTaskService.CreateInterestScoreTask(
+				ctx,
 				userID,
 				post.CommunityID,
 				"follow_post",
 				postIDPtr,
 			); err != nil {
-				log.Printf("[Err] Error creating interest score task in goroutine (UserService.UpdateUserSavedPostFollowStatus): %v", err)
+				logger.ErrorfWithCtx(ctx, "[Err] Error creating interest score task in goroutine (UserService.UpdateUserSavedPostFollowStatus): %v", err)
 			}
-		}(userID, postID)
+		}(ctx, userID, postID)
 	}
 
 	return nil
 }
 
-func (s *UserService) DeleteUserSavedPost(userID, postID uint64) error {
+func (s *UserService) DeleteUserSavedPost(ctx context.Context, userID, postID uint64) error {
 	if err := s.userSavedPostRepo.DeleteUserSavedPost(userID, postID); err != nil {
-		log.Printf("[Err] Error deleting user saved post in UserService.DeleteUserSavedPost: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error deleting user saved post in UserService.DeleteUserSavedPost: %v", err)
 		return fmt.Errorf("failed to delete saved post")
 	}
 	return nil
 }
 
-func (s *UserService) SearchUsers(searchTerm string, page, limit int) ([]*response.UserSearchResponse, *response.Pagination, error) {
+func (s *UserService) SearchUsers(ctx context.Context, searchTerm string, page, limit int) ([]*response.UserSearchResponse, *response.Pagination, error) {
 	users, total, err := s.userRepo.SearchUsers(searchTerm, page, limit)
 	if err != nil {
-		log.Printf("[Err] Error searching users in UserService.SearchUsers: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error searching users in UserService.SearchUsers: %v", err)
 		return nil, nil, fmt.Errorf("failed to search users")
 	}
 
@@ -334,10 +336,10 @@ func (s *UserService) SearchUsers(searchTerm string, page, limit int) ([]*respon
 	return userResponses, pagination, nil
 }
 
-func (s *UserService) GetUserSuperAdminCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+func (s *UserService) GetUserSuperAdminCommunities(ctx context.Context, userID uint64) ([]*response.CommunityListResponse, error) {
 	communities, err := s.communityRepo.GetCommunitiesByCreatorID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting communities by creator in UserService.GetUserSuperAdminCommunities: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting communities by creator in UserService.GetUserSuperAdminCommunities: %v", err)
 		return nil, fmt.Errorf("failed to get super admin communities")
 	}
 
@@ -351,10 +353,10 @@ func (s *UserService) GetUserSuperAdminCommunities(userID uint64) ([]*response.C
 	return communityResponses, nil
 }
 
-func (s *UserService) GetUserAdminCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+func (s *UserService) GetUserAdminCommunities(ctx context.Context, userID uint64) ([]*response.CommunityListResponse, error) {
 	communities, err := s.communityRepo.GetCommunitiesByModeratorID(userID, constant.ROLE_ADMIN)
 	if err != nil {
-		log.Printf("[Err] Error getting communities by moderator in UserService.GetUserAdminCommunities: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting communities by moderator in UserService.GetUserAdminCommunities: %v", err)
 		return nil, fmt.Errorf("failed to get admin communities")
 	}
 
@@ -368,10 +370,10 @@ func (s *UserService) GetUserAdminCommunities(userID uint64) ([]*response.Commun
 	return communityResponses, nil
 }
 
-func (s *UserService) GetUserJoinedCommunities(userID uint64) ([]*response.CommunityListResponse, error) {
+func (s *UserService) GetUserJoinedCommunities(ctx context.Context, userID uint64) ([]*response.CommunityListResponse, error) {
 	subscriptions, err := s.subscriptionRepo.GetCommunitiesByUserID(userID)
 	if err != nil {
-		log.Printf("[Err] Error getting joined communities in UserService.GetUserJoinedCommunities: %v", err)
+		logger.ErrorfWithCtx(ctx, "[Err] Error getting joined communities in UserService.GetUserJoinedCommunities: %v", err)
 		return nil, fmt.Errorf("failed to get joined communities")
 	}
 

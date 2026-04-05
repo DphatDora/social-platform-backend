@@ -37,7 +37,7 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	// Get user profile
-	userProfile, err := h.userService.GetUserProfile(userID)
+	userProfile, err := h.userService.GetUserProfile(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user profile in UserHandler.GetCurrentUser: %v", err)
 		c.JSON(http.StatusNotFound, response.APIResponse{
@@ -77,7 +77,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.UpdateUserProfile(userID, &updateReq); err != nil {
+	if err := h.userService.UpdateUserProfile(ctx, userID, &updateReq); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating user profile in UserHandler.UpdateUserProfile: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -115,7 +115,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.ChangePassword(userID, &changePasswordReq); err != nil {
+	if err := h.userService.ChangePassword(ctx, userID, &changePasswordReq); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error changing password in UserHandler.ChangePassword: %v", err)
 
 		if strings.Contains(err.Error(), "incorrect") {
@@ -153,7 +153,7 @@ func (h *UserHandler) GetUserConfig(c *gin.Context) {
 	}
 
 	// Get user config
-	userConfig, err := h.userService.GetUserConfig(userID)
+	userConfig, err := h.userService.GetUserConfig(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user config in UserHandler.GetUserConfig: %v", err)
 		c.JSON(http.StatusNotFound, response.APIResponse{
@@ -184,7 +184,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	userProfile, err := h.userService.GetUserProfile(userID)
+	userProfile, err := h.userService.GetUserProfile(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user profile in UserHandler.GetUserByID: %v", err)
 		c.JSON(http.StatusNotFound, response.APIResponse{
@@ -215,7 +215,7 @@ func (h *UserHandler) GetUserBadgeHistory(c *gin.Context) {
 		return
 	}
 
-	badgeHistory, err := h.userService.GetUserBadgeHistory(userID)
+	badgeHistory, err := h.userService.GetUserBadgeHistory(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user badge history in UserHandler.GetUserBadgeHistory: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -262,7 +262,7 @@ func (h *UserHandler) GetUserSavedPosts(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	savedPosts, pagination, err := h.userService.GetUserSavedPosts(userID, searchTitle, isFollowed, page, limit)
+	savedPosts, pagination, err := h.userService.GetUserSavedPosts(ctx, userID, searchTitle, isFollowed, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting user saved posts in UserHandler.GetUserSavedPosts: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -303,7 +303,7 @@ func (h *UserHandler) CreateUserSavedPost(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.CreateUserSavedPost(userID, &savedPostReq); err != nil {
+	if err := h.userService.CreateUserSavedPost(ctx, userID, &savedPostReq); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error creating user saved post in UserHandler.CreateUserSavedPost: %v", err)
 
 		if strings.Contains(err.Error(), "not found") {
@@ -369,7 +369,7 @@ func (h *UserHandler) UpdateUserSavedPostFollowStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.UpdateUserSavedPostFollowStatus(userID, postID, &updateReq); err != nil {
+	if err := h.userService.UpdateUserSavedPostFollowStatus(ctx, userID, postID, &updateReq); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating user saved post follow status in UserHandler.UpdateUserSavedPostFollowStatus: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -408,7 +408,7 @@ func (h *UserHandler) DeleteUserSavedPost(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.DeleteUserSavedPost(userID, postID); err != nil {
+	if err := h.userService.DeleteUserSavedPost(ctx, userID, postID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting user saved post in UserHandler.DeleteUserSavedPost: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -438,7 +438,7 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	users, pagination, err := h.userService.SearchUsers(searchTerm, page, limit)
+	users, pagination, err := h.userService.SearchUsers(ctx, searchTerm, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error searching users in UserHandler.SearchUsers: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -470,7 +470,7 @@ func (h *UserHandler) GetUserSuperAdminCommunities(c *gin.Context) {
 		return
 	}
 
-	communities, err := h.userService.GetUserSuperAdminCommunities(userID)
+	communities, err := h.userService.GetUserSuperAdminCommunities(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting super admin communities in UserHandler.GetUserSuperAdminCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -501,7 +501,7 @@ func (h *UserHandler) GetUserAdminCommunities(c *gin.Context) {
 		return
 	}
 
-	communities, err := h.userService.GetUserAdminCommunities(userID)
+	communities, err := h.userService.GetUserAdminCommunities(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting admin communities in UserHandler.GetUserAdminCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -532,7 +532,7 @@ func (h *UserHandler) GetUserJoinedCommunities(c *gin.Context) {
 		return
 	}
 
-	communities, err := h.userService.GetUserJoinedCommunities(userID)
+	communities, err := h.userService.GetUserJoinedCommunities(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting joined communities in UserHandler.GetUserJoinedCommunities: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{

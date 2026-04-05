@@ -45,7 +45,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		limit = constant.DEFAULT_LIMIT
 	}
 
-	notifications, pagination, err := h.notificationService.GetUserNotifications(userID, page, limit)
+	notifications, pagination, err := h.notificationService.GetUserNotifications(ctx, userID, page, limit)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting notifications in NotificationHandler.GetNotifications: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -87,7 +87,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.notificationService.MarkAsRead(userID, notificationID); err != nil {
+	if err := h.notificationService.MarkAsRead(ctx, userID, notificationID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error marking notification as read in NotificationHandler.MarkAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -115,7 +115,7 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.notificationService.MarkAllAsRead(userID); err != nil {
+	if err := h.notificationService.MarkAllAsRead(ctx, userID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error marking all notifications as read in NotificationHandler.MarkAllAsRead: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -154,7 +154,7 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		return
 	}
 
-	if err := h.notificationService.DeleteNotification(userID, notificationID); err != nil {
+	if err := h.notificationService.DeleteNotification(ctx, userID, notificationID); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error deleting notification in NotificationHandler.DeleteNotification: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
@@ -182,7 +182,7 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 		return
 	}
 
-	count, err := h.notificationService.GetUnreadCount(userID)
+	count, err := h.notificationService.GetUnreadCount(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting unread count in NotificationHandler.GetUnreadCount: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -214,7 +214,7 @@ func (h *NotificationHandler) GetNotificationSettings(c *gin.Context) {
 		return
 	}
 
-	settings, err := h.notificationService.GetUserNotificationSettings(userID)
+	settings, err := h.notificationService.GetUserNotificationSettings(ctx, userID)
 	if err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error getting notification settings in NotificationHandler.GetNotificationSettings: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
@@ -254,7 +254,7 @@ func (h *NotificationHandler) UpdateNotificationSetting(c *gin.Context) {
 		return
 	}
 
-	if err := h.notificationService.UpdateNotificationSetting(userID, req.Action, req.IsPush, req.IsSendMail); err != nil {
+	if err := h.notificationService.UpdateNotificationSetting(ctx, userID, req.Action, req.IsPush, req.IsSendMail); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating notification setting in NotificationHandler.UpdateNotificationSetting: %v", err)
 		c.JSON(http.StatusInternalServerError, response.APIResponse{
 			Success: false,
