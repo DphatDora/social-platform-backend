@@ -1,0 +1,144 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: src/go.sum
+
+      - name: Install dependencies
+        working-directory: ./src
+        run: go mod download
+
+      - name: Run tests
+        working-directory: ./src
+        run: go test -v ./...
+
+      - name: Run tests with coverage
+        working-directory: ./src
+        run: |
+          go test -v -coverprofile=coverage.out -covermode=count ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: src/coverage.out
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: src/go.sum
+
+      - name: Install dependencies
+        working-directory: ./src
+        run: go mod download
+
+      - name: Build binary
+        working-directory: ./src
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o ../api-service ./cmd/server
+          ls -lh ../api-service
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-binary
+          path: api-service
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-binary
+          path: .
+
+      - name: Prepare remote directory & setup systemd service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            mkdir -p /root/service-go/api-service
+
+            # Create systemd service if not exists
+            if [ ! -f /etc/systemd/system/api-service.service ]; then
+              cat > /etc/systemd/system/api-service.service << 'EOF'
+            [Unit]
+            Description=Academy Service
+            After=network.target
+
+            [Service]
+            ExecStart=/root/service-go/api-service/api-service
+            WorkingDirectory=/root/service-go/api-service
+            Restart=always
+            RestartSec=5
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+              systemctl daemon-reload
+              systemctl enable api-service
+              echo "Systemd service created!"
+            fi
+
+      - name: Upload binary to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: "api-service"
+          target: "/root/service-go/api-service/"
+
+      - name: Set permission & restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd /root/service-go/api-service
+            chmod +x api-service
+            systemctl restart api-service
+            systemctl status api-service --no-pager
+
+      - name: Deployment notification
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Environment: Production (VPS)"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
