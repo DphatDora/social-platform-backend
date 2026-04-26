@@ -6,6 +6,7 @@ import (
 	"social-platform-backend/internal/infrastructure/cache"
 	"social-platform-backend/internal/infrastructure/db"
 	"social-platform-backend/internal/interface/router"
+	"social-platform-backend/internal/wire"
 	"social-platform-backend/package/logger"
 	"strconv"
 	"time"
@@ -16,11 +17,6 @@ const (
 )
 
 func main() {
-	setUpInfrastructure()
-	defer closeInfrastructure()
-}
-
-func setUpInfrastructure() {
 	// Set timezone to UTC
 	time.Local = time.UTC
 
@@ -34,6 +30,11 @@ func setUpInfrastructure() {
 
 	// init database
 	db.InitPostgresql(&conf)
+	defer func() {
+		if err := db.ClosePostgresql(); err != nil {
+			logger.Errorf("[ERROR] Close postgresql fail: %s\n", err)
+		}
+	}()
 
 	// init Redis
 	redisClient, err := cache.NewRedisClient(&conf)
@@ -44,9 +45,17 @@ func setUpInfrastructure() {
 		logger.Warnf("[WARNING] Failed to initialize Redis: %v. Rate limiting and password cache disabled.", err)
 		redisClient = nil
 	}
+	defer func() {
+		if err := cache.CloseRedis(); err != nil {
+			logger.Errorf("[ERROR] Close Redis fail: %s\n", err)
+		}
+	}()
+
+	// wire-generated DI container
+	appHandler := wire.InitAppContainer(db.GetDB(), redisClient, &conf)
 
 	// set up routes
-	r := router.SetupRoutes(db.GetDB(), redisClient, &conf)
+	r := router.SetupRoutes(appHandler, redisClient, &conf)
 
 	port := conf.App.Port
 	if port == 0 {
@@ -55,14 +64,4 @@ func setUpInfrastructure() {
 
 	logger.Infof("[✅] Server starting on PORT %d", port)
 	r.Run(":" + strconv.Itoa(port))
-}
-
-func closeInfrastructure() {
-	if err := cache.CloseRedis(); err != nil {
-		logger.Errorf("[ERROR] Close Redis fail: %s\n", err)
-	}
-
-	if err := db.ClosePostgresql(); err != nil {
-		logger.Errorf("[ERROR] Close postgresql fail: %s\n", err)
-	}
 }
