@@ -24,6 +24,13 @@ jobs:
         working-directory: ./src
         run: go mod download
 
+      - name: Install wire
+        run: go install github.com/google/wire/cmd/wire@latest
+
+      - name: Generate wire
+        working-directory: ./src
+        run: wire gen ./internal/wire/
+
       - name: Run tests
         working-directory: ./src
         run: go test -v ./...
