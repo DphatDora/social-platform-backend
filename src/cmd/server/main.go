@@ -55,7 +55,7 @@ func main() {
 	appHandler := wire.InitAppContainer(db.GetDB(), redisClient, &conf)
 
 	// set up routes
-	r := router.SetupRoutes(appHandler, redisClient, &conf)
+	r := router.SetupRoutes(appHandler, &conf)
 
 	port := conf.App.Port
 	if port == 0 {
