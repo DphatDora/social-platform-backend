@@ -22,7 +22,6 @@ A RESTful API backend for a social media platform built with Go, featuring user 
 - **Language**: Go 1.24.4
 - **Web Framework**: Gin
 - **Database**: PostgreSQL with GORM ORM
-- **Cache**: Redis for session management and rate limiting
 - **Authentication**: JWT with Google OAuth2 integration
 - **Testing**: testify/mock for unit tests with 20.2% service coverage
 - **Deployment**: Render with automated CI/CD via GitHub Actions
@@ -40,7 +39,6 @@ social-platform-backend/
 │   │   │   ├── model/       # Database models
 │   │   │   └── repository/  # Repository interfaces
 │   │   ├── infrastructure/
-│   │   │   ├── cache/       # Redis implementation
 │   │   │   └── db/          # PostgreSQL implementation
 │   │   ├── interface/
 │   │   │   ├── dto/         # Request/Response DTOs
@@ -65,7 +63,6 @@ social-platform-backend/
 
 - Go 1.24.4 or higher
 - PostgreSQL 14+
-- Redis 7+
 - Git
 
 ### Installation
@@ -85,11 +82,10 @@ cp .env.example .env
 cp config.yaml.example config.yaml
 ```
 
-Configure database and Redis in `.env`:
+Configure database in `.env`:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/social_platform
-REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-secret-key
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret

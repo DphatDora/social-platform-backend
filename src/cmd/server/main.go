@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"social-platform-backend/config"
-	"social-platform-backend/internal/infrastructure/cache"
 	"social-platform-backend/internal/infrastructure/db"
 	"social-platform-backend/internal/interface/router"
 	"social-platform-backend/internal/wire"
@@ -36,23 +35,8 @@ func main() {
 		}
 	}()
 
-	// init Redis
-	redisClient, err := cache.NewRedisClient(&conf)
-	if err != nil {
-		if conf.Redis.Required {
-			logger.Fatalf("[ERROR] Redis is required but failed to initialize: %v", err)
-		}
-		logger.Warnf("[WARNING] Failed to initialize Redis: %v. Rate limiting and password cache disabled.", err)
-		redisClient = nil
-	}
-	defer func() {
-		if err := cache.CloseRedis(); err != nil {
-			logger.Errorf("[ERROR] Close Redis fail: %s\n", err)
-		}
-	}()
-
 	// wire-generated DI container
-	appHandler := wire.InitAppContainer(db.GetDB(), redisClient, &conf)
+	appHandler := wire.InitAppContainer(db.GetDB(), &conf)
 
 	// set up routes
 	r := router.SetupRoutes(appHandler, &conf)
