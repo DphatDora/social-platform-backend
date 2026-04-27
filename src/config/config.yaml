@@ -55,11 +55,3 @@ ollama:
   baseURL:
   model:
   timeout:
-
-redis:
-  host:
-  port:
-  password:
-  db:
-  poolSize:
-  required: false

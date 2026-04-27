@@ -10,8 +10,6 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/logger"
 	"social-platform-backend/package/util"
-
-	"github.com/redis/go-redis/v9"
 )
 
 type UserService struct {
@@ -23,7 +21,6 @@ type UserService struct {
 	postRepo               repository.PostRepository
 	refreshTokenRepo       repository.RefreshTokenRepository
 	botTaskService         *BotTaskService
-	redisClient            *redis.Client
 }
 
 func NewUserService(
@@ -35,7 +32,6 @@ func NewUserService(
 	postRepo repository.PostRepository,
 	refreshTokenRepo repository.RefreshTokenRepository,
 	botTaskService *BotTaskService,
-	redisClient *redis.Client,
 ) *UserService {
 	return &UserService{
 		userRepo:               userRepo,
@@ -46,7 +42,6 @@ func NewUserService(
 		postRepo:               postRepo,
 		refreshTokenRepo:       refreshTokenRepo,
 		botTaskService:         botTaskService,
-		redisClient:            redisClient,
 	}
 }
 
@@ -125,13 +120,6 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uint64, changeP
 	if err := s.userRepo.UpdatePasswordAndSetChangedAt(userID, hashedPassword); err != nil {
 		logger.ErrorfWithCtx(ctx, "[Err] Error updating password in UserService.ChangePassword: %v", err)
 		return fmt.Errorf("failed to update password")
-	}
-
-	// Invalidate password cache after successful password change
-	if s.redisClient != nil {
-		if err := util.InvalidatePasswordCache(s.redisClient, userID); err != nil {
-			logger.WarnfWithCtx(ctx, "[Warn] Error invalidating password cache for user %d: %v", userID, err)
-		}
 	}
 
 	// Delete all Refresh Tokens to force re-login on all devices

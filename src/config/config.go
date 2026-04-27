@@ -23,7 +23,6 @@ type Config struct {
 	Server   Server
 	Gemini   Gemini
 	Ollama   Ollama
-	Redis    Redis
 }
 
 func LoadConfig() {
@@ -93,14 +92,6 @@ func bindEnvs() {
 	_ = viper.BindEnv("ollama.baseURL", "OLLAMA_BASE_URL")
 	_ = viper.BindEnv("ollama.model", "OLLAMA_MODEL")
 	_ = viper.BindEnv("ollama.timeout", "OLLAMA_TIMEOUT")
-
-	// Redis
-	_ = viper.BindEnv("redis.host", "REDIS_HOST")
-	_ = viper.BindEnv("redis.port", "REDIS_PORT")
-	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
-	_ = viper.BindEnv("redis.db", "REDIS_DB")
-	_ = viper.BindEnv("redis.poolSize", "REDIS_POOL_SIZE")
-	_ = viper.BindEnv("redis.required", "REDIS_REQUIRED")
 
 	// Log
 	_ = viper.BindEnv("log.level", "LOG_LEVEL")

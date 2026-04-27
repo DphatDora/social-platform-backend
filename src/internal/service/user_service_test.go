@@ -24,7 +24,6 @@ func TestUserService_GetUserProfile_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(123)
@@ -74,7 +73,6 @@ func TestUserService_GetUserProfile_UserNotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(999)
@@ -93,7 +91,6 @@ func TestUserService_GetUserProfile_NoBadge(t *testing.T) {
 
 	userService := NewUserService(
 		mockUserRepo,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -138,7 +135,6 @@ func TestUserService_UpdateUserProfile_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(123)
@@ -169,7 +165,6 @@ func TestUserService_UpdateUserProfile_Error(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(123)
@@ -193,7 +188,6 @@ func TestUserService_ChangePassword_Success(t *testing.T) {
 
 	userService := NewUserService(
 		mockUserRepo,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -241,7 +235,6 @@ func TestUserService_ChangePassword_UserNotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(999)
@@ -264,7 +257,6 @@ func TestUserService_ChangePassword_GoogleUser(t *testing.T) {
 
 	userService := NewUserService(
 		mockUserRepo,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -310,7 +302,6 @@ func TestUserService_ChangePassword_WrongOldPassword(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(123)
@@ -345,7 +336,6 @@ func TestUserService_ChangePassword_UpdateError(t *testing.T) {
 
 	userService := NewUserService(
 		mockUserRepo,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -395,7 +385,6 @@ func TestUserService_GetUserConfig_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 
 	userID := uint64(123)
@@ -425,7 +414,6 @@ func TestUserService_GetUserConfig_UserNotFound(t *testing.T) {
 
 	userService := NewUserService(
 		mockUserRepo,
-		nil,
 		nil,
 		nil,
 		nil,
