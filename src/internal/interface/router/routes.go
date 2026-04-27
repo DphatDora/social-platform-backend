@@ -8,10 +8,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
-func SetupRoutes(appHandler *wire.AppHandler, redisClient *redis.Client, conf *config.Config) *gin.Engine {
+func SetupRoutes(appHandler *wire.AppHandler, conf *config.Config) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware(conf.App.Whitelist))
 
@@ -19,8 +18,8 @@ func SetupRoutes(appHandler *wire.AppHandler, redisClient *redis.Client, conf *c
 	api := router.Group("/api/v1")
 	{
 		api.Use(middleware.RequestMetricsMiddleware())
-		setupPublicRoutes(api, appHandler, conf, redisClient)
-		setupProtectedRoutes(api, appHandler, conf, redisClient)
+		setupPublicRoutes(api, appHandler, conf)
+		setupProtectedRoutes(api, appHandler, conf)
 	}
 
 	if strings.TrimSpace(conf.Log.DashboardToken) != "" {
@@ -38,7 +37,7 @@ func SetupRoutes(appHandler *wire.AppHandler, redisClient *redis.Client, conf *c
 	return router
 }
 
-func setupPublicRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *config.Config, redisClient *redis.Client) {
+func setupPublicRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *config.Config) {
 	// Health check
 	rg.Use(middleware.OptionalAuthMiddleware(conf))
 	rg.GET("/health", func(c *gin.Context) {
@@ -49,8 +48,8 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *c
 	{
 		auth.POST("/register", appHandler.AuthHandler.Register)
 		auth.GET("/verify", appHandler.AuthHandler.VerifyEmail)
-		auth.POST("/login", middleware.LoginRateLimitMiddleware(redisClient), appHandler.AuthHandler.Login)
-		auth.POST("/google-login", middleware.LoginRateLimitMiddleware(redisClient), appHandler.AuthHandler.GoogleLogin)
+		auth.POST("/login", appHandler.AuthHandler.Login)
+		auth.POST("/google-login", appHandler.AuthHandler.GoogleLogin)
 		auth.POST("/refresh", appHandler.AuthHandler.RefreshToken)
 		auth.POST("/logout", appHandler.AuthHandler.Logout)
 		auth.POST("/forgot-password", appHandler.AuthHandler.ForgotPassword)
@@ -93,7 +92,7 @@ func setupPublicRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *c
 	}
 }
 
-func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *config.Config, redisClient *redis.Client) {
+func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf *config.Config) {
 	protected := rg.Group("")
 	protected.Use(middleware.AuthMiddleware(conf))
 	{
@@ -112,7 +111,6 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf
 		}
 
 		communities := protected.Group("/communities")
-		communities.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			communities.POST("", appHandler.CommunityHandler.CreateCommunity)
 			communities.POST("/:id/join", appHandler.CommunityHandler.JoinCommunity)
@@ -140,7 +138,6 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf
 		}
 
 		posts := protected.Group("/posts")
-		posts.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			posts.POST("", middleware.CheckUserRestrictionForPostMiddleware(appHandler.UserRestrictionRepo), appHandler.PostHandler.CreatePost)
 			posts.PUT("/:id", appHandler.PostHandler.UpdatePost)
@@ -153,7 +150,6 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf
 		}
 
 		comments := protected.Group("/comments")
-		comments.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			comments.POST("", middleware.CheckUserRestrictionForCommentMiddleware(appHandler.UserRestrictionRepo, appHandler.PostRepo), appHandler.CommentHandler.CreateComment)
 			comments.PUT("/:id", appHandler.CommentHandler.UpdateComment)
@@ -189,7 +185,6 @@ func setupProtectedRoutes(rg *gin.RouterGroup, appHandler *wire.AppHandler, conf
 		}
 
 		chatbot := protected.Group("/chatbot")
-		chatbot.Use(middleware.APIRateLimitMiddleware(redisClient))
 		{
 			chatbot.POST("/stream", appHandler.ChatbotHandler.StreamChat)
 		}

@@ -11,7 +11,6 @@ import (
 	"social-platform-backend/internal/service"
 
 	"github.com/google/wire"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -93,7 +92,7 @@ var ProviderSet = wire.NewSet(
 	wire.Struct(new(AppHandler), "*"),
 )
 
-func InitAppContainer(db *gorm.DB, redisClient *redis.Client, conf *config.Config) *AppHandler {
+func InitAppContainer(db *gorm.DB, conf *config.Config) *AppHandler {
 	wire.Build(ProviderSet)
 	return nil
 }
