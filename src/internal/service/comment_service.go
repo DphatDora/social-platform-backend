@@ -10,7 +10,6 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
-	"social-platform-backend/package/util"
 	"time"
 )
 
@@ -24,6 +23,7 @@ type CommentService struct {
 	userSavedPostRepo   repository.UserSavedPostRepository
 	notificationService *NotificationService
 	botTaskService      *BotTaskService
+	aiServiceClient     *AIServiceClient
 }
 
 func NewCommentService(
@@ -36,6 +36,7 @@ func NewCommentService(
 	userSavedPostRepo repository.UserSavedPostRepository,
 	notificationService *NotificationService,
 	botTaskService *BotTaskService,
+	aiServiceClient *AIServiceClient,
 ) *CommentService {
 	return &CommentService{
 		commentRepo:         commentRepo,
@@ -47,6 +48,7 @@ func NewCommentService(
 		userSavedPostRepo:   userSavedPostRepo,
 		notificationService: notificationService,
 		botTaskService:      botTaskService,
+		aiServiceClient:     aiServiceClient,
 	}
 }
 
@@ -97,21 +99,36 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 		violationReason := ""
 		violationCategory := ""
 
-		if textViolation, err := util.CheckTextContent(comment.Content); err != nil {
-			logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in CommentService.CreateComment: %v", err)
-		} else if textViolation.IsViolation {
-			violation = true
-			violationReason = textViolation.Reason
-			violationCategory = textViolation.Category
-		}
+		// if textViolation, err := util.CheckTextContent(comment.Content); err != nil {
+		// 	logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in CommentService.CreateComment: %v", err)
+		// } else if textViolation.IsViolation {
+		// 	violation = true
+		// 	violationReason = textViolation.Reason
+		// 	violationCategory = textViolation.Category
+		// }
 
-		if !violation && comment.MediaURL != nil && *comment.MediaURL != "" {
-			if imageViolation, err := util.CheckImageContent(*comment.MediaURL); err != nil {
-				logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in CommentService.CreateComment: %v", err)
-			} else if imageViolation.IsViolation {
+		// if !violation && comment.MediaURL != nil && *comment.MediaURL != "" {
+		// 	if imageViolation, err := util.CheckImageContent(*comment.MediaURL); err != nil {
+		// 		logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in CommentService.CreateComment: %v", err)
+		// 	} else if imageViolation.IsViolation {
+		// 		violation = true
+		// 		violationReason = imageViolation.Reason
+		// 		violationCategory = imageViolation.Category
+		// 	}
+		// }
+
+		if s.aiServiceClient != nil {
+			imageURLs := []string{}
+			if comment.MediaURL != nil && *comment.MediaURL != "" {
+				imageURLs = append(imageURLs, *comment.MediaURL)
+			}
+
+			if moderationResult, err := s.aiServiceClient.CheckContent(ctx, comment.Content, imageURLs); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error checking content via AI service in CommentService.CreateComment: %v", err)
+			} else if moderationResult != nil && moderationResult.IsViolation {
 				violation = true
-				violationReason = imageViolation.Reason
-				violationCategory = imageViolation.Category
+				violationReason = moderationResult.Reason
+				violationCategory = moderationResult.Category
 			}
 		}
 
