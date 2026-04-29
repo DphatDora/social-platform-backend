@@ -60,6 +60,7 @@ var RepositorySet = wire.NewSet(
 )
 
 var ServiceSet = wire.NewSet(
+	service.NewAIServiceClient,
 	service.NewSSEService,
 	service.NewBotTaskService,
 	service.NewRecommendationService,

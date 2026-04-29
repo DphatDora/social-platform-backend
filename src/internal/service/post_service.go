@@ -11,7 +11,6 @@ import (
 	"social-platform-backend/package/constant"
 	"social-platform-backend/package/logger"
 	"social-platform-backend/package/template/payload"
-	"social-platform-backend/package/util"
 	"strings"
 	"time"
 )
@@ -28,6 +27,7 @@ type PostService struct {
 	notificationService *NotificationService
 	botTaskService      *BotTaskService
 	recommendService    *RecommendationService
+	aiServiceClient     *AIServiceClient
 }
 
 func NewPostService(
@@ -42,6 +42,7 @@ func NewPostService(
 	notificationService *NotificationService,
 	botTaskService *BotTaskService,
 	recommendService *RecommendationService,
+	aiServiceClient *AIServiceClient,
 ) *PostService {
 	return &PostService{
 		postRepo:            postRepo,
@@ -55,6 +56,7 @@ func NewPostService(
 		notificationService: notificationService,
 		botTaskService:      botTaskService,
 		recommendService:    recommendService,
+		aiServiceClient:     aiServiceClient,
 	}
 }
 
@@ -146,27 +148,46 @@ func (s *PostService) CreatePost(ctx context.Context, userID uint64, req *reques
 		violationReason := ""
 		violationCategory := ""
 
-		if postType == constant.PostTypeText || postType == constant.PostTypeLink || postType == constant.PostTypePoll {
-			combinedText := post.Title + " " + post.Content
-			if textViolation, err := util.CheckTextContent(combinedText); err != nil {
-				logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in PostService.CreatePost: %v", err)
-			} else if textViolation.IsViolation {
-				violation = true
-				violationReason = textViolation.Reason
-				violationCategory = textViolation.Category
-			}
-		}
+		// if postType == constant.PostTypeText || postType == constant.PostTypeLink || postType == constant.PostTypePoll {
+		// 	combinedText := post.Title + " " + post.Content
+		// 	if textViolation, err := util.CheckTextContent(combinedText); err != nil {
+		// 		logger.ErrorfWithCtx(ctx, "[Err] Error checking text content in PostService.CreatePost: %v", err)
+		// 	} else if textViolation.IsViolation {
+		// 		violation = true
+		// 		violationReason = textViolation.Reason
+		// 		violationCategory = textViolation.Category
+		// 	}
+		// }
 
-		if !violation && postType == constant.PostTypeMedia && post.MediaURLs != nil {
-			for _, mediaURL := range *post.MediaURLs {
-				if imageViolation, err := util.CheckImageContent(mediaURL); err != nil {
-					logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in PostService.CreatePost: %v", err)
-				} else if imageViolation.IsViolation {
-					violation = true
-					violationReason = imageViolation.Reason
-					violationCategory = imageViolation.Category
-					break
-				}
+		// if !violation && postType == constant.PostTypeMedia && post.MediaURLs != nil {
+		// 	for _, mediaURL := range *post.MediaURLs {
+		// 		if imageViolation, err := util.CheckImageContent(mediaURL); err != nil {
+		// 			logger.ErrorfWithCtx(ctx, "[Err] Error checking image content in PostService.CreatePost: %v", err)
+		// 		} else if imageViolation.IsViolation {
+		// 			violation = true
+		// 			violationReason = imageViolation.Reason
+		// 			violationCategory = imageViolation.Category
+		// 			break
+		// 		}
+		// 	}
+
+		if s.aiServiceClient != nil {
+			content := ""
+			imageURLs := []string{}
+
+			if postType == constant.PostTypeText || postType == constant.PostTypeLink || postType == constant.PostTypePoll {
+				content = strings.TrimSpace(post.Title + " " + post.Content)
+			}
+			if postType == constant.PostTypeMedia && post.MediaURLs != nil {
+				imageURLs = append(imageURLs, (*post.MediaURLs)...)
+			}
+
+			if moderationResult, err := s.aiServiceClient.CheckContent(ctx, content, imageURLs); err != nil {
+				logger.ErrorfWithCtx(ctx, "[Err] Error checking content via AI service in PostService.CreatePost: %v", err)
+			} else if moderationResult != nil && moderationResult.IsViolation {
+				violation = true
+				violationReason = moderationResult.Reason
+				violationCategory = moderationResult.Category
 			}
 		}
 

@@ -55,3 +55,8 @@ ollama:
   baseURL:
   model:
   timeout:
+
+aiService:
+  baseURL:
+  apiKey:
+  timeout: 30

@@ -19,7 +19,7 @@ func TestCommentService_CreateComment_Success(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -49,7 +49,7 @@ func TestCommentService_CreateComment_PostNotFound(t *testing.T) {
 	commentService := NewCommentService(
 		nil,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreateCommentRequest{
@@ -73,7 +73,7 @@ func TestCommentService_CreateComment_WithParent(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -113,7 +113,7 @@ func TestCommentService_CreateComment_ParentNotFound(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	parentCommentID := uint64(999)
@@ -143,7 +143,7 @@ func TestCommentService_CreateComment_ParentDifferentPost(t *testing.T) {
 	commentService := NewCommentService(
 		mockCommentRepo,
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	parentCommentID := uint64(111)
@@ -175,7 +175,7 @@ func TestCommentService_UpdateComment_Success(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -203,7 +203,7 @@ func TestCommentService_UpdateComment_NotAuthor(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -231,7 +231,7 @@ func TestCommentService_DeleteComment_Success(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -257,7 +257,7 @@ func TestCommentService_DeleteComment_NotFound(t *testing.T) {
 
 	commentService := NewCommentService(
 		mockCommentRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	commentID := uint64(999)
@@ -279,7 +279,7 @@ func TestCommentService_ReportComment_Success(t *testing.T) {
 		nil,
 		nil,
 		mockCommentReportRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -323,7 +323,7 @@ func TestCommentService_ReportComment_CommentNotFound(t *testing.T) {
 		nil,
 		nil,
 		mockCommentReportRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -350,7 +350,7 @@ func TestCommentService_ReportComment_AlreadyReported(t *testing.T) {
 		nil,
 		nil,
 		mockCommentReportRepo,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)

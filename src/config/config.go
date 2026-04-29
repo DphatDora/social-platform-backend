@@ -15,14 +15,15 @@ var (
 )
 
 type Config struct {
-	App      App
-	Database Database
-	Log      Log
-	Auth     Auth
-	Client   Client
-	Server   Server
-	Gemini   Gemini
-	Ollama   Ollama
+	App       App
+	Database  Database
+	Log       Log
+	Auth      Auth
+	Client    Client
+	Server    Server
+	AIService AIService
+	Gemini    Gemini
+	Ollama    Ollama
 }
 
 func LoadConfig() {
@@ -99,4 +100,9 @@ func bindEnvs() {
 	_ = viper.BindEnv("log.maxSizeMB", "LOG_MAX_SIZE_MB")
 	_ = viper.BindEnv("log.console", "LOG_CONSOLE")
 	_ = viper.BindEnv("log.dashboardToken", "LOG_DASHBOARD_TOKEN")
+
+	// AI service
+	_ = viper.BindEnv("aiService.baseURL", "AI_SERVICE_URL")
+	_ = viper.BindEnv("aiService.apiKey", "AI_SERVICE_API_KEY")
+	_ = viper.BindEnv("aiService.timeout", "AI_SERVICE_TIMEOUT")
 }

@@ -20,7 +20,7 @@ func TestPostService_CreatePost_TextSuccess(t *testing.T) {
 	postService := NewPostService(
 		mockPostRepo,
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -53,7 +53,7 @@ func TestPostService_CreatePost_CommunityNotFound(t *testing.T) {
 	postService := NewPostService(
 		nil,
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreatePostRequest{
@@ -77,7 +77,7 @@ func TestPostService_CreatePost_LinkWithoutURL(t *testing.T) {
 	postService := NewPostService(
 		nil,
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreatePostRequest{
@@ -103,7 +103,7 @@ func TestPostService_CreatePost_MediaWithoutURLs(t *testing.T) {
 	postService := NewPostService(
 		nil,
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreatePostRequest{
@@ -129,7 +129,7 @@ func TestPostService_CreatePost_InvalidType(t *testing.T) {
 	postService := NewPostService(
 		nil,
 		mockCommunityRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	req := &request.CreatePostRequest{
@@ -153,7 +153,7 @@ func TestPostService_UpdatePost_Success(t *testing.T) {
 
 	postService := NewPostService(
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -183,7 +183,7 @@ func TestPostService_UpdatePost_NotAuthor(t *testing.T) {
 
 	postService := NewPostService(
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -212,7 +212,7 @@ func TestPostService_UpdatePost_TypeMismatch(t *testing.T) {
 
 	postService := NewPostService(
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -241,7 +241,7 @@ func TestPostService_DeletePost_Success(t *testing.T) {
 
 	postService := NewPostService(
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	userID := uint64(123)
@@ -266,7 +266,7 @@ func TestPostService_DeletePost_NotFound(t *testing.T) {
 
 	postService := NewPostService(
 		mockPostRepo,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	postID := uint64(999)
