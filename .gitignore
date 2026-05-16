@@ -1,3 +1,5 @@
 .idea/
 .vscode/
 /docs
+deploy.sh
+api-service
