@@ -123,7 +123,7 @@ func (s *CommentService) CreateComment(ctx context.Context, userID uint64, req *
 				imageURLs = append(imageURLs, *comment.MediaURL)
 			}
 
-			if moderationResult, err := s.aiServiceClient.CheckContent(ctx, comment.Content, imageURLs); err != nil {
+			if moderationResult, err := s.aiServiceClient.CheckContent(context.Background(), comment.Content, imageURLs); err != nil {
 				logger.ErrorfWithCtx(ctx, "[Err] Error checking content via AI service in CommentService.CreateComment: %v", err)
 			} else if moderationResult != nil && moderationResult.IsViolation {
 				violation = true

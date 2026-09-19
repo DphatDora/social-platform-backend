@@ -182,7 +182,7 @@ func (s *PostService) CreatePost(ctx context.Context, userID uint64, req *reques
 				imageURLs = append(imageURLs, (*post.MediaURLs)...)
 			}
 
-			if moderationResult, err := s.aiServiceClient.CheckContent(ctx, content, imageURLs); err != nil {
+			if moderationResult, err := s.aiServiceClient.CheckContent(context.Background(), content, imageURLs); err != nil {
 				logger.ErrorfWithCtx(ctx, "[Err] Error checking content via AI service in PostService.CreatePost: %v", err)
 			} else if moderationResult != nil && moderationResult.IsViolation {
 				violation = true
